@@ -79,6 +79,23 @@ export class PlanningStorageService {
 
     this.isSyncing = true;
     try {
+      // 0. users 동기화 (클라우드 회원 DB)
+      const { data: remoteUsers, error: userErr } = await client.from('users').select('*');
+      if (!userErr && remoteUsers && remoteUsers.length > 0) {
+        const mappedUsers: User[] = remoteUsers.map((row) => ({
+          id: row.id,
+          username: row.username,
+          name: row.name,
+          password: row.password || '1234',
+          role: row.role as UserRole,
+          department: row.department,
+          position: row.position || (row.role === 'admin' ? '팀장 / 수석기획자' : row.role === 'member' ? '서비스기획자' : '유관부서 담당자'),
+          email: row.email || `${row.username}@company.com`,
+          avatarColor: row.avatar_color || '#2563eb',
+        }));
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mappedUsers));
+      }
+
       // 1. tasks 동기화
       const { data: remoteTasks, error: taskErr } = await client.from('tasks').select('*');
       if (!taskErr && remoteTasks && remoteTasks.length > 0) {
@@ -288,6 +305,7 @@ export class PlanningStorageService {
         id: newUser.id,
         username: newUser.username,
         name: newUser.name,
+        password: newUser.password,
         role: newUser.role,
         department: newUser.department,
         position: newUser.position,
