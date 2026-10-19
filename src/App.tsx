@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import type { User } from './types';
 import { PlanningStorageService } from './services/storage';
 import { isSupabaseEnabled } from './services/supabase';
+import { LoginPage } from './components/auth/LoginPage';
 import { OverviewView } from './components/OverviewView';
 import { TasksView } from './components/TasksView';
 import { VacationsView } from './components/VacationsView';
@@ -13,29 +14,30 @@ import {
   Calendar,
   Target,
   ShieldAlert,
-  Lock,
   Eye,
   Sparkles,
   RotateCcw,
   Check,
   AlertTriangle,
   Info,
-  X,
   Database,
+  LogOut,
 } from 'lucide-react';
 
 type NavTab = 'overview' | 'tasks' | 'vacations' | 'kpi' | 'audit';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('overview');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    PlanningStorageService.initialize();
+    return PlanningStorageService.isLoggedIn();
+  });
+
   const [currentUser, setCurrentUser] = useState<User>(() => {
     PlanningStorageService.initialize();
     return PlanningStorageService.getCurrentUser();
   });
   const [allUsers, setAllUsers] = useState<User[]>(() => PlanningStorageService.getUsers());
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [loginInputName, setLoginInputName] = useState('');
-  const [loginInputPassword, setLoginInputPassword] = useState('');
   const [syncKey, setSyncKey] = useState(0);
 
   // 마운트 시 Supabase 원격 DB와 자동 동기화
@@ -60,7 +62,22 @@ export function App() {
 
   const isViewer = currentUser.role === 'viewer';
 
-  // 계정 빠른 전환 핸들러
+  // 로그인 성공 콜백
+  const handleLoginSuccess = (user: User) => {
+    setCurrentUser(user);
+    setAllUsers(PlanningStorageService.getUsers());
+    setIsAuthenticated(true);
+    showToast(`${user.name}님 환영합니다! (${user.department})`, 'success');
+  };
+
+  // 로그아웃 처리
+  const handleLogout = () => {
+    PlanningStorageService.logout();
+    setIsAuthenticated(false);
+    showToast('안전하게 로그아웃되었습니다.', 'info');
+  };
+
+  // 계정 빠른 전환 핸들러 (사이드바)
   const handleUserSwitch = (userId: string) => {
     const updated = PlanningStorageService.setCurrentUser(userId);
     setCurrentUser(updated);
@@ -68,35 +85,6 @@ export function App() {
       showToast(`${updated.name} (유관부서 읽기 전용) 모드로 전환되었습니다.`, 'info');
     } else {
       showToast(`${updated.name} (기획팀 편집자) 계정으로 전환되었습니다.`, 'success');
-    }
-  };
-
-  // 로그인 모달 제출 핸들러
-  const handleLoginSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!loginInputName.trim()) {
-      showToast('이름을 입력해 주세요.', 'error');
-      return;
-    }
-
-    // 이름 일치 여부 확인 (없으면 신규 뷰어로 등록 또는 기존 매칭)
-    const matched = allUsers.find(
-      (u) => u.name.includes(loginInputName.trim()) || u.username === loginInputName.trim()
-    );
-
-    if (matched) {
-      handleUserSwitch(matched.id);
-      setIsLoginModalOpen(false);
-      setLoginInputName('');
-      setLoginInputPassword('');
-    } else {
-      // 일치하는 팀원이 없으면 자동으로 유관부서(Viewer)로 로그인 처리
-      showToast(`'${loginInputName}' 님은 기획팀 명단에 없어 '유관부서 뷰어'로 접속합니다.`, 'info');
-      const viewerUser = allUsers.find((u) => u.role === 'viewer') || allUsers[allUsers.length - 1];
-      handleUserSwitch(viewerUser.id);
-      setIsLoginModalOpen(false);
-      setLoginInputName('');
-      setLoginInputPassword('');
     }
   };
 
@@ -110,6 +98,36 @@ export function App() {
     }
   };
 
+  // 1. 인증되지 않은 상태이면 독립된 로그인/회원가입 페이지 표시
+  if (!isAuthenticated) {
+    return (
+      <>
+        <LoginPage onLoginSuccess={handleLoginSuccess} />
+        {/* 플로팅 토스트 알림 */}
+        <div className="toast-container">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`toast ${
+                toast.type === 'success'
+                  ? 'toast-success'
+                  : toast.type === 'error'
+                  ? 'toast-error'
+                  : 'toast-info'
+              }`}
+            >
+              {toast.type === 'success' && <Check size={16} />}
+              {toast.type === 'error' && <AlertTriangle size={16} />}
+              {toast.type === 'info' && <Info size={16} />}
+              <span>{toast.msg}</span>
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  // 2. 인증 완료 시 메인 포털 대시보드 표시
   return (
     <div className="app-container">
       {/* 1. 사이드바 내비게이션 */}
@@ -221,23 +239,24 @@ export function App() {
 
           <div style={{ display: 'flex', gap: '6px' }}>
             <button
-              onClick={() => setIsLoginModalOpen(true)}
+              onClick={handleLogout}
               style={{
                 flex: 1,
-                padding: '6px',
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: 'none',
+                padding: '7px 10px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
                 borderRadius: '4px',
-                color: '#cbd5e1',
-                fontSize: '11px',
+                color: '#fca5a5',
+                fontSize: '11.5px',
+                fontWeight: 600,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '4px',
+                gap: '5px',
               }}
             >
-              <Lock size={12} /> 로그인 창
+              <LogOut size={13} /> 로그아웃
             </button>
             <button
               onClick={handleResetData}
@@ -300,6 +319,14 @@ export function App() {
             <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
               접속자: <strong style={{ color: 'var(--text-main)' }}>{currentUser.name}</strong> ({currentUser.department})
             </span>
+            <button
+              onClick={handleLogout}
+              className="btn btn-secondary"
+              style={{ padding: '5px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+              title="로그아웃"
+            >
+              <LogOut size={13} /> 로그아웃
+            </button>
           </div>
         </header>
 
@@ -333,72 +360,7 @@ export function App() {
         </div>
       </main>
 
-      {/* 3. 간이 로그인 모달 */}
-      {isLoginModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsLoginModalOpen(false)}>
-          <div
-            className="modal-box"
-            style={{ maxWidth: '420px' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <h3 className="modal-title">사내 간이 로그인</h3>
-              <button
-                onClick={() => setIsLoginModalOpen(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleLoginSubmit}>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  서비스기획팀원은 본인 이름으로 로그인하시면 등록/수정/삭제 권한이 부여되며, 유관부서 담당자는 읽기 전용으로 접속됩니다.
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">이름 또는 아이디 *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="예: 김기획, 이수진, 최협업 등"
-                    value={loginInputName}
-                    onChange={(e) => setLoginInputName(e.target.value)}
-                    className="form-input"
-                  />
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">비밀번호</label>
-                  <input
-                    type="password"
-                    placeholder="사내 기본 비밀번호 (생략 가능)"
-                    value={loginInputPassword}
-                    onChange={(e) => setLoginInputPassword(e.target.value)}
-                    className="form-input"
-                  />
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  onClick={() => setIsLoginModalOpen(false)}
-                  className="btn btn-secondary"
-                >
-                  취소
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  접속하기
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 4. 플로팅 토스트 알림 컨테이너 */}
+      {/* 3. 플로팅 토스트 알림 컨테이너 */}
       <div className="toast-container">
         {toasts.map((toast) => (
           <div

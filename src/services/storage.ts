@@ -177,10 +177,14 @@ export class PlanningStorageService {
     }
   }
 
-  // --- 사용자 및 인증 관리 ---
+  // --- 사용자 및 인증/세션 관리 ---
   public static getUsers(): User[] {
     this.initialize();
     return safeJsonParse<User[]>(localStorage.getItem(STORAGE_KEYS.USERS), INITIAL_USERS);
+  }
+
+  public static isLoggedIn(): boolean {
+    return localStorage.getItem('ds_planning_is_logged_in_v1') === 'true';
   }
 
   public static getCurrentUser(): User {
@@ -195,6 +199,7 @@ export class PlanningStorageService {
     const target = users.find((u) => u.id === userId);
     if (target) {
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, target.id);
+      localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
       this.recordAuditLog({
         entityType: 'auth',
         entityId: target.id,
@@ -205,6 +210,116 @@ export class PlanningStorageService {
       return target;
     }
     return this.getCurrentUser();
+  }
+
+  // 로그인 인증 처리
+  public static login(name: string, password?: string): { success: boolean; user?: User; message?: string } {
+    const users = this.getUsers();
+    const trimmedName = name.trim();
+    const found = users.find(
+      (u) => u.name.trim() === trimmedName || u.name.startsWith(trimmedName) || u.username === trimmedName
+    );
+
+    if (!found) {
+      return { success: false, message: '등록되지 않은 이름입니다. [회원가입]을 진행해 주세요.' };
+    }
+
+    // 비밀번호가 설정되어 있는 경우 검증
+    if (found.password && password && found.password !== password) {
+      return { success: false, message: '비밀번호가 일치하지 않습니다.' };
+    }
+
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, found.id);
+    localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
+
+    this.recordAuditLog({
+      entityType: 'auth',
+      entityId: found.id,
+      entityTitle: found.name,
+      action: 'LOGIN',
+      summary: `${found.name} (${found.department}) 포털 로그인 성공`,
+    });
+
+    return { success: true, user: found };
+  }
+
+  // 신규 회원가입 처리
+  public static registerUser(params: {
+    name: string;
+    password: string;
+    department: string;
+  }): { success: boolean; user?: User; message?: string } {
+    const users = this.getUsers();
+    const trimmedName = params.name.trim();
+
+    // 중복 체크
+    if (users.some((u) => u.name.trim() === trimmedName)) {
+      return { success: false, message: '이미 동일한 이름으로 등록된 사용자가 있습니다.' };
+    }
+
+    // 역할 자동 결정: 서비스기획팀이면 member, 그 외 유관부서는 viewer
+    const isPlanTeam = params.department.includes('서비스기획') || params.department.includes('기획');
+    const role: UserRole = isPlanTeam ? 'member' : 'viewer';
+
+    const colors = ['#2563eb', '#059669', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#4b5563'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+    const newUser: User = {
+      id: generateUniqueId('user'),
+      username: `user_${Date.now().toString(36)}`,
+      name: trimmedName,
+      password: params.password,
+      role,
+      department: params.department,
+      position: isPlanTeam ? '서비스기획자' : '유관부서 담당자',
+      email: `${trimmedName.replace(/\s+/g, '').toLowerCase()}@company.com`,
+      avatarColor: randomColor,
+    };
+
+    const updatedUsers = [...users, newUser];
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, newUser.id);
+    localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
+
+    // Supabase DB 비동기 등록
+    if (isSupabaseEnabled()) {
+      const client = getSupabaseClient();
+      client?.from('users').insert({
+        id: newUser.id,
+        username: newUser.username,
+        name: newUser.name,
+        role: newUser.role,
+        department: newUser.department,
+        position: newUser.position,
+        email: newUser.email,
+        avatar_color: newUser.avatarColor,
+      }).then(({ error }) => {
+        if (error) console.warn('Supabase user register note:', error.message);
+      });
+    }
+
+    this.recordAuditLog({
+      entityType: 'auth',
+      entityId: newUser.id,
+      entityTitle: newUser.name,
+      action: 'CREATE',
+      summary: `신규 회원가입: ${newUser.name} (${newUser.department}, ${role === 'member' ? '기획팀원' : '유관부서 뷰어'})`,
+    });
+
+    return { success: true, user: newUser };
+  }
+
+  // 로그아웃 처리
+  public static logout(): void {
+    const current = this.getCurrentUser();
+    localStorage.setItem('ds_planning_is_logged_in_v1', 'false');
+    this.recordAuditLog({
+      entityType: 'auth',
+      entityId: current.id,
+      entityTitle: current.name,
+      action: 'LOGIN',
+      summary: `${current.name} 포털 로그아웃`,
+    });
   }
 
   public static isViewer(): boolean {
