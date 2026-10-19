@@ -544,12 +544,12 @@ button, input, select, textarea {
 
 /* 애니메이션 키프레임 */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes scaleUp {
-  from { opacity: 0; transform: scale(0.95); }
+  from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
 
@@ -557,3 +557,51 @@ button, input, select, textarea {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(37, 99, 235, 0.2), inset 0 0 10px rgba(37, 99, 235, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(37, 99, 235, 0.4), inset 0 0 15px rgba(37, 99, 235, 0.2);
+  }
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* 인터랙티브 모션 유틸리티 */
+.interactive-card {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.interactive-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.12), 0 6px 14px -4px rgba(15, 23, 42, 0.08);
+}
+
+.interactive-glow-blue:hover {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 14px 30px -8px rgba(37, 99, 235, 0.25) !important;
+}
+
+.interactive-glow-emerald:hover {
+  border-color: #10b981 !important;
+  box-shadow: 0 14px 30px -8px rgba(16, 185, 129, 0.25) !important;
+}
+
+.interactive-glow-purple:hover {
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 14px 30px -8px rgba(139, 92, 246, 0.25) !important;
+}
+
+.shimmer-badge {
+  background: linear-gradient(90deg, #1e40af 0%, #3b82f6 50%, #1e40af 100%);
+  background-size: 200% auto;
+  animation: gradientShift 3s ease infinite;
+}
+
