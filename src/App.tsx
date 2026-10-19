@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { User } from './types';
 import { PlanningStorageService } from './services/storage';
+import { isSupabaseEnabled } from './services/supabase';
 import { OverviewView } from './components/OverviewView';
 import { TasksView } from './components/TasksView';
 import { VacationsView } from './components/VacationsView';
@@ -20,6 +21,7 @@ import {
   AlertTriangle,
   Info,
   X,
+  Database,
 } from 'lucide-react';
 
 type NavTab = 'overview' | 'tasks' | 'vacations' | 'kpi' | 'audit';
@@ -34,6 +36,16 @@ export function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginInputName, setLoginInputName] = useState('');
   const [loginInputPassword, setLoginInputPassword] = useState('');
+  const [syncKey, setSyncKey] = useState(0);
+
+  // 마운트 시 Supabase 원격 DB와 자동 동기화
+  useEffect(() => {
+    PlanningStorageService.syncFromSupabase().then(() => {
+      setSyncKey((prev) => prev + 1);
+      setAllUsers(PlanningStorageService.getUsers());
+      setCurrentUser(PlanningStorageService.getCurrentUser());
+    });
+  }, []);
 
   // 토스트 메시지 관리
   const [toasts, setToasts] = useState<{ id: string; msg: string; type: 'success' | 'error' | 'info' }[]>([]);
@@ -267,6 +279,24 @@ export function App() {
           </div>
 
           <div className="topbar-right">
+            {isSupabaseEnabled() && (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  background: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  color: '#15803d',
+                  borderRadius: '9999px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                }}
+              >
+                <Database size={13} color="#16a34a" /> 클라우드 DB 연결됨 (Supabase)
+              </span>
+            )}
             <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
               접속자: <strong style={{ color: 'var(--text-main)' }}>{currentUser.name}</strong> ({currentUser.department})
             </span>
@@ -274,7 +304,7 @@ export function App() {
         </header>
 
         {/* 본문 화면 렌더링 */}
-        <div className="content-body">
+        <div className="content-body" key={syncKey}>
           {activeTab === 'overview' && (
             <OverviewView onNavigateToTasks={() => setActiveTab('tasks')} />
           )}
