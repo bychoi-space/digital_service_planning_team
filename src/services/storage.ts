@@ -13,6 +13,7 @@ import {
   INITIAL_KPIS,
   INITIAL_AUDIT_LOGS,
 } from './mockData';
+import { getSupabaseClient, isSupabaseEnabled } from './supabase';
 
 const STORAGE_KEYS = {
   USERS: 'ds_planning_users_v1',
@@ -43,6 +44,8 @@ export function generateUniqueId(prefix: string): string {
 }
 
 export class PlanningStorageService {
+  private static isSyncing = false;
+
   // 1. 초기 시드 데이터 검증 및 초기화
   public static initialize(): void {
     if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
@@ -62,6 +65,115 @@ export class PlanningStorageService {
     }
     if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID)) {
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, INITIAL_USERS[0].id);
+    }
+
+    // Supabase가 활성화되어 있으면 백그라운드 원격 동기화 시도
+    this.syncFromSupabase();
+  }
+
+  // --- Supabase 클라우드 DB 백그라운드 동기화 (무오류 보호) ---
+  public static async syncFromSupabase(): Promise<void> {
+    if (!isSupabaseEnabled() || this.isSyncing) return;
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    this.isSyncing = true;
+    try {
+      // 1. tasks 동기화
+      const { data: remoteTasks, error: taskErr } = await client.from('tasks').select('*');
+      if (!taskErr && remoteTasks && remoteTasks.length > 0) {
+        const mappedTasks: TaskItem[] = remoteTasks.map((row) => ({
+          id: row.id,
+          title: row.title,
+          category: row.category,
+          assigneeId: row.assignee_id,
+          assigneeName: row.assignee_name,
+          priority: row.priority,
+          status: row.status,
+          startDate: row.start_date,
+          dueDate: row.due_date,
+          progress: Number(row.progress || 0),
+          description: row.description || '',
+          links: row.links || [],
+          createdBy: row.created_by,
+          createdAt: row.created_at,
+          updatedBy: row.updated_by,
+          updatedAt: row.updated_at,
+        }));
+        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(mappedTasks));
+      }
+
+      // 2. vacations 동기화
+      const { data: remoteVac, error: vacErr } = await client.from('vacations').select('*');
+      if (!vacErr && remoteVac && remoteVac.length > 0) {
+        const mappedVac: VacationItem[] = remoteVac.map((row) => ({
+          id: row.id,
+          userId: row.user_id,
+          userName: row.user_name,
+          department: row.department,
+          type: row.type,
+          startDate: row.start_date,
+          endDate: row.end_date,
+          deputyId: row.deputy_id,
+          deputyName: row.deputy_name,
+          contact: row.contact || '',
+          notes: row.notes || '',
+          createdBy: row.created_by,
+          createdAt: row.created_at,
+          updatedBy: row.updated_by,
+          updatedAt: row.updated_at,
+        }));
+        localStorage.setItem(STORAGE_KEYS.VACATIONS, JSON.stringify(mappedVac));
+      }
+
+      // 3. kpis 동기화
+      const { data: remoteKpis, error: kpiErr } = await client.from('kpis').select('*');
+      if (!kpiErr && remoteKpis && remoteKpis.length > 0) {
+        const mappedKpis: KpiItem[] = remoteKpis.map((row) => ({
+          id: row.id,
+          year: Number(row.year),
+          quarter: row.quarter,
+          targetScope: row.target_scope,
+          ownerName: row.owner_name,
+          title: row.title,
+          targetMetric: row.target_metric,
+          targetValue: row.target_value,
+          currentValue: row.current_value || '',
+          weight: Number(row.weight || 0),
+          achievementRate: Number(row.achievement_rate || 0),
+          status: row.status,
+          selfEvaluation: row.self_evaluation || '',
+          finalEvaluation: row.final_evaluation || '',
+          evaluatorName: row.evaluator_name || '',
+          createdBy: row.created_by,
+          createdAt: row.created_at,
+          updatedBy: row.updated_by,
+          updatedAt: row.updated_at,
+        }));
+        localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(mappedKpis));
+      }
+
+      // 4. audit_logs 동기화
+      const { data: remoteLogs, error: logErr } = await client.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(200);
+      if (!logErr && remoteLogs && remoteLogs.length > 0) {
+        const mappedLogs: AuditLog[] = remoteLogs.map((row) => ({
+          id: row.id,
+          entityType: row.entity_type,
+          entityId: row.entity_id,
+          entityTitle: row.entity_title,
+          action: row.action,
+          actorId: row.actor_id,
+          actorName: row.actor_name,
+          actorRole: row.actor_role,
+          timestamp: row.timestamp,
+          summary: row.summary,
+        }));
+        localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(mappedLogs));
+      }
+    } catch (e) {
+      console.warn('Supabase background sync skipped (tables pending creation):', e);
+    } finally {
+      this.isSyncing = false;
     }
   }
 
@@ -129,8 +241,27 @@ export class PlanningStorageService {
     };
 
     const logs = this.getAuditLogs();
-    const updated = [newLog, ...logs].slice(0, 200); // 최근 200건 보존
+    const updated = [newLog, ...logs].slice(0, 200);
     localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(updated));
+
+    // Supabase DB 비동기 반영
+    if (isSupabaseEnabled()) {
+      const client = getSupabaseClient();
+      client?.from('audit_logs').insert({
+        id: newLog.id,
+        entity_type: newLog.entityType,
+        entity_id: newLog.entityId,
+        entity_title: newLog.entityTitle,
+        action: newLog.action,
+        actor_id: newLog.actorId,
+        actor_name: newLog.actorName,
+        actor_role: newLog.actorRole,
+        timestamp: newLog.timestamp,
+        summary: newLog.summary,
+      }).then(({ error }) => {
+        if (error) console.warn('Supabase audit log insert note:', error.message);
+      });
+    }
   }
 
   // --- 1. 업무 관리 (Task) CRUD ---
@@ -166,6 +297,31 @@ export class PlanningStorageService {
       summary: `새 업무 등록: [${newTask.category}] ${newTask.title} (담당: ${newTask.assigneeName})`,
     });
 
+    // Supabase DB 반영
+    if (isSupabaseEnabled()) {
+      const client = getSupabaseClient();
+      client?.from('tasks').insert({
+        id: newTask.id,
+        title: newTask.title,
+        category: newTask.category,
+        assignee_id: newTask.assigneeId,
+        assignee_name: newTask.assigneeName,
+        priority: newTask.priority,
+        status: newTask.status,
+        start_date: newTask.startDate,
+        due_date: newTask.dueDate,
+        progress: newTask.progress,
+        description: newTask.description,
+        links: newTask.links,
+        created_by: newTask.createdBy,
+        created_at: newTask.createdAt,
+        updated_by: newTask.updatedBy,
+        updated_at: newTask.updatedAt,
+      }).then(({ error }) => {
+        if (error) console.warn('Supabase task insert note:', error.message);
+      });
+    }
+
     return newTask;
   }
 
@@ -193,7 +349,6 @@ export class PlanningStorageService {
     tasks[index] = updatedTask;
     localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
 
-    // 변경 요약 메시지 생성
     const changeNotes: string[] = [];
     if (changes.status && changes.status !== original.status) {
       changeNotes.push(`상태: ${original.status} → ${changes.status}`);
@@ -216,6 +371,28 @@ export class PlanningStorageService {
       summary: summaryText,
     });
 
+    // Supabase DB 반영
+    if (isSupabaseEnabled()) {
+      const client = getSupabaseClient();
+      client?.from('tasks').update({
+        title: updatedTask.title,
+        category: updatedTask.category,
+        assignee_id: updatedTask.assigneeId,
+        assignee_name: updatedTask.assigneeName,
+        priority: updatedTask.priority,
+        status: updatedTask.status,
+        start_date: updatedTask.startDate,
+        due_date: updatedTask.dueDate,
+        progress: updatedTask.progress,
+        description: updatedTask.description,
+        links: updatedTask.links,
+        updated_by: updatedTask.updatedBy,
+        updated_at: updatedTask.updatedAt,
+      }).eq('id', updatedTask.id).then(({ error }) => {
+        if (error) console.warn('Supabase task update note:', error.message);
+      });
+    }
+
     return updatedTask;
   }
 
@@ -237,6 +414,14 @@ export class PlanningStorageService {
       action: 'DELETE',
       summary: `업무 삭제: [${target.category}] ${target.title}`,
     });
+
+    // Supabase DB 삭제
+    if (isSupabaseEnabled()) {
+      const client = getSupabaseClient();
+      client?.from('tasks').delete().eq('id', taskId).then(({ error }) => {
+        if (error) console.warn('Supabase task delete note:', error.message);
+      });
+    }
   }
 
   // --- 2. 휴가 관리 (Vacation) CRUD ---
@@ -272,6 +457,29 @@ export class PlanningStorageService {
       summary: `휴가 등록: ${newVacation.userName} (${newVacation.startDate}~${newVacation.endDate}, 대행: ${newVacation.deputyName})`,
     });
 
+    if (isSupabaseEnabled()) {
+      const client = getSupabaseClient();
+      client?.from('vacations').insert({
+        id: newVacation.id,
+        user_id: newVacation.userId,
+        user_name: newVacation.userName,
+        department: newVacation.department,
+        type: newVacation.type,
+        start_date: newVacation.startDate,
+        end_date: newVacation.endDate,
+        deputy_id: newVacation.deputyId,
+        deputy_name: newVacation.deputyName,
+        contact: newVacation.contact,
+        notes: newVacation.notes,
+        created_by: newVacation.createdBy,
+        created_at: newVacation.createdAt,
+        updated_by: newVacation.updatedBy,
+        updated_at: newVacation.updatedAt,
+      }).then(({ error }) => {
+        if (error) console.warn('Supabase vacation insert note:', error.message);
+      });
+    }
+
     return newVacation;
   }
 
@@ -303,6 +511,26 @@ export class PlanningStorageService {
       summary: `휴가 일정 수정: ${updated.userName} (${updated.startDate}~${updated.endDate})`,
     });
 
+    if (isSupabaseEnabled()) {
+      const client = getSupabaseClient();
+      client?.from('vacations').update({
+        user_id: updated.userId,
+        user_name: updated.userName,
+        department: updated.department,
+        type: updated.type,
+        start_date: updated.startDate,
+        end_date: updated.endDate,
+        deputy_id: updated.deputyId,
+        deputy_name: updated.deputyName,
+        contact: updated.contact,
+        notes: updated.notes,
+        updated_by: updated.updatedBy,
+        updated_at: updated.updatedAt,
+      }).eq('id', updated.id).then(({ error }) => {
+        if (error) console.warn('Supabase vacation update note:', error.message);
+      });
+    }
+
     return updated;
   }
 
@@ -324,6 +552,13 @@ export class PlanningStorageService {
       action: 'DELETE',
       summary: `휴가 취소/삭제: ${target.userName} (${target.startDate}~${target.endDate})`,
     });
+
+    if (isSupabaseEnabled()) {
+      const client = getSupabaseClient();
+      client?.from('vacations').delete().eq('id', id).then(({ error }) => {
+        if (error) console.warn('Supabase vacation delete note:', error.message);
+      });
+    }
   }
 
   // --- 3. KPI 관리 CRUD ---
@@ -359,6 +594,33 @@ export class PlanningStorageService {
       summary: `KPI 목표 등록: [${newKpi.quarter}] ${newKpi.title} (가중치: ${newKpi.weight}%)`,
     });
 
+    if (isSupabaseEnabled()) {
+      const client = getSupabaseClient();
+      client?.from('kpis').insert({
+        id: newKpi.id,
+        year: newKpi.year,
+        quarter: newKpi.quarter,
+        target_scope: newKpi.targetScope,
+        owner_name: newKpi.ownerName,
+        title: newKpi.title,
+        target_metric: newKpi.targetMetric,
+        target_value: newKpi.targetValue,
+        current_value: newKpi.currentValue,
+        weight: newKpi.weight,
+        achievement_rate: newKpi.achievementRate,
+        status: newKpi.status,
+        self_evaluation: newKpi.selfEvaluation,
+        final_evaluation: newKpi.finalEvaluation,
+        evaluator_name: newKpi.evaluatorName,
+        created_by: newKpi.createdBy,
+        created_at: newKpi.createdAt,
+        updated_by: newKpi.updatedBy,
+        updated_at: newKpi.updatedAt,
+      }).then(({ error }) => {
+        if (error) console.warn('Supabase kpi insert note:', error.message);
+      });
+    }
+
     return newKpi;
   }
 
@@ -390,6 +652,30 @@ export class PlanningStorageService {
       summary: `KPI 갱신/평가: ${updated.title} (달성률: ${updated.achievementRate}%, 상태: ${updated.status})`,
     });
 
+    if (isSupabaseEnabled()) {
+      const client = getSupabaseClient();
+      client?.from('kpis').update({
+        year: updated.year,
+        quarter: updated.quarter,
+        target_scope: updated.targetScope,
+        owner_name: updated.ownerName,
+        title: updated.title,
+        target_metric: updated.targetMetric,
+        target_value: updated.targetValue,
+        current_value: updated.currentValue,
+        weight: updated.weight,
+        achievement_rate: updated.achievementRate,
+        status: updated.status,
+        self_evaluation: updated.selfEvaluation,
+        final_evaluation: updated.finalEvaluation,
+        evaluator_name: updated.evaluatorName,
+        updated_by: updated.updatedBy,
+        updated_at: updated.updatedAt,
+      }).eq('id', updated.id).then(({ error }) => {
+        if (error) console.warn('Supabase kpi update note:', error.message);
+      });
+    }
+
     return updated;
   }
 
@@ -411,6 +697,13 @@ export class PlanningStorageService {
       action: 'DELETE',
       summary: `KPI 삭제: ${target.title}`,
     });
+
+    if (isSupabaseEnabled()) {
+      const client = getSupabaseClient();
+      client?.from('kpis').delete().eq('id', id).then(({ error }) => {
+        if (error) console.warn('Supabase kpi delete note:', error.message);
+      });
+    }
   }
 
   // 데이터 전체 리셋 (테스트용)
