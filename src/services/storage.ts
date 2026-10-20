@@ -16,12 +16,12 @@ import {
 import { getSupabaseClient, isSupabaseEnabled } from './supabase';
 
 const STORAGE_KEYS = {
-  USERS: 'ds_planning_users_v1',
+  USERS: 'ds_planning_users_v2',
   TASKS: 'ds_planning_tasks_v1',
   VACATIONS: 'ds_planning_vacations_v1',
   KPIS: 'ds_planning_kpis_v1',
   AUDIT_LOGS: 'ds_planning_audit_logs_v1',
-  CURRENT_USER_ID: 'ds_planning_current_user_id_v1',
+  CURRENT_USER_ID: 'ds_planning_current_user_id_v2',
 };
 
 // 안전한 JSON 파싱 유틸리티 (무오류 원칙 준수)
@@ -79,18 +79,17 @@ export class PlanningStorageService {
 
     this.isSyncing = true;
     try {
-      // 0. users 동기화 (클라우드 회원 DB)
-      const { data: remoteUsers, error: userErr } = await client.from('users').select('*');
+      // 0. users 동기화 (클라우드 회원 DB - 시퀀스 ID 및 표준 회원 구조)
+      const { data: remoteUsers, error: userErr } = await client.from('users').select('*').order('id', { ascending: true });
       if (!userErr && remoteUsers && remoteUsers.length > 0) {
         const mappedUsers: User[] = remoteUsers.map((row) => ({
-          id: row.id,
-          username: row.username,
+          id: String(row.id),
           name: row.name,
           password: row.password || '1234',
           role: row.role as UserRole,
           department: row.department,
           position: row.position || (row.role === 'admin' ? '팀장 / 수석기획자' : row.role === 'member' ? '서비스기획자' : '유관부서 담당자'),
-          email: row.email || `${row.username}@company.com`,
+          email: row.email || `${row.name.replace(/\s+/g, '').toLowerCase()}@company.com`,
           avatarColor: row.avatar_color || '#2563eb',
         }));
         localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mappedUsers));
@@ -229,12 +228,12 @@ export class PlanningStorageService {
     return this.getCurrentUser();
   }
 
-  // 로그인 인증 처리
+  // 로그인 인증 처리 (이름 + 비밀번호)
   public static login(name: string, password?: string): { success: boolean; user?: User; message?: string } {
     const users = this.getUsers();
     const trimmedName = name.trim();
     const found = users.find(
-      (u) => u.name.trim() === trimmedName || u.name.startsWith(trimmedName) || u.username === trimmedName
+      (u) => u.name.trim() === trimmedName || u.name.startsWith(trimmedName)
     );
 
     if (!found) {
@@ -260,12 +259,12 @@ export class PlanningStorageService {
     return { success: true, user: found };
   }
 
-  // 신규 회원가입 처리
-  public static registerUser(params: {
+  // 신규 회원가입 처리 (DB 자동 증가 시퀀스 PK 채번 및 표준 구조)
+  public static async registerUser(params: {
     name: string;
     password: string;
     department: string;
-  }): { success: boolean; user?: User; message?: string } {
+  }): Promise<{ success: boolean; user?: User; message?: string }> {
     const users = this.getUsers();
     const trimmedName = params.name.trim();
 
@@ -281,9 +280,38 @@ export class PlanningStorageService {
     const colors = ['#2563eb', '#059669', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#4b5563'];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
 
+    // 기본 시퀀스 ID 계산 (로컬 오프라인 대비: 기존 최대 숫자 ID + 1)
+    const existingNumericIds = users.map((u) => parseInt(u.id, 10)).filter((n) => !isNaN(n));
+    let assignedId = String(existingNumericIds.length > 0 ? Math.max(...existingNumericIds) + 1 : users.length + 1);
+
+    // Supabase DB 비동기 등록 (DB의 BIGINT IDENTITY 시퀀스 채번)
+    if (isSupabaseEnabled()) {
+      try {
+        const client = getSupabaseClient();
+        if (client) {
+          const { data, error } = await client.from('users').insert({
+            name: trimmedName,
+            password: params.password,
+            role,
+            department: params.department,
+            position: isPlanTeam ? '서비스기획자' : '유관부서 담당자',
+            email: `${trimmedName.replace(/\s+/g, '').toLowerCase()}@company.com`,
+            avatar_color: randomColor,
+          }).select().single();
+
+          if (error) {
+            console.warn('Supabase user register note:', error.message);
+          } else if (data?.id) {
+            assignedId = String(data.id);
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase insert skipped or failed:', err);
+      }
+    }
+
     const newUser: User = {
-      id: generateUniqueId('user'),
-      username: `user_${Date.now().toString(36)}`,
+      id: assignedId,
       name: trimmedName,
       password: params.password,
       role,
@@ -298,30 +326,12 @@ export class PlanningStorageService {
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, newUser.id);
     localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
 
-    // Supabase DB 비동기 등록
-    if (isSupabaseEnabled()) {
-      const client = getSupabaseClient();
-      client?.from('users').insert({
-        id: newUser.id,
-        username: newUser.username,
-        name: newUser.name,
-        password: newUser.password,
-        role: newUser.role,
-        department: newUser.department,
-        position: newUser.position,
-        email: newUser.email,
-        avatar_color: newUser.avatarColor,
-      }).then(({ error }) => {
-        if (error) console.warn('Supabase user register note:', error.message);
-      });
-    }
-
     this.recordAuditLog({
       entityType: 'auth',
       entityId: newUser.id,
       entityTitle: newUser.name,
       action: 'CREATE',
-      summary: `신규 회원가입: ${newUser.name} (${newUser.department}, ${role === 'member' ? '기획팀원' : '유관부서 뷰어'})`,
+      summary: `신규 회원가입: ${newUser.name} (${newUser.department}, ${role === 'member' ? '기획팀원' : '유관부서 뷰어'}) [ID: ${newUser.id}]`,
     });
 
     return { success: true, user: newUser };

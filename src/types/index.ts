@@ -11,15 +11,15 @@ export interface AuditBase {
 export type UserRole = 'admin' | 'member' | 'viewer';
 
 export interface User {
-  id: string;
-  username: string;
-  name: string;
+  id: string; // 시퀀스 PK (1, 2, 3...)
+  name: string; // 성명 (로그인 식별자)
   password?: string;
   role: UserRole;
   department: string;
   position: string;
   email: string;
   avatarColor?: string;
+  username?: string; // 하위 호환성 임시 옵셔널
 }
 
 // 1. 업무 관리(Task) 관련 타입

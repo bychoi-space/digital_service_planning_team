@@ -55,7 +55,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   };
 
   // 2. 회원가입 제출 핸들러
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
 
@@ -79,7 +79,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       return;
     }
 
-    const result = PlanningStorageService.registerUser({
+    const result = await PlanningStorageService.registerUser({
       name: regName.trim(),
       password: regPassword,
       department: regDepartment,
