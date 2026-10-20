@@ -17,10 +17,10 @@ import { getSupabaseClient, isSupabaseEnabled } from './supabase';
 
 const STORAGE_KEYS = {
   USERS: 'ds_planning_users_v2',
-  TASKS: 'ds_planning_tasks_v1',
-  VACATIONS: 'ds_planning_vacations_v1',
-  KPIS: 'ds_planning_kpis_v1',
-  AUDIT_LOGS: 'ds_planning_audit_logs_v1',
+  TASKS: 'ds_planning_tasks_clean_v1',
+  VACATIONS: 'ds_planning_vacations_clean_v1',
+  KPIS: 'ds_planning_kpis_clean_v1',
+  AUDIT_LOGS: 'ds_planning_audit_logs_clean_v1',
   CURRENT_USER_ID: 'ds_planning_current_user_id_v2',
 };
 
@@ -95,10 +95,11 @@ export class PlanningStorageService {
         localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mappedUsers));
       }
 
-      // 1. tasks 동기화
+      // 1. tasks 동기화 (기존 가상 더미 데이터 task-10X 제외)
       const { data: remoteTasks, error: taskErr } = await client.from('tasks').select('*');
-      if (!taskErr && remoteTasks && remoteTasks.length > 0) {
-        const mappedTasks: TaskItem[] = remoteTasks.map((row) => ({
+      if (!taskErr && remoteTasks) {
+        const filteredTasks = remoteTasks.filter((row) => !String(row.id).startsWith('task-10'));
+        const mappedTasks: TaskItem[] = filteredTasks.map((row) => ({
           id: row.id,
           title: row.title,
           category: row.category,
@@ -120,10 +121,11 @@ export class PlanningStorageService {
         localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(mappedTasks));
       }
 
-      // 2. vacations 동기화
+      // 2. vacations 동기화 (기존 가상 더미 데이터 vac-20X 제외)
       const { data: remoteVac, error: vacErr } = await client.from('vacations').select('*');
-      if (!vacErr && remoteVac && remoteVac.length > 0) {
-        const mappedVac: VacationItem[] = remoteVac.map((row) => ({
+      if (!vacErr && remoteVac) {
+        const filteredVac = remoteVac.filter((row) => !String(row.id).startsWith('vac-20'));
+        const mappedVac: VacationItem[] = filteredVac.map((row) => ({
           id: row.id,
           userId: row.user_id,
           userName: row.user_name,
@@ -143,10 +145,11 @@ export class PlanningStorageService {
         localStorage.setItem(STORAGE_KEYS.VACATIONS, JSON.stringify(mappedVac));
       }
 
-      // 3. kpis 동기화
+      // 3. kpis 동기화 (기존 가상 더미 데이터 kpi-30X 제외)
       const { data: remoteKpis, error: kpiErr } = await client.from('kpis').select('*');
-      if (!kpiErr && remoteKpis && remoteKpis.length > 0) {
-        const mappedKpis: KpiItem[] = remoteKpis.map((row) => ({
+      if (!kpiErr && remoteKpis) {
+        const filteredKpis = remoteKpis.filter((row) => !String(row.id).startsWith('kpi-30'));
+        const mappedKpis: KpiItem[] = filteredKpis.map((row) => ({
           id: row.id,
           year: Number(row.year),
           quarter: row.quarter,

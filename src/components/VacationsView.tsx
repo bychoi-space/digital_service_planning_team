@@ -708,39 +708,68 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       {/* 3-A. 캘린더 뷰 (월간 종합 캘린더) */}
       {viewTab === 'calendar' ? (
         <div className="card" style={{ padding: '16px', overflow: 'hidden' }}>
-          {/* 요일 헤더 */}
+          {/* 요일 헤더 (일: 레드, 토: 블루) */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
+              gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
               textAlign: 'center',
-              fontWeight: 700,
+              fontWeight: 800,
               fontSize: '13px',
-              paddingBottom: '12px',
+              paddingBottom: '10px',
               borderBottom: '1px solid var(--border-light)',
+              boxSizing: 'border-box',
+              width: '100%',
+              gap: '1px',
             }}
           >
-            <div style={{ color: '#ef4444' }}>일</div>
-            <div>월</div>
-            <div>화</div>
-            <div>수</div>
-            <div>목</div>
-            <div>금</div>
-            <div style={{ color: '#3b82f6' }}>토</div>
+            <div style={{ color: '#ef4444', background: '#fef2f2', padding: '6px 0', borderRadius: '4px' }}>일 (Sun)</div>
+            <div style={{ color: '#334155', padding: '6px 0' }}>월</div>
+            <div style={{ color: '#334155', padding: '6px 0' }}>화</div>
+            <div style={{ color: '#334155', padding: '6px 0' }}>수</div>
+            <div style={{ color: '#334155', padding: '6px 0' }}>목</div>
+            <div style={{ color: '#334155', padding: '6px 0' }}>금</div>
+            <div style={{ color: '#2563eb', background: '#eff6ff', padding: '6px 0', borderRadius: '4px' }}>토 (Sat)</div>
           </div>
 
-          {/* 달력 날짜 그리드 */}
+          {/* 달력 날짜 그리드 (7열 균등 분할 minmax(0, 1fr)로 토요일 컬럼 잘림 원천 방지) */}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
+              gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
               gridAutoRows: 'minmax(125px, auto)',
               gap: '1px',
               background: 'var(--border-light)',
-              marginTop: '1px',
+              marginTop: '4px',
+              width: '100%',
+              boxSizing: 'border-box',
+              overflow: 'hidden',
+              borderRadius: '6px',
             }}
           >
             {calendarDays.map((cell, idx) => {
+              const dayOfWeek = idx % 7; // 0: 일요일, 6: 토요일
+              const isSunday = dayOfWeek === 0;
+              const isSaturday = dayOfWeek === 6;
+              const isToday = cell.dateStr === todayStr;
+
+              // 주말 및 평일 배경 컬러 분기
+              let cellBg = '#ffffff';
+              if (!cell.isCurrentMonth) {
+                cellBg = '#f8fafc';
+              } else if (isSunday) {
+                cellBg = '#fff8f8'; // 은은한 일요일 로즈 틴트
+              } else if (isSaturday) {
+                cellBg = '#f4f8ff'; // 은은한 토요일 스카이 블루 틴트
+              }
+
+              // 날짜 숫자 폰트 컬러 분기
+              let dayNumColor = cell.isCurrentMonth ? 'var(--text-main)' : '#94a3b8';
+              if (cell.isCurrentMonth && !isToday) {
+                if (isSunday) dayNumColor = '#dc2626';
+                else if (isSaturday) dayNumColor = '#2563eb';
+              }
+
               // 1. 해당 날짜의 휴가 항목 필터링
               const cellVacations =
                 filterType === 'all' || filterType === 'vacation'
@@ -763,7 +792,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                 cellTasks = cellTasks.filter((t) => ['in_progress', 'review'].includes(t.status));
               }
 
-              const isToday = cell.dateStr === todayStr;
               const totalItemsCount = cellVacations.length + cellTasks.length;
 
               // 최대 3개 항목만 노출하고 초과분은 '+N개 더보기' 칩으로 처리
@@ -778,33 +806,41 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                   key={idx}
                   onClick={() => !isViewer && handleOpenCreateModal(cell.dateStr)}
                   style={{
-                    background: cell.isCurrentMonth ? '#ffffff' : '#f8fafc',
+                    background: cellBg,
                     padding: '8px 7px',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '4px',
                     cursor: isViewer ? 'default' : 'pointer',
-                    transition: 'background-color 0.15s',
+                    transition: 'background-color 0.15s ease',
                     minHeight: '125px',
+                    minWidth: 0,
+                    width: '100%',
+                    overflow: 'hidden',
+                    boxSizing: 'border-box',
                   }}
                   onMouseEnter={(e) => {
-                    if (cell.isCurrentMonth && !isViewer) e.currentTarget.style.backgroundColor = '#f8fafc';
+                    if (cell.isCurrentMonth && !isViewer) {
+                      e.currentTarget.style.backgroundColor = isSunday
+                        ? '#fee2e2'
+                        : isSaturday
+                        ? '#e0edff'
+                        : '#f1f5f9';
+                    }
                   }}
                   onMouseLeave={(e) => {
-                    if (cell.isCurrentMonth && !isViewer) e.currentTarget.style.backgroundColor = '#ffffff';
+                    if (cell.isCurrentMonth && !isViewer) {
+                      e.currentTarget.style.backgroundColor = cellBg;
+                    }
                   }}
                 >
                   {/* 날짜 상단 헤더 */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', minWidth: 0 }}>
                     <span
                       style={{
-                        fontSize: '12px',
-                        fontWeight: isToday ? 800 : cell.isCurrentMonth ? 600 : 400,
-                        color: isToday
-                          ? '#ffffff'
-                          : cell.isCurrentMonth
-                          ? 'var(--text-main)'
-                          : '#94a3b8',
+                        fontSize: '12.5px',
+                        fontWeight: isToday ? 800 : (isSunday || isSaturday) ? 700 : cell.isCurrentMonth ? 600 : 400,
+                        color: isToday ? '#ffffff' : dayNumColor,
                         background: isToday ? '#2563eb' : 'transparent',
                         width: isToday ? '22px' : 'auto',
                         height: isToday ? '22px' : 'auto',
@@ -822,7 +858,10 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                         style={{
                           fontSize: '10px',
                           color: '#64748b',
-                          fontWeight: 600,
+                          fontWeight: 700,
+                          background: 'rgba(0, 0, 0, 0.04)',
+                          padding: '1px 5px',
+                          borderRadius: '9999px',
                         }}
                       >
                         {totalItemsCount}건
@@ -831,7 +870,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                   </div>
 
                   {/* 날짜별 일정 뱃지 목록 컨테이너 */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px', width: '100%', minWidth: 0 }}>
                     {/* A. 휴가 뱃지 노출 */}
                     {displayVacations.map((v) => {
                       const typeConfig = VACATION_TYPES.find((t) => t.key === v.type) || VACATION_TYPES[0];
@@ -855,11 +894,23 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             gap: '4px',
                             cursor: 'pointer',
                             boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                            minWidth: 0,
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            boxSizing: 'border-box',
                           }}
                           title={`[휴가] ${v.userName} (${typeConfig.label}) / 대리: ${v.deputyName}`}
                         >
-                          <span style={{ fontSize: '10px' }}>🏖️</span>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: '10px', flexShrink: 0 }}>🏖️</span>
+                          <span
+                            style={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              minWidth: 0,
+                              flex: 1,
+                            }}
+                          >
                             {v.userName.split(' ')[0]} ({typeConfig.label})
                           </span>
                         </div>
@@ -892,19 +943,26 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             gap: '4px',
                             cursor: 'pointer',
                             boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                            minWidth: 0,
+                            maxWidth: '100%',
+                            overflow: 'hidden',
+                            boxSizing: 'border-box',
                           }}
                           title={`[${t.track}] ${t.title} (${t.assigneeName}) / 진척률 ${t.progress}% / 마감일: ${t.dueDate}`}
                         >
                           {isDueDay ? (
-                            <span style={{ color: '#dc2626', fontSize: '10px', fontWeight: 800 }}>🚨</span>
+                            <span style={{ color: '#dc2626', fontSize: '10px', fontWeight: 800, flexShrink: 0 }}>🚨</span>
                           ) : (
-                            <trackCfg.icon size={11} />
+                            <span style={{ flexShrink: 0, display: 'inline-flex' }}>
+                              <trackCfg.icon size={11} />
+                            </span>
                           )}
                           <span
                             style={{
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
+                              minWidth: 0,
                               flex: 1,
                             }}
                           >
@@ -941,6 +999,10 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                           textAlign: 'center',
                           display: 'block',
                           width: '100%',
+                          minWidth: 0,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
                         }}
                       >
                         +{overflowCount}개 더보기
