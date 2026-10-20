@@ -15,8 +15,6 @@ import {
   Target,
   ShieldAlert,
   Eye,
-  Sparkles,
-  RotateCcw,
   Check,
   AlertTriangle,
   Info,
@@ -37,14 +35,12 @@ export function App() {
     PlanningStorageService.initialize();
     return PlanningStorageService.getCurrentUser();
   });
-  const [allUsers, setAllUsers] = useState<User[]>(() => PlanningStorageService.getUsers());
   const [syncKey, setSyncKey] = useState(0);
 
   // 마운트 시 Supabase 원격 DB와 자동 동기화
   useEffect(() => {
     PlanningStorageService.syncFromSupabase().then(() => {
       setSyncKey((prev) => prev + 1);
-      setAllUsers(PlanningStorageService.getUsers());
       setCurrentUser(PlanningStorageService.getCurrentUser());
     });
   }, []);
@@ -65,7 +61,6 @@ export function App() {
   // 로그인 성공 콜백
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
-    setAllUsers(PlanningStorageService.getUsers());
     setIsAuthenticated(true);
     showToast(`${user.name}님 환영합니다! (${user.department})`, 'success');
   };
@@ -75,27 +70,6 @@ export function App() {
     PlanningStorageService.logout();
     setIsAuthenticated(false);
     showToast('안전하게 로그아웃되었습니다.', 'info');
-  };
-
-  // 계정 빠른 전환 핸들러 (사이드바)
-  const handleUserSwitch = (userId: string) => {
-    const updated = PlanningStorageService.setCurrentUser(userId);
-    setCurrentUser(updated);
-    if (updated.role === 'viewer') {
-      showToast(`${updated.name} (유관부서 읽기 전용) 모드로 전환되었습니다.`, 'info');
-    } else {
-      showToast(`${updated.name} (기획팀 편집자) 계정으로 전환되었습니다.`, 'success');
-    }
-  };
-
-  // 데이터 초기화
-  const handleResetData = () => {
-    if (window.confirm('모든 데이터를 초기 기본값으로 리셋하시겠습니까? (테스트용)')) {
-      PlanningStorageService.resetToDefault();
-      setAllUsers(PlanningStorageService.getUsers());
-      setCurrentUser(PlanningStorageService.getCurrentUser());
-      showToast('모든 데이터가 기본 시드 상태로 초기화되었습니다.', 'success');
-    }
   };
 
   // 1. 인증되지 않은 상태이면 독립된 로그인/회원가입 페이지 표시
@@ -133,9 +107,6 @@ export function App() {
       {/* 1. 사이드바 내비게이션 */}
       <aside className="app-sidebar">
         <div className="sidebar-header">
-          <div className="brand-badge">
-            <Sparkles size={12} /> ENTERPRISE PORTAL
-          </div>
           <div className="brand-title">
             서비스기획팀 업무포털
           </div>
@@ -167,7 +138,7 @@ export function App() {
             onClick={() => setActiveTab('vacations')}
           >
             <Calendar size={18} />
-            <span>팀 통합 일정 (업무 & 휴가)</span>
+            <span>팀 통합 일정</span>
             <span className="nav-badge">Schedule</span>
           </button>
 
@@ -190,91 +161,6 @@ export function App() {
             <span>감사 로그 (Audit)</span>
           </button>
         </nav>
-
-        {/* 사이드바 하단 계정 정보 및 모드 전환 */}
-        <div className="sidebar-footer">
-          <div className="current-user-card">
-            <div
-              className="user-avatar"
-              style={{ backgroundColor: currentUser.avatarColor || '#2563eb' }}
-            >
-              {currentUser.name.substring(0, 2)}
-            </div>
-            <div className="user-meta">
-              <div className="user-name">{currentUser.name}</div>
-              <span
-                className={`user-role-badge ${
-                  currentUser.role === 'admin'
-                    ? 'role-admin'
-                    : currentUser.role === 'member'
-                    ? 'role-member'
-                    : 'role-viewer'
-                }`}
-              >
-                {currentUser.role === 'admin'
-                  ? '관리자 (Admin)'
-                  : currentUser.role === 'member'
-                  ? '기획팀원 (Editor)'
-                  : '유관부서 (Viewer)'}
-              </span>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '8px' }}>
-            <label style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>
-              빠른 계정 전환 (권한 테스트)
-            </label>
-            <select
-              value={currentUser.id}
-              onChange={(e) => handleUserSwitch(e.target.value)}
-              className="account-switcher-select"
-            >
-              {allUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.role === 'viewer' ? '읽기전용 뷰어' : '기획팀'})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button
-              onClick={handleLogout}
-              style={{
-                flex: 1,
-                padding: '7px 10px',
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: '4px',
-                color: '#fca5a5',
-                fontSize: '11.5px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '5px',
-              }}
-            >
-              <LogOut size={13} /> 로그아웃
-            </button>
-            <button
-              onClick={handleResetData}
-              title="데이터 초기값 리셋"
-              style={{
-                padding: '6px 8px',
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: 'none',
-                borderRadius: '4px',
-                color: '#94a3b8',
-                fontSize: '11px',
-                cursor: 'pointer',
-              }}
-            >
-              <RotateCcw size={12} />
-            </button>
-          </div>
-        </div>
       </aside>
 
       {/* 2. 메인 컨텐츠 영역 */}
@@ -285,7 +171,7 @@ export function App() {
             <h1 className="page-title">
               {activeTab === 'overview' && '서비스기획팀 업무 안내'}
               {activeTab === 'tasks' && '서비스기획 업무 관리'}
-              {activeTab === 'vacations' && '팀 통합 일정 (업무 & 휴가)'}
+              {activeTab === 'vacations' && '팀 통합 일정'}
               {activeTab === 'kpi' && 'KPI 목표 수립 및 평가 관리'}
               {activeTab === 'audit' && '시스템 감사 로그 및 변경 이력'}
             </h1>
