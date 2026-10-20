@@ -77,20 +77,98 @@ export interface VacationItem extends AuditBase {
 export type KpiQuarter = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'Annual';
 export type KpiStatus = 'planning' | 'in_progress' | 'achieved' | 'partially_achieved' | 'missed';
 export type KpiTargetScope = 'team' | 'individual';
+export type KpiTrack = '기획' | '디자인' | '퍼블리싱';
+
+// 4단계 라이프사이클 프로세스 단계
+export type KpiProcessStage =
+  | 'draft'               // 작성 중 (팀원)
+  | 'alignment_pending'   // 1단계: 목표 합의 대기 (팀장 승인 요청)
+  | 'aligned'             // 1단계: 목표 합의 완료 (목표 락)
+  | 'quarterly_checkin'   // 2단계: 분기별 점검/조정 진행 중
+  | 'peer_review'         // 3단계: 동료 다면평가 진행 중
+  | 'leader_eval'         // 4단계-1: 팀장(1차) 평가 진행 중
+  | 'director_eval'       // 4단계-2: 실장(2차) 평가 진행 중
+  | 'finalized';          // 4단계-3: 최종 평가 완료
+
+// 2단계: 분기별 점검 및 조정 이력
+export interface KpiQuarterlyCheckin {
+  id: string;
+  quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+  currentValue: string;
+  progressRate: number;      // 0 ~ 100
+  note: string;              // 진행 현황 및 장애요인
+  isAdjusted?: boolean;      // 목표치/가중치 조정 발생 여부
+  adjustmentReason?: string; // 조정 사유
+  reviewedBy?: string;       // 팀장 승인 확인자
+  reviewedAt?: string;       // 승인 일시
+  createdAt: string;
+}
+
+// 3단계: 동료 다면평가 항목
+export interface KpiPeerReview {
+  id: string;
+  reviewerId: string;
+  reviewerName: string;
+  reviewerTrack?: KpiTrack;   // 평가자 직군
+  scoreCollaboration: number; // 협업 태도 및 소통 (1~5점)
+  scoreQuality: number;       // 산출물 품질 및 완성도 (1~5점)
+  commentGood: string;        // 협업 시 칭찬할 점
+  commentImprove: string;     // 보완/발전할 점
+  submittedAt: string;
+}
+
+// 종합 평가 등급
+export type KpiGrade = 'S' | 'A' | 'B' | 'C' | 'D';
 
 export interface KpiItem extends AuditBase {
   year: number;
   quarter: KpiQuarter;
   targetScope: KpiTargetScope;
+  ownerId?: string;           // 담당자 ID
   ownerName: string;
+  track?: KpiTrack;           // '기획' | '디자인' | '퍼블리싱'
   title: string;
   targetMetric: string;
   targetValue: string;
   currentValue: string;
-  weight: number;          // 가중치 (%)
-  achievementRate: number; // 달성률 (%)
+  weight: number;             // 가중치 (%)
+  achievementRate: number;    // 달성률 (%)
   status: KpiStatus;
-  selfEvaluation?: string;
+
+  // 4단계 라이프사이클 프로세스
+  stage?: KpiProcessStage;
+
+  // 1단계: 목표 합의
+  alignedAt?: string;
+  alignedBy?: string;
+  alignmentComment?: string;
+
+  // 2단계: 분기별 점검 및 조정 내역
+  checkins?: KpiQuarterlyCheckin[];
+
+  // 3단계: 동료 다면평가 내역
+  peerReviews?: KpiPeerReview[];
+  peerAvgScore?: number;      // 동료평가 환산점수 (예: 5점 만점)
+
+  // 4단계: 직책자 다단계 종합 평가
+  selfEvaluation?: string;    // 본인 자가평가 코멘트
+  selfScore?: number;         // 본인 자가 채점 (0~100)
+
+  // 4단계-1: 1차 평가 (팀 리더)
+  leaderScore?: number;       // 1차 점수 (0~100)
+  leaderGrade?: KpiGrade;     // S / A / B / C / D
+  leaderComment?: string;     // 팀장 총평
+  leaderEvaluatedAt?: string;
+  leaderEvaluatorName?: string;
+
+  // 4단계-2: 2차 최종 평가 (상위 실장)
+  directorScore?: number;     // 2차 실장 최종 점수 (0~100)
+  directorGrade?: KpiGrade;   // 최종 확정 등급
+  directorComment?: string;   // 실장 총평
+  directorEvaluatedAt?: string;
+  directorEvaluatorName?: string;
+
+  // 하위 호환성 필드
   finalEvaluation?: string;
   evaluatorName?: string;
 }

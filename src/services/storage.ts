@@ -3,6 +3,10 @@ import type {
   TaskItem,
   VacationItem,
   KpiItem,
+  KpiProcessStage,
+  KpiQuarterlyCheckin,
+  KpiPeerReview,
+  KpiGrade,
   AuditLog,
   UserRole,
 } from '../types';
@@ -187,7 +191,9 @@ export class PlanningStorageService {
           year: Number(row.year),
           quarter: row.quarter,
           targetScope: row.target_scope,
+          ownerId: row.owner_id || undefined,
           ownerName: row.owner_name,
+          track: row.track || '기획',
           title: row.title,
           targetMetric: row.target_metric,
           targetValue: row.target_value,
@@ -195,7 +201,20 @@ export class PlanningStorageService {
           weight: Number(row.weight || 0),
           achievementRate: Number(row.achievement_rate || 0),
           status: row.status,
+          stage: row.stage || (row.status === 'planning' ? 'draft' : 'aligned'),
+          checkins: Array.isArray(row.checkins) ? row.checkins : [],
+          peerReviews: Array.isArray(row.peer_reviews) ? row.peer_reviews : [],
+          peerAvgScore: row.peer_avg_score ? Number(row.peer_avg_score) : undefined,
           selfEvaluation: row.self_evaluation || '',
+          selfScore: row.self_score ? Number(row.self_score) : undefined,
+          leaderScore: row.leader_score ? Number(row.leader_score) : undefined,
+          leaderGrade: row.leader_grade || undefined,
+          leaderComment: row.leader_comment || undefined,
+          leaderEvaluatedAt: row.leader_evaluated_at || undefined,
+          directorScore: row.director_score ? Number(row.director_score) : undefined,
+          directorGrade: row.director_grade || undefined,
+          directorComment: row.director_comment || undefined,
+          directorEvaluatedAt: row.director_evaluated_at || undefined,
           finalEvaluation: row.final_evaluation || '',
           evaluatorName: row.evaluator_name || '',
           createdBy: row.created_by,
@@ -208,8 +227,11 @@ export class PlanningStorageService {
           (k) => !String(k.id).startsWith('kpi-30')
         );
         const kpiMap = new Map<string, KpiItem>();
-        localKpis.forEach((k) => kpiMap.set(k.id, k));
         mappedRemoteKpis.forEach((r) => kpiMap.set(r.id, r));
+        localKpis.forEach((k) => {
+          const remote = kpiMap.get(k.id);
+          kpiMap.set(k.id, remote ? { ...remote, ...k } : k);
+        });
 
         localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(Array.from(kpiMap.values())));
       }
@@ -780,10 +802,17 @@ export class PlanningStorageService {
     }
   }
 
-  // --- 3. KPI 관리 CRUD ---
+  // --- 3. KPI 관리 CRUD & 4단계 라이프사이클 프로세스 ---
   public static getKpis(): KpiItem[] {
     this.initialize();
-    return safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []);
+    const raw = safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []);
+    return raw.map((k) => ({
+      ...k,
+      stage: k.stage || (k.status === 'planning' ? 'draft' : 'aligned'),
+      checkins: Array.isArray(k.checkins) ? k.checkins : [],
+      peerReviews: Array.isArray(k.peerReviews) ? k.peerReviews : [],
+      track: k.track || '기획',
+    }));
   }
 
   public static createKpi(data: Omit<KpiItem, 'id' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>): KpiItem {
@@ -795,6 +824,11 @@ export class PlanningStorageService {
     const newKpi: KpiItem = {
       ...data,
       id: generateUniqueId('kpi'),
+      stage: data.stage || 'draft',
+      track: data.track || '기획',
+      ownerId: data.ownerId || currentUser.id,
+      checkins: data.checkins || [],
+      peerReviews: data.peerReviews || [],
       createdBy: currentUser.name,
       createdAt: now,
       updatedBy: currentUser.name,
@@ -810,7 +844,7 @@ export class PlanningStorageService {
       entityId: newKpi.id,
       entityTitle: newKpi.title,
       action: 'CREATE',
-      summary: `KPI 목표 등록: [${newKpi.quarter}] ${newKpi.title} (가중치: ${newKpi.weight}%)`,
+      summary: `KPI 목표 등록: [${newKpi.quarter} · ${newKpi.track}] ${newKpi.title} (가중치: ${newKpi.weight}%, 담당: ${newKpi.ownerName})`,
     });
 
     if (isSupabaseEnabled()) {
@@ -853,8 +887,9 @@ export class PlanningStorageService {
 
     const currentUser = this.getCurrentUser();
     const now = new Date().toISOString();
+    const original = kpis[index];
     const updated: KpiItem = {
-      ...kpis[index],
+      ...original,
       ...changes,
       updatedBy: currentUser.name,
       updatedAt: now,
@@ -868,7 +903,7 @@ export class PlanningStorageService {
       entityId: updated.id,
       entityTitle: updated.title,
       action: 'UPDATE',
-      summary: `KPI 갱신/평가: ${updated.title} (달성률: ${updated.achievementRate}%, 상태: ${updated.status})`,
+      summary: `KPI 갱신/평가: ${updated.title} (단계: ${updated.stage || '미정'}, 달성률: ${updated.achievementRate}%, 상태: ${updated.status})`,
     });
 
     if (isSupabaseEnabled()) {
@@ -896,6 +931,152 @@ export class PlanningStorageService {
     }
 
     return updated;
+  }
+
+  // [1단계] 팀장에게 목표 합의 요청
+  public static requestKpiAlignment(id: string, comment?: string): KpiItem {
+    return this.updateKpi(id, {
+      stage: 'alignment_pending',
+      alignmentComment: comment || '팀장 목표 합의를 요청합니다.',
+    });
+  }
+
+  // [1단계] 팀장 목표 합의 승인 (목표 확정 Lock)
+  public static approveKpiAlignment(id: string, leaderComment?: string): KpiItem {
+    const currentUser = this.getCurrentUser();
+    const now = new Date().toISOString();
+    return this.updateKpi(id, {
+      stage: 'aligned',
+      status: 'in_progress',
+      alignedBy: currentUser.name,
+      alignedAt: now,
+      alignmentComment: leaderComment || '목표 합의가 승인되었습니다.',
+    });
+  }
+
+  // [1단계] 팀장 목표 반려 / 보완 요청
+  public static rejectKpiAlignment(id: string, reason: string): KpiItem {
+    return this.updateKpi(id, {
+      stage: 'draft',
+      status: 'planning',
+      alignmentComment: `[보완 요청] ${reason}`,
+    });
+  }
+
+  // [2단계] 분기별 점검 및 목표 조정 (Quarterly Check-in)
+  public static addQuarterlyCheckin(
+    id: string,
+    checkinData: Omit<KpiQuarterlyCheckin, 'id' | 'createdAt'>
+  ): KpiItem {
+    const kpis = this.getKpis();
+    const target = kpis.find((k) => k.id === id);
+    if (!target) throw new Error('KPI 항목을 찾을 수 없습니다.');
+
+    const currentUser = this.getCurrentUser();
+    const now = new Date().toISOString();
+    const newCheckin: KpiQuarterlyCheckin = {
+      ...checkinData,
+      id: generateUniqueId('chk'),
+      createdAt: now,
+      reviewedBy: currentUser.name,
+      reviewedAt: now,
+    };
+
+    const existingCheckins = Array.isArray(target.checkins) ? target.checkins : [];
+    // 같은 분기가 있으면 교체, 없으면 추가
+    const filteredCheckins = existingCheckins.filter((c) => c.quarter !== checkinData.quarter);
+    const updatedCheckins = [...filteredCheckins, newCheckin].sort((a, b) => a.quarter.localeCompare(b.quarter));
+
+    return this.updateKpi(id, {
+      stage: target.stage === 'draft' || target.stage === 'alignment_pending' ? 'quarterly_checkin' : target.stage,
+      currentValue: checkinData.currentValue || target.currentValue,
+      achievementRate: checkinData.progressRate ?? target.achievementRate,
+      checkins: updatedCheckins,
+    });
+  }
+
+  // [3단계] 동료 다면평가 제출 (Peer Review)
+  public static submitPeerReview(
+    id: string,
+    reviewData: Omit<KpiPeerReview, 'id' | 'submittedAt'>
+  ): KpiItem {
+    const kpis = this.getKpis();
+    const target = kpis.find((k) => k.id === id);
+    if (!target) throw new Error('KPI 항목을 찾을 수 없습니다.');
+
+    const now = new Date().toISOString();
+    const newReview: KpiPeerReview = {
+      ...reviewData,
+      id: generateUniqueId('peer'),
+      submittedAt: now,
+    };
+
+    const existingReviews = Array.isArray(target.peerReviews) ? target.peerReviews : [];
+    const filtered = existingReviews.filter((r) => r.reviewerId !== reviewData.reviewerId);
+    const updatedReviews = [...filtered, newReview];
+
+    // 다면평가 평균점수 계산 (5점 만점 기준)
+    const totalScore = updatedReviews.reduce(
+      (sum, r) => sum + (Number(r.scoreCollaboration) + Number(r.scoreQuality)) / 2,
+      0
+    );
+    const peerAvgScore = updatedReviews.length > 0 ? Number((totalScore / updatedReviews.length).toFixed(1)) : 0;
+
+    return this.updateKpi(id, {
+      peerReviews: updatedReviews,
+      peerAvgScore,
+    });
+  }
+
+  // [4단계-자가평가] 팀원 연간 자가평가 제출
+  public static submitSelfEvaluation(id: string, selfEvaluation: string, selfScore?: number): KpiItem {
+    return this.updateKpi(id, {
+      selfEvaluation,
+      selfScore: selfScore ?? 80,
+      stage: 'leader_eval', // 1차 팀장 평가 단계로 전환
+    });
+  }
+
+  // [4단계-1차평가] 팀 리더(1차) 평가 및 실장 상신
+  public static submitLeaderEvaluation(
+    id: string,
+    data: { score: number; grade: KpiGrade; comment: string }
+  ): KpiItem {
+    const currentUser = this.getCurrentUser();
+    const now = new Date().toISOString();
+    return this.updateKpi(id, {
+      stage: 'director_eval', // 2차 실장 평가 단계로 상신
+      leaderScore: data.score,
+      leaderGrade: data.grade,
+      leaderComment: data.comment,
+      leaderEvaluatorName: currentUser.name,
+      leaderEvaluatedAt: now,
+    });
+  }
+
+  // [4단계-2차평가] 상위 실장(2차) 최종 평가 및 확정
+  public static submitDirectorEvaluation(
+    id: string,
+    data: { score: number; grade: KpiGrade; comment: string }
+  ): KpiItem {
+    const currentUser = this.getCurrentUser();
+    const now = new Date().toISOString();
+    return this.updateKpi(id, {
+      stage: 'finalized', // 최종 평가 완료
+      directorScore: data.score,
+      directorGrade: data.grade,
+      directorComment: data.comment,
+      directorEvaluatorName: currentUser.name,
+      directorEvaluatedAt: now,
+      finalEvaluation: `[최종등급: ${data.grade} / 점수: ${data.score}점] ${data.comment}`,
+      evaluatorName: `${currentUser.name} (실장)`,
+      status: data.score >= 90 ? 'achieved' : data.score >= 70 ? 'partially_achieved' : 'missed',
+    });
+  }
+
+  // 프로세스 단계 일괄/수동 전환 (관리자/팀장 편의용)
+  public static advanceKpiStage(id: string, targetStage: KpiProcessStage): KpiItem {
+    return this.updateKpi(id, { stage: targetStage });
   }
 
   public static deleteKpi(id: string): void {
