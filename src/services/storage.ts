@@ -95,11 +95,11 @@ export class PlanningStorageService {
         localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mappedUsers));
       }
 
-      // 1. tasks 동기화 (기존 가상 더미 데이터 task-10X 제외)
+      // 1. tasks 동기화 (로컬 데이터 절대 보존 및 안전 병합 정책)
       const { data: remoteTasks, error: taskErr } = await client.from('tasks').select('*');
       if (!taskErr && remoteTasks) {
         const filteredTasks = remoteTasks.filter((row) => !String(row.id).startsWith('task-10'));
-        const mappedTasks: TaskItem[] = filteredTasks.map((row) => ({
+        const mappedRemoteTasks: TaskItem[] = filteredTasks.map((row) => ({
           id: row.id,
           title: row.title,
           category: row.category,
@@ -118,14 +118,41 @@ export class PlanningStorageService {
           updatedBy: row.updated_by,
           updatedAt: row.updated_at,
         }));
-        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(mappedTasks));
+
+        // 로컬에 등록된 기존 데이터 보호 및 안전 병합
+        const localTasks = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []).filter(
+          (t) => !String(t.id).startsWith('task-10')
+        );
+
+        const taskMap = new Map<string, TaskItem>();
+        // 1-1. 로컬 데이터 먼저 맵에 등록 (사용자가 새로 등록한 작업 완벽 보존)
+        localTasks.forEach((t) => taskMap.set(t.id, t));
+
+        // 1-2. 원격 데이터 병합 (원격 정보 갱신, 단 로컬의 track 정보 보존)
+        mappedRemoteTasks.forEach((remote) => {
+          const local = taskMap.get(remote.id);
+          taskMap.set(remote.id, {
+            ...remote,
+            track: remote.track || local?.track || '기획',
+          });
+        });
+
+        const mergedTasks = Array.from(taskMap.values());
+        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(mergedTasks));
+
+        // 1-3. 로컬에만 있고 원격에 아직 반영 안 된 항목이 있으면 자동 백그라운드 푸시
+        for (const localTask of localTasks) {
+          if (!mappedRemoteTasks.some((r) => r.id === localTask.id)) {
+            this.pushTaskToRemote(localTask);
+          }
+        }
       }
 
-      // 2. vacations 동기화 (기존 가상 더미 데이터 vac-20X 제외)
+      // 2. vacations 동기화 (로컬 데이터 안전 병합)
       const { data: remoteVac, error: vacErr } = await client.from('vacations').select('*');
       if (!vacErr && remoteVac) {
         const filteredVac = remoteVac.filter((row) => !String(row.id).startsWith('vac-20'));
-        const mappedVac: VacationItem[] = filteredVac.map((row) => ({
+        const mappedRemoteVac: VacationItem[] = filteredVac.map((row) => ({
           id: row.id,
           userId: row.user_id,
           userName: row.user_name,
@@ -142,14 +169,22 @@ export class PlanningStorageService {
           updatedBy: row.updated_by,
           updatedAt: row.updated_at,
         }));
-        localStorage.setItem(STORAGE_KEYS.VACATIONS, JSON.stringify(mappedVac));
+
+        const localVac = safeJsonParse<VacationItem[]>(localStorage.getItem(STORAGE_KEYS.VACATIONS), []).filter(
+          (v) => !String(v.id).startsWith('vac-20')
+        );
+        const vacMap = new Map<string, VacationItem>();
+        localVac.forEach((v) => vacMap.set(v.id, v));
+        mappedRemoteVac.forEach((r) => vacMap.set(r.id, r));
+
+        localStorage.setItem(STORAGE_KEYS.VACATIONS, JSON.stringify(Array.from(vacMap.values())));
       }
 
-      // 3. kpis 동기화 (기존 가상 더미 데이터 kpi-30X 제외)
+      // 3. kpis 동기화 (로컬 데이터 안전 병합)
       const { data: remoteKpis, error: kpiErr } = await client.from('kpis').select('*');
       if (!kpiErr && remoteKpis) {
         const filteredKpis = remoteKpis.filter((row) => !String(row.id).startsWith('kpi-30'));
-        const mappedKpis: KpiItem[] = filteredKpis.map((row) => ({
+        const mappedRemoteKpis: KpiItem[] = filteredKpis.map((row) => ({
           id: row.id,
           year: Number(row.year),
           quarter: row.quarter,
@@ -170,7 +205,15 @@ export class PlanningStorageService {
           updatedBy: row.updated_by,
           updatedAt: row.updated_at,
         }));
-        localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(mappedKpis));
+
+        const localKpis = safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []).filter(
+          (k) => !String(k.id).startsWith('kpi-30')
+        );
+        const kpiMap = new Map<string, KpiItem>();
+        localKpis.forEach((k) => kpiMap.set(k.id, k));
+        mappedRemoteKpis.forEach((r) => kpiMap.set(r.id, r));
+
+        localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(Array.from(kpiMap.values())));
       }
 
       // 4. audit_logs 동기화
@@ -422,6 +465,56 @@ export class PlanningStorageService {
     }));
   }
 
+  // Supabase 원격 DB로 업무 전송 (track 컬럼 유무와 무관한 스마트 2단계 전송)
+  public static async pushTaskToRemote(task: TaskItem): Promise<void> {
+    if (!isSupabaseEnabled()) return;
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const payloadWithTrack = {
+      id: task.id,
+      title: task.title,
+      category: task.category,
+      track: task.track || '기획',
+      assignee_id: task.assigneeId,
+      assignee_name: task.assigneeName,
+      priority: task.priority,
+      status: task.status,
+      start_date: task.startDate,
+      due_date: task.dueDate,
+      progress: task.progress,
+      description: task.description,
+      links: task.links,
+      created_by: task.createdBy,
+      created_at: task.createdAt,
+      updated_by: task.updatedBy,
+      updated_at: task.updatedAt,
+    };
+
+    try {
+      // 1차: track 컬럼 포함 upsert
+      const { error } = await client.from('tasks').upsert(payloadWithTrack);
+      if (error) {
+        // 원격 DB에 track 컬럼이 없어 PGRST204 발생한 경우: track 제외하고 2차 자동 재시도
+        if (error.code === 'PGRST204' || error.message.includes('track')) {
+          const { track: _unused, ...payloadWithoutTrack } = payloadWithTrack;
+          const { error: retryErr } = await client.from('tasks').upsert(payloadWithoutTrack);
+          if (retryErr) {
+            console.warn('[Supabase] Task push fallback error:', retryErr.message);
+          } else {
+            console.log(`[Supabase] Task [${task.title}] synced via fallback (track column pending in DB).`);
+          }
+        } else {
+          console.warn('[Supabase] Task push error:', error.message);
+        }
+      } else {
+        console.log(`[Supabase] Task [${task.title}] successfully synced to cloud DB.`);
+      }
+    } catch (e) {
+      console.warn('[Supabase] Task push unexpected error:', e);
+    }
+  }
+
   public static createTask(data: Omit<TaskItem, 'id' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>): TaskItem {
     if (this.isViewer()) {
       throw new Error('유관부서(읽기 전용) 모드에서는 업무를 등록할 수 없습니다.');
@@ -450,31 +543,8 @@ export class PlanningStorageService {
       summary: `새 업무 등록: [${newTask.track} · ${newTask.category}] ${newTask.title} (담당: ${newTask.assigneeName})`,
     });
 
-    // Supabase DB 반영
-    if (isSupabaseEnabled()) {
-      const client = getSupabaseClient();
-      client?.from('tasks').insert({
-        id: newTask.id,
-        title: newTask.title,
-        category: newTask.category,
-        track: newTask.track,
-        assignee_id: newTask.assigneeId,
-        assignee_name: newTask.assigneeName,
-        priority: newTask.priority,
-        status: newTask.status,
-        start_date: newTask.startDate,
-        due_date: newTask.dueDate,
-        progress: newTask.progress,
-        description: newTask.description,
-        links: newTask.links,
-        created_by: newTask.createdBy,
-        created_at: newTask.createdAt,
-        updated_by: newTask.updatedBy,
-        updated_at: newTask.updatedAt,
-      }).then(({ error }) => {
-        if (error) console.warn('Supabase task insert note:', error.message);
-      });
-    }
+    // Supabase DB 비동기 반영 (스마트 2단계 전송)
+    this.pushTaskToRemote(newTask);
 
     return newTask;
   }
@@ -529,28 +599,8 @@ export class PlanningStorageService {
       summary: summaryText,
     });
 
-    // Supabase DB 반영
-    if (isSupabaseEnabled()) {
-      const client = getSupabaseClient();
-      client?.from('tasks').update({
-        title: updatedTask.title,
-        category: updatedTask.category,
-        track: updatedTask.track,
-        assignee_id: updatedTask.assigneeId,
-        assignee_name: updatedTask.assigneeName,
-        priority: updatedTask.priority,
-        status: updatedTask.status,
-        start_date: updatedTask.startDate,
-        due_date: updatedTask.dueDate,
-        progress: updatedTask.progress,
-        description: updatedTask.description,
-        links: updatedTask.links,
-        updated_by: updatedTask.updatedBy,
-        updated_at: updatedTask.updatedAt,
-      }).eq('id', updatedTask.id).then(({ error }) => {
-        if (error) console.warn('Supabase task update note:', error.message);
-      });
-    }
+    // Supabase DB 비동기 반영 (스마트 2단계 전송)
+    this.pushTaskToRemote(updatedTask);
 
     return updatedTask;
   }
