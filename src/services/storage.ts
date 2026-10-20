@@ -102,6 +102,7 @@ export class PlanningStorageService {
           id: row.id,
           title: row.title,
           category: row.category,
+          track: (row.track as any) || '기획',
           assigneeId: row.assignee_id,
           assigneeName: row.assignee_name,
           priority: row.priority,
@@ -410,7 +411,12 @@ export class PlanningStorageService {
   // --- 1. 업무 관리 (Task) CRUD ---
   public static getTasks(): TaskItem[] {
     this.initialize();
-    return safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), INITIAL_TASKS);
+    const stored = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), INITIAL_TASKS);
+    // track 필드 기본값 보정 (하위 호환 및 무오류 보장)
+    return stored.map((t) => ({
+      ...t,
+      track: t.track || '기획',
+    }));
   }
 
   public static createTask(data: Omit<TaskItem, 'id' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>): TaskItem {
@@ -421,6 +427,7 @@ export class PlanningStorageService {
     const now = new Date().toISOString();
     const newTask: TaskItem = {
       ...data,
+      track: data.track || '기획',
       id: generateUniqueId('task'),
       createdBy: currentUser.name,
       createdAt: now,
@@ -437,7 +444,7 @@ export class PlanningStorageService {
       entityId: newTask.id,
       entityTitle: newTask.title,
       action: 'CREATE',
-      summary: `새 업무 등록: [${newTask.category}] ${newTask.title} (담당: ${newTask.assigneeName})`,
+      summary: `새 업무 등록: [${newTask.track} · ${newTask.category}] ${newTask.title} (담당: ${newTask.assigneeName})`,
     });
 
     // Supabase DB 반영
@@ -447,6 +454,7 @@ export class PlanningStorageService {
         id: newTask.id,
         title: newTask.title,
         category: newTask.category,
+        track: newTask.track,
         assignee_id: newTask.assigneeId,
         assignee_name: newTask.assigneeName,
         priority: newTask.priority,
@@ -485,6 +493,7 @@ export class PlanningStorageService {
     const updatedTask: TaskItem = {
       ...original,
       ...changes,
+      track: changes.track || original.track || '기획',
       updatedBy: currentUser.name,
       updatedAt: now,
     };
@@ -493,6 +502,9 @@ export class PlanningStorageService {
     localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
 
     const changeNotes: string[] = [];
+    if (changes.track && changes.track !== original.track) {
+      changeNotes.push(`파트: ${original.track} → ${changes.track}`);
+    }
     if (changes.status && changes.status !== original.status) {
       changeNotes.push(`상태: ${original.status} → ${changes.status}`);
     }
@@ -520,6 +532,7 @@ export class PlanningStorageService {
       client?.from('tasks').update({
         title: updatedTask.title,
         category: updatedTask.category,
+        track: updatedTask.track,
         assignee_id: updatedTask.assigneeId,
         assignee_name: updatedTask.assigneeName,
         priority: updatedTask.priority,

@@ -158,7 +158,7 @@ export function App() {
             onClick={() => setActiveTab('tasks')}
           >
             <CheckSquare size={18} />
-            <span>기획 업무 관리</span>
+            <span>서비스기획 업무 관리</span>
             <span className="nav-badge">Tasks</span>
           </button>
 
@@ -284,7 +284,7 @@ export function App() {
           <div className="topbar-left">
             <h1 className="page-title">
               {activeTab === 'overview' && '서비스기획팀 업무 안내'}
-              {activeTab === 'tasks' && '기획 업무 내역 관리'}
+              {activeTab === 'tasks' && '서비스기획 업무 관리'}
               {activeTab === 'vacations' && '팀원 휴가 및 부재 일정'}
               {activeTab === 'kpi' && 'KPI 목표 수립 및 평가 관리'}
               {activeTab === 'audit' && '시스템 감사 로그 및 변경 이력'}
