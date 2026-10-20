@@ -167,8 +167,8 @@ export function App() {
             onClick={() => setActiveTab('vacations')}
           >
             <Calendar size={18} />
-            <span>팀원 휴가 일정</span>
-            <span className="nav-badge">Leave</span>
+            <span>팀 통합 일정 (업무 & 휴가)</span>
+            <span className="nav-badge">Schedule</span>
           </button>
 
           <button
@@ -285,11 +285,10 @@ export function App() {
             <h1 className="page-title">
               {activeTab === 'overview' && '서비스기획팀 업무 안내'}
               {activeTab === 'tasks' && '서비스기획 업무 관리'}
-              {activeTab === 'vacations' && '팀원 휴가 및 부재 일정'}
+              {activeTab === 'vacations' && '팀 통합 일정 (업무 & 휴가)'}
               {activeTab === 'kpi' && 'KPI 목표 수립 및 평가 관리'}
               {activeTab === 'audit' && '시스템 감사 로그 및 변경 이력'}
             </h1>
-
             {isViewer && (
               <div className="viewer-mode-alert">
                 <Eye size={14} /> 유관부서 읽기 전용 모드 적용 중 (등록/수정 제한)
@@ -347,6 +346,7 @@ export function App() {
               currentUser={currentUser}
               isViewer={isViewer}
               onShowToast={showToast}
+              onNavigateToTasks={() => setActiveTab('tasks')}
             />
           )}
           {activeTab === 'kpi' && (
