@@ -46,6 +46,15 @@ export interface TaskItem extends AuditBase {
   progress: number; // 0 ~ 100
   description: string;
   links: TaskLink[];
+  // 개인 업무공간(bychoi workspace) 연동 필드
+  workspaceProjectId?: string;
+  period?: string;
+  figmaUrl?: string;
+  notionUrl?: string;
+  jiraUrl?: string;
+  artifactUrl?: string;
+  themeIndex?: number;
+  version?: string;
 }
 
 // 2. 휴가 및 부재(Vacation) 관련 타입

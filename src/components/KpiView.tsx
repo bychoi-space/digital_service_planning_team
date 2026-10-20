@@ -56,7 +56,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ isViewer, onShowToast }) => {
     status: 'in_progress' as KpiStatus,
     selfEvaluation: '',
     finalEvaluation: '',
-    evaluatorName: '김기획 (팀장)',
+    evaluatorName: '최범열 (관리자)',
   });
 
   const refreshKpis = () => {
@@ -84,7 +84,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ isViewer, onShowToast }) => {
       status: 'in_progress',
       selfEvaluation: '',
       finalEvaluation: '',
-      evaluatorName: '김기획 (팀장)',
+      evaluatorName: '최범열 (관리자)',
     });
     setIsModalOpen(true);
   };
@@ -106,7 +106,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ isViewer, onShowToast }) => {
       status: item.status,
       selfEvaluation: item.selfEvaluation || '',
       finalEvaluation: item.finalEvaluation || '',
-      evaluatorName: item.evaluatorName || '김기획 (팀장)',
+      evaluatorName: item.evaluatorName || '최범열 (관리자)',
     });
     setIsModalOpen(true);
   };

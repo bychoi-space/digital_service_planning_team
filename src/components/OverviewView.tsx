@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { TEAM_GUIDE_DATA } from '../services/mockData';
+import { TEAM_GUIDE_DATA } from '../constants/teamGuide';
 import { COMPANY_DEPARTMENTS } from '../constants/departments';
 import {
   Compass,

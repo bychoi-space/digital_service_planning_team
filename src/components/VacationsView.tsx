@@ -121,7 +121,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       onShowToast('유관부서(읽기 전용) 모드에서는 휴가를 등록할 수 없습니다.', 'error');
       return;
     }
-    const defaultUser = teamMembers[0] || { id: 'u-1', name: '김기획' };
+    const defaultUser = teamMembers[0] || { id: '1', name: '최범열' };
     const defaultDeputy = teamMembers.length > 1 ? teamMembers[1] : defaultUser;
     const targetDate = presetDate || new Date().toISOString().split('T')[0];
 

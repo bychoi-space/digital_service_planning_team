@@ -118,7 +118,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
       onShowToast('유관부서(읽기 전용) 모드에서는 새 업무를 등록할 수 없습니다.', 'error');
       return;
     }
-    const defaultAssignee = teamMembers[0] || { id: '1', name: '김기획' };
+    const defaultAssignee = teamMembers[0] || { id: '1', name: '최범열' };
     setEditingTask(null);
     setFormData({
       title: '',

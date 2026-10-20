@@ -24,8 +24,60 @@ import {
 
 type NavTab = 'overview' | 'tasks' | 'vacations' | 'kpi' | 'audit';
 
+// URL 해시로부터 현재 탭 파싱 (새로고침 및 딥링크 지원)
+function parseTabFromHash(): NavTab {
+  if (typeof window === 'undefined') return 'overview';
+  const cleanHash = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
+  if (cleanHash === 'tasks' || cleanHash.startsWith('tasks/')) return 'tasks';
+  if (cleanHash === 'schedule' || cleanHash === 'vacations' || cleanHash.startsWith('schedule/')) return 'vacations';
+  if (cleanHash === 'kpi' || cleanHash === 'kpis' || cleanHash.startsWith('kpi/')) return 'kpi';
+  if (cleanHash === 'audit' || cleanHash === 'logs' || cleanHash.startsWith('audit/')) return 'audit';
+  return 'overview';
+}
+
+function tabToHash(tab: NavTab): string {
+  if (tab === 'vacations') return '#/schedule';
+  return `#/${tab}`;
+}
+
+const TAB_TITLES: Record<NavTab, string> = {
+  overview: '서비스기획팀 업무포털 | 안내',
+  tasks: '서비스기획팀 업무포털 | 업무 관리',
+  vacations: '서비스기획팀 업무포털 | 팀 통합 일정',
+  kpi: '서비스기획팀 업무포털 | KPI 목표 및 평가',
+  audit: '서비스기획팀 업무포털 | 감사 로그',
+};
+
 export function App() {
-  const [activeTab, setActiveTab] = useState<NavTab>('overview');
+  const [activeTab, setActiveTabState] = useState<NavTab>(() => parseTabFromHash());
+
+  // URL Hash 변경 함수 (브라우저 히스토리 및 타이틀 동기화)
+  const navigateTo = (tab: NavTab) => {
+    const targetHash = tabToHash(tab);
+    if (window.location.hash !== targetHash) {
+      window.location.hash = targetHash;
+    }
+    setActiveTabState(tab);
+    document.title = TAB_TITLES[tab] || '서비스기획팀 업무포털';
+  };
+
+  // 브라우저 뒤로가기 / 앞으로가기 및 URL 직접 입력(F5) 감지
+  useEffect(() => {
+    const handleHashChange = () => {
+      const parsed = parseTabFromHash();
+      setActiveTabState(parsed);
+      document.title = TAB_TITLES[parsed] || '서비스기획팀 업무포털';
+    };
+
+    // 초기 마운트 시 해시가 비어있으면 #/overview로 정규화
+    if (!window.location.hash || window.location.hash === '#' || window.location.hash === '#/') {
+      window.history.replaceState(null, '', '#/overview');
+    }
+    document.title = TAB_TITLES[parseTabFromHash()] || '서비스기획팀 업무포털';
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     PlanningStorageService.initialize();
     return PlanningStorageService.isLoggedIn();
@@ -116,50 +168,70 @@ export function App() {
         </div>
 
         <nav className="sidebar-nav">
-          <button
+          <a
+            href="#/overview"
             className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveTab('overview')}
+            onClick={(e) => {
+              e.preventDefault();
+              navigateTo('overview');
+            }}
           >
             <Compass size={18} />
             <span>서비스기획팀 안내</span>
-          </button>
+          </a>
 
-          <button
+          <a
+            href="#/tasks"
             className={`nav-item ${activeTab === 'tasks' ? 'active' : ''}`}
-            onClick={() => setActiveTab('tasks')}
+            onClick={(e) => {
+              e.preventDefault();
+              navigateTo('tasks');
+            }}
           >
             <CheckSquare size={18} />
             <span>서비스기획 업무 관리</span>
             <span className="nav-badge">Tasks</span>
-          </button>
+          </a>
 
-          <button
+          <a
+            href="#/schedule"
             className={`nav-item ${activeTab === 'vacations' ? 'active' : ''}`}
-            onClick={() => setActiveTab('vacations')}
+            onClick={(e) => {
+              e.preventDefault();
+              navigateTo('vacations');
+            }}
           >
             <Calendar size={18} />
             <span>팀 통합 일정</span>
             <span className="nav-badge">Schedule</span>
-          </button>
+          </a>
 
-          <button
+          <a
+            href="#/kpi"
             className={`nav-item ${activeTab === 'kpi' ? 'active' : ''}`}
-            onClick={() => setActiveTab('kpi')}
+            onClick={(e) => {
+              e.preventDefault();
+              navigateTo('kpi');
+            }}
           >
             <Target size={18} />
             <span>KPI 목표 및 평가</span>
             <span className="nav-badge">2026</span>
-          </button>
+          </a>
 
           <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)', margin: '12px 6px' }} />
 
-          <button
+          <a
+            href="#/audit"
             className={`nav-item ${activeTab === 'audit' ? 'active' : ''}`}
-            onClick={() => setActiveTab('audit')}
+            onClick={(e) => {
+              e.preventDefault();
+              navigateTo('audit');
+            }}
           >
             <ShieldAlert size={18} />
             <span>감사 로그 (Audit)</span>
-          </button>
+          </a>
         </nav>
       </aside>
 
@@ -218,7 +290,7 @@ export function App() {
         {/* 본문 화면 렌더링 */}
         <div className="content-body" key={syncKey}>
           {activeTab === 'overview' && (
-            <OverviewView onNavigateToTasks={() => setActiveTab('tasks')} />
+            <OverviewView onNavigateToTasks={() => navigateTo('tasks')} />
           )}
           {activeTab === 'tasks' && (
             <TasksView
@@ -232,7 +304,7 @@ export function App() {
               currentUser={currentUser}
               isViewer={isViewer}
               onShowToast={showToast}
-              onNavigateToTasks={() => setActiveTab('tasks')}
+              onNavigateToTasks={() => navigateTo('tasks')}
             />
           )}
           {activeTab === 'kpi' && (

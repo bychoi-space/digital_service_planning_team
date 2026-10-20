@@ -6,13 +6,6 @@ import type {
   AuditLog,
   UserRole,
 } from '../types';
-import {
-  INITIAL_USERS,
-  INITIAL_TASKS,
-  INITIAL_VACATIONS,
-  INITIAL_KPIS,
-  INITIAL_AUDIT_LOGS,
-} from './mockData';
 import { getSupabaseClient, isSupabaseEnabled } from './supabase';
 
 const STORAGE_KEYS = {
@@ -46,25 +39,22 @@ export function generateUniqueId(prefix: string): string {
 export class PlanningStorageService {
   private static isSyncing = false;
 
-  // 1. 초기 시드 데이터 검증 및 초기화
+  // 1. 초기 시드 데이터 검증 및 초기화 (Supabase DB 전용)
   public static initialize(): void {
     if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS));
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.TASKS)) {
-      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(INITIAL_TASKS));
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.VACATIONS)) {
-      localStorage.setItem(STORAGE_KEYS.VACATIONS, JSON.stringify(INITIAL_VACATIONS));
+      localStorage.setItem(STORAGE_KEYS.VACATIONS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.KPIS)) {
-      localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(INITIAL_KPIS));
+      localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS)) {
-      localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(INITIAL_AUDIT_LOGS));
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID)) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, INITIAL_USERS[0].id);
+      localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify([]));
     }
 
     // Supabase가 활성화되어 있으면 백그라운드 원격 동기화 시도
@@ -113,6 +103,14 @@ export class PlanningStorageService {
           progress: Number(row.progress || 0),
           description: row.description || '',
           links: row.links || [],
+          workspaceProjectId: row.workspace_project_id || undefined,
+          period: row.period || undefined,
+          figmaUrl: row.figma_url || undefined,
+          notionUrl: row.notion_url || undefined,
+          jiraUrl: row.jira_url || undefined,
+          artifactUrl: row.artifact_url || undefined,
+          themeIndex: row.theme_index !== undefined ? Number(row.theme_index) : undefined,
+          version: row.version || '0.1',
           createdBy: row.created_by,
           createdAt: row.created_at,
           updatedBy: row.updated_by,
@@ -240,10 +238,10 @@ export class PlanningStorageService {
     }
   }
 
-  // --- 사용자 및 인증/세션 관리 ---
+  // --- 사용자 및 인증/세션 관리 (Supabase DB 기반) ---
   public static getUsers(): User[] {
     this.initialize();
-    return safeJsonParse<User[]>(localStorage.getItem(STORAGE_KEYS.USERS), INITIAL_USERS);
+    return safeJsonParse<User[]>(localStorage.getItem(STORAGE_KEYS.USERS), []);
   }
 
   public static isLoggedIn(): boolean {
@@ -252,9 +250,25 @@ export class PlanningStorageService {
 
   public static getCurrentUser(): User {
     const users = this.getUsers();
-    const currentId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID) || users[0]?.id;
-    const found = users.find((u) => u.id === currentId);
-    return found || users[0] || INITIAL_USERS[0];
+    const currentId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
+    const found = users.find((u) => u.id === currentId || u.name === '최범열');
+    if (found) {
+      if (currentId !== found.id) {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, found.id);
+      }
+      return found;
+    }
+    if (users.length > 0) return users[0];
+    // DB 로딩 전 기본 안전 관리자 객체
+    return {
+      id: 'user-mvfynq9h-dl4un',
+      name: '최범열',
+      role: 'admin',
+      department: '서비스기획팀',
+      position: '서비스기획자 / 차장',
+      email: 'choi@company.com',
+      avatarColor: '#0891b2',
+    };
   }
 
   public static setCurrentUser(userId: string): User {
@@ -404,7 +418,7 @@ export class PlanningStorageService {
   // --- 감사 로그 (Audit Logs) 기록 유틸리티 ---
   public static getAuditLogs(): AuditLog[] {
     this.initialize();
-    const logs = safeJsonParse<AuditLog[]>(localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS), INITIAL_AUDIT_LOGS);
+    const logs = safeJsonParse<AuditLog[]>(localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS), []);
     return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
@@ -457,7 +471,7 @@ export class PlanningStorageService {
   // --- 1. 업무 관리 (Task) CRUD ---
   public static getTasks(): TaskItem[] {
     this.initialize();
-    const stored = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), INITIAL_TASKS);
+    const stored = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []);
     // track 필드 기본값 보정 (하위 호환 및 무오류 보장)
     return stored.map((t) => ({
       ...t,
@@ -485,6 +499,14 @@ export class PlanningStorageService {
       progress: task.progress,
       description: task.description,
       links: task.links,
+      workspace_project_id: task.workspaceProjectId || null,
+      period: task.period || null,
+      figma_url: task.figmaUrl || null,
+      notion_url: task.notionUrl || null,
+      jira_url: task.jiraUrl || null,
+      artifact_url: task.artifactUrl || null,
+      theme_index: task.themeIndex ?? 0,
+      version: task.version || '0.1',
       created_by: task.createdBy,
       created_at: task.createdAt,
       updated_by: task.updatedBy,
@@ -492,21 +514,9 @@ export class PlanningStorageService {
     };
 
     try {
-      // 1차: track 컬럼 포함 upsert
       const { error } = await client.from('tasks').upsert(payloadWithTrack);
       if (error) {
-        // 원격 DB에 track 컬럼이 없어 PGRST204 발생한 경우: track 제외하고 2차 자동 재시도
-        if (error.code === 'PGRST204' || error.message.includes('track')) {
-          const { track: _unused, ...payloadWithoutTrack } = payloadWithTrack;
-          const { error: retryErr } = await client.from('tasks').upsert(payloadWithoutTrack);
-          if (retryErr) {
-            console.warn('[Supabase] Task push fallback error:', retryErr.message);
-          } else {
-            console.log(`[Supabase] Task [${task.title}] synced via fallback (track column pending in DB).`);
-          }
-        } else {
-          console.warn('[Supabase] Task push error:', error.message);
-        }
+        console.warn('[Supabase] Task push error:', error.message);
       } else {
         console.log(`[Supabase] Task [${task.title}] successfully synced to cloud DB.`);
       }
@@ -636,7 +646,7 @@ export class PlanningStorageService {
   // --- 2. 휴가 관리 (Vacation) CRUD ---
   public static getVacations(): VacationItem[] {
     this.initialize();
-    return safeJsonParse<VacationItem[]>(localStorage.getItem(STORAGE_KEYS.VACATIONS), INITIAL_VACATIONS);
+    return safeJsonParse<VacationItem[]>(localStorage.getItem(STORAGE_KEYS.VACATIONS), []);
   }
 
   public static createVacation(data: Omit<VacationItem, 'id' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>): VacationItem {
@@ -773,7 +783,7 @@ export class PlanningStorageService {
   // --- 3. KPI 관리 CRUD ---
   public static getKpis(): KpiItem[] {
     this.initialize();
-    return safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), INITIAL_KPIS);
+    return safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []);
   }
 
   public static createKpi(data: Omit<KpiItem, 'id' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>): KpiItem {

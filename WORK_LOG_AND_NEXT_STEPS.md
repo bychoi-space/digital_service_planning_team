@@ -58,17 +58,12 @@ CREATE TABLE users (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. 사내 회원 기본 데이터 6명 등록 (시퀀스 ID 1 ~ 6 부여)
+-- 2. 서비스기획팀 공식 관리자(최범열 차장) 1명 등록 (시퀀스 ID 1 부여)
 INSERT INTO users (id, name, password, role, department, position, email, avatar_color) VALUES
-  (1, '김기획 (팀장)', '1234', 'admin', '서비스기획팀', '팀장 / 수석기획자', 'planner.kim@company.com', '#2563eb'),
-  (2, '이수진 (책임)', '1234', 'member', '서비스기획팀', '책임기획자 (커머스/결제)', 'planner.lee@company.com', '#059669'),
-  (3, '박민준 (선임)', '1234', 'member', '서비스기획팀', '선임기획자 (회원/플랫폼)', 'planner.park@company.com', '#d97706'),
-  (4, '정유리 (주임)', '1234', 'member', '서비스기획팀', '주임기획자 (데이터/운영)', 'planner.jung@company.com', '#7c3aed'),
-  (5, '최철열', '1234', 'member', '서비스기획팀', '서비스기획자', 'choi@company.com', '#0891b2'),
-  (6, '최철열 (유관부서)', '1234', 'viewer', 'IT 온라인MD팀', '유관부서 담당자', 'guest.viewer@company.com', '#64748b');
+  (1, '최범열', '1234', 'admin', '서비스기획팀', '서비스기획자 / 차장', 'choi@company.com', '#0891b2');
 
--- 3. 다음 신규 회원 가입 시 시퀀스가 7부터 자동 채번되도록 동기화
-SELECT setval(pg_get_serial_sequence('users', 'id'), (SELECT MAX(id) FROM users));
+-- 3. 다음 신규 회원 가입 시 시퀀스가 2부터 자동 채번되도록 동기화
+SELECT setval(pg_get_serial_sequence('users', 'id'), 1);
 
 -- 4. 업무(tasks) 및 휴가(vacations) 테이블의 담당자 ID를 새 시퀀스 ID(1, 2, 3...)와 동기화
 UPDATE tasks SET assignee_id = '1' WHERE assignee_id = 'user-1';

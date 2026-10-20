@@ -353,7 +353,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 <input
                   type="text"
                   required
-                  placeholder="예: 김기획, 이수진, 최협업 등"
+                  placeholder="예: 최범열 또는 등록된 성명 입력"
                   value={loginName}
                   onChange={(e) => setLoginName(e.target.value)}
                   className="form-input"
