@@ -146,13 +146,13 @@ export function SisunRenewalStoryStage() {
       if (tick < 12) return -4.5 + easeInOut(tick / 12) * 5.0; // -4.5% -> 0.5%(빼꼼)
       if (tick < 26) return 0.5 + easeInOut((tick - 12) / 14) * 9.0; // 0.5% -> 9.5%(고민하며 걸어옴)
       if (tick < 50) return 9.5; // 바닥에 앉아 첫 설계
-      if (tick < 60) return 9.5 + easeInOut((tick - 50) / 10) * 12.0; // 9.5% -> 21.5%(디자이너에게 이동)
-      return 21.5; // 60~72: 첫 산출물 전달
+      if (tick < 60) return 9.5 + easeInOut((tick - 50) / 10) * 14.0; // 9.5% -> 23.5%(디자이너에게 더 가까이 밀착!)
+      return 23.5; // 60~72: 첫 산출물 전달 (디자이너 32.5%와 9.0% 간격으로 밀착)
     }
-    if (pLoop < 14) return 21.5 - easeInOut(pLoop / 14) * 12.0; // 21.5% -> 9.5%(왼쪽으로 고민하며 걸어감!)
+    if (pLoop < 14) return 23.5 - easeInOut(pLoop / 14) * 14.0; // 23.5% -> 9.5%(왼쪽으로 고민하며 걸어감!)
     if (pLoop < 66) return 9.5; // 바닥에 털푸덕 앉아 새로운 설계
-    if (pLoop < 76) return 9.5 + easeInOut((pLoop - 66) / 10) * 12.0; // 9.5% -> 21.5%(디자이너에게 이동)
-    return 21.5; // 76~88: 디자이너에게 새로운 산출물 전달
+    if (pLoop < 76) return 9.5 + easeInOut((pLoop - 66) / 10) * 14.0; // 9.5% -> 23.5%(디자이너에게 밀착 이동)
+    return 23.5; // 76~88: 디자이너(32.5%)에게 새로운 산출물 전달
   };
 
   const plannerLeft = getPlannerLeft();
@@ -171,7 +171,11 @@ export function SisunRenewalStoryStage() {
   // (산출물 전달 후 왼쪽으로 고민하며 돌아갈 때(isPlannerThinkWalkLeft)는 plannerFlipRight = false가 되어 자연스럽게 왼쪽을 보며 고민하며 걸어감!)
   const plannerFlipRight = isPlannerPeek || isPlannerThinkWalkRight || isPlannerWalkToDesigner;
 
-  // 좌측 칠판(Zone 1: 기획자 머리 위) 진행률
+  // 좌측 칠판(Zone 1: 기획자 머리 위) 진행률 및 새 사이클 전환 시 부드러운 지우개 페이드
+  const isPlannerErasing = !isPlannerIntro && pLoop < 10;
+  const plannerBoardFade = isPlannerErasing
+    ? 0.25 + 0.75 * Math.abs(Math.cos((pLoop / 10) * Math.PI))
+    : 1;
   const plannerBoardProgress = isPlannerIntro
     ? tick < 12
       ? Math.round((tick / 12) * 12)
@@ -180,10 +184,12 @@ export function SisunRenewalStoryStage() {
       : tick < 50
       ? Math.min(100, Math.round(40 + ((tick - 26) / 22) * 60))
       : 100
+    : pLoop < 5
+    ? 100 // 지우개가 스윽 지나가는 전반부 동안 이전 도면이 부드럽게 페이드아웃
     : pLoop < 14
-    ? Math.round(15 + (pLoop / 14) * 25)
+    ? Math.round(((pLoop - 5) / 9) * 32)
     : pLoop < 66
-    ? Math.min(100, Math.round(40 + ((pLoop - 14) / 46) * 60))
+    ? Math.min(100, Math.round(32 + ((pLoop - 14) / 46) * 68))
     : 100;
 
   // =========================================================================
@@ -191,14 +197,14 @@ export function SisunRenewalStoryStage() {
   //    [최초 등장 (0 ~ 60틱)]
   //      - 0 ~ 28: 무대 아래에서 대기 (기획자가 먼저 등장해 설계를 시작할 때까지 대기)
   //      - 28 ~ 48: 기획자가 한창 설계 중인 타이밍에 뒤돌은 상태로 밑에서부터 기어올라오듯 등장 (climb-1..12)
-  //      - 48 ~ 60: 올라와서 좌측 기획자 쪽(33.5%)으로 다가가기 (walk-s1..s12, 41.0% -> 33.5%)
+  //      - 48 ~ 60: 올라와서 좌측 기획자 쪽(32.5%)으로 다가가기 (walk-s1..s12, 41.5% -> 32.5%)
   //    [연속 루프 (60틱 이후, 88틱 주기: dLoop = (tick - 60) % 88)]
-  //      - 0 ~ 12 (12틱): [1차 핸드오프 100% 일치!] 기획자(21.5%)가 건네주는 설계도를 전달받음 (receive-1..8, 33.5%)
-  //      - 12 ~ 18 (6틱): 전달받은 설계도를 들고 중앙 작업 위치(41.0%)로 이동 (walk-s1..s12, 33.5% -> 41.0%)
-  //      - 18 ~ 58 (40틱): 전달받은 설계 도면에 직접 알록달록 색칠(디자인) 진행 (paint-1..12, 41.0%)
-  //      - 58 ~ 66 (8틱): 완료되면 우측 퍼블리셔 쪽(48.5%)으로 다가가기 (walk-s1..s12, 41.0% -> 48.5%)
-  //      - 66 ~ 78 (12틱): [2차 핸드오프 100% 일치!] 퍼블리셔(63.5%)에게 완성된 디자인 산출물 전달 (handoff-1..8, 48.5%)
-  //      - 78 ~ 88 (10틱): 사라지지 않고 다시 왼쪽(48.5% -> 33.5%)으로 걸어가 기획자의 새 산출물 맞이 준비! -> 0틱(수령)으로 직결
+  //      - 0 ~ 12 (12틱): [1차 핸드오프 밀착!] 기획자(23.5%)가 건네주는 설계도를 바로 앞에서 전달받음 (receive-1..8, 32.5%)
+  //      - 12 ~ 18 (6틱): 전달받은 설계도를 들고 중앙 작업 위치(41.5%)로 이동 (walk-s1..s12, 32.5% -> 41.5%)
+  //      - 18 ~ 58 (40틱): 전달받은 설계 도면에 직접 알록달록 색칠(디자인) 진행 (paint-1..12, 41.5%)
+  //      - 58 ~ 66 (8틱): 완료되면 우측 퍼블리셔 쪽(51.5%)으로 가까이 다가가기 (walk-s1..s12, 41.5% -> 51.5%)
+  //      - 66 ~ 78 (12틱): [2차 핸드오프 밀착!] 퍼블리셔(60.5%)에게 완성된 디자인 산출물 전달 (handoff-1..8, 51.5%)
+  //      - 78 ~ 88 (10틱): 사라지지 않고 다시 왼쪽(51.5% -> 32.5%)으로 걸어가 기획자의 새 산출물 맞이 준비! -> 0틱(수령) 직결
   // =========================================================================
   const isDesignerIntro = tick < 60;
   const dLoop = isDesignerIntro ? -1 : (tick - 60) % 88;
@@ -243,15 +249,15 @@ export function SisunRenewalStoryStage() {
 
   const getDesignerLeft = (): number => {
     if (isDesignerIntro) {
-      if (tick < 48) return 41.0; // 중앙 아래에서 기어올라옴
-      return 41.0 - easeInOut((tick - 48) / 12) * 7.5; // 41.0% -> 33.5%(기획자 마중)
+      if (tick < 48) return 41.5; // 중앙 아래에서 기어올라옴
+      return 41.5 - easeInOut((tick - 48) / 12) * 9.0; // 41.5% -> 32.5%(기획자 마중 밀착)
     }
-    if (dLoop < 12) return 33.5; // 33.5% 기획자(21.5%)에게 설계도 수령!
-    if (dLoop < 18) return 33.5 + easeInOut((dLoop - 12) / 6) * 7.5; // 33.5% -> 41.0%
-    if (dLoop < 58) return 41.0; // 받은 설계도에 색칠하기
-    if (dLoop < 66) return 41.0 + easeInOut((dLoop - 58) / 8) * 7.5; // 41.0% -> 48.5%(퍼블리셔에게 이동)
-    if (dLoop < 78) return 48.5; // 48.5% 퍼블리셔(63.5%)에게 완성된 디자인 전달!
-    return 48.5 - easeInOut((dLoop - 78) / 10) * 15.0; // 48.5% -> 33.5%(다시 왼쪽으로 걸어가 기획자의 새 산출물 받기!)
+    if (dLoop < 12) return 32.5; // 32.5% 기획자(23.5%)와 9.0% 간격으로 밀착해 설계도 수령!
+    if (dLoop < 18) return 32.5 + easeInOut((dLoop - 12) / 6) * 9.0; // 32.5% -> 41.5%
+    if (dLoop < 58) return 41.5; // 받은 설계도에 색칠하기
+    if (dLoop < 66) return 41.5 + easeInOut((dLoop - 58) / 8) * 10.0; // 41.5% -> 51.5%(퍼블리셔에게 밀착 이동)
+    if (dLoop < 78) return 51.5; // 51.5% 퍼블리셔(60.5%)와 9.0% 간격으로 밀착해 디자인 전달!
+    return 51.5 - easeInOut((dLoop - 78) / 10) * 19.0; // 51.5% -> 32.5%(다시 왼쪽으로 걸어가 기획자의 새 산출물 받기!)
   };
 
   const designerLeft = getDesignerLeft();
@@ -266,14 +272,22 @@ export function SisunRenewalStoryStage() {
     ? `paint-${getWorkSubFrame(subTick, 3)}`
     : `handoff-${getInteractSubFrame(subTick, 3)}`;
 
-  // 우측으로 이동할 때(33.5->41.0, 41.0->48.5) 또는 우측 퍼블리셔에게 산출물을 건넬 때만 우측 방향 반전
-  // (산출물 전달 후 다시 왼쪽 48.5->33.5으로 걸어갈 때는 왼쪽을 바라보며 자연스럽게 이동)
+  // 우측으로 이동할 때(32.5->41.5, 41.5->51.5) 또는 우측 퍼블리셔에게 산출물을 건넬 때만 우측 방향 반전
   const designerFlipRight =
     isDesignerWalkToCenter || isDesignerWalkToPublisher || isDesignerHandoff;
 
-  // 중앙 칠판(Zone 2: 디자이너 머리 위) 진행률 (새 설계도 수령 후 색칠하는 동안 100% 완성)
+  // 중앙 칠판(Zone 2: 디자이너 머리 위) 진행률 및 새 사이클 전환 시 부드러운 지우개 페이드
+  const isFirstDesignerLoop = !isDesignerIntro && tick < 148;
+  const isDesignerErasing = !isDesignerIntro && !isFirstDesignerLoop && dLoop < 10;
+  const designerBoardFade = isDesignerErasing
+    ? 0.25 + 0.75 * Math.abs(Math.cos((dLoop / 10) * Math.PI))
+    : 1;
   const designerBoardProgress = isDesignerIntro
     ? 0
+    : dLoop < 5
+    ? isFirstDesignerLoop
+      ? 0
+      : 100 // 2번째 루프부터는 지우개가 지나가는 전반부 동안 이전 컬러 시안이 부드럽게 페이드아웃
     : dLoop < 12
     ? 0
     : dLoop < 18
@@ -287,27 +301,29 @@ export function SisunRenewalStoryStage() {
   //    [최초 등장 (0 ~ 126틱)]
   //      - 0 ~ 94: 우측 끝 화면 밖에서 대기
   //      - 94 ~ 126: 디자이너가 한창 색칠(디자인) 중인 타이밍에 우측 끝(92%)에서 음표(♪ ♫)를 띄우며
-  //                  흥얼거리면서 걸어 나타남 (hum-walk-1..12, 92.0% -> 63.5%)
+  //                  흥얼거리면서 걸어 나타남 (hum-walk-1..12, 92.0% -> 60.5%)
   //    [연속 루프 (126틱 이후, 88틱 주기: pubLoop = (tick - 126) % 88)]
-  //      - 0 ~ 12 (12틱): [2차 핸드오프 100% 일치!] 디자이너(48.5%)가 건네주는 디자인 산출물을 수령 (receive-1..8, 63.5%)
-  //      - 12 ~ 18 (6틱): 우측 칠판(Zone 3) 아래 작업 위치(72.5%)로 이동 (walk-s1..s12, 63.5% -> 72.5%)
-  //      - 18 ~ 28 (10틱): 코딩에 집중하기 위해 양손으로 헤드셋을 머리에서 목으로 벗는 모션 (headset-off-1..8, 72.5%)
-  //      - 28 ~ 66 (38틱): 헤드셋을 벗어 목에 걸친 채 노트북으로 열정적으로 코딩 진행 (code-focus-1..12, 72.5%)
-  //      - 66 ~ 78 (12틱): 시선닷컴 반응형 웹 퍼블리싱 완료 환호! (complete-1..8, 72.5%)
-  //      - 78 ~ 88 (10틱): 사라지지 않고 다시 왼쪽(72.5% -> 63.5%)으로 걸어가 디자이너의 새 산출물 맞이 준비! -> 0틱(수령) 직결
+  //      - 0 ~ 12 (12틱): [2차 핸드오프 밀착!] 디자이너(51.5%)가 건네주는 디자인 산출물을 바로 앞에서 수령 (receive-1..8, 60.5%)
+  //      - 12 ~ 18 (6틱): 우측 칠판(Zone 3) 아래 작업 위치(73.0%)로 이동 (walk-s1..s12, 60.5% -> 73.0%)
+  //      - 18 ~ 28 (10틱): 코딩에 집중하기 위해 양손으로 헤드셋을 머리에서 목으로 벗는 모션 (headset-off-1..8, 73.0%)
+  //      - 28 ~ 66 (38틱): 헤드셋을 벗어 목에 걸친 채 노트북으로 열정적으로 코딩 진행 (code-focus-1..12, 73.0%)
+  //      - 66 ~ 78 (12틱): 시선닷컴 반응형 웹 퍼블리싱 완료 환호! (complete-1..8, 73.0%)
+  //      - 78 ~ 88 (10틱): 다시 헤드셋을 끼고 음표(♪ ♫)를 흥얼거리며(hum-walk) 왼쪽(73.0% -> 60.5%)으로 걸어가
+  //                        디자이너의 새 산출물 맞이! ("이동할 땐 음악 감상 -> 코딩할 땐 헤드셋 벗고 집중!" 스토리 완성)
   // =========================================================================
   const isPubIntro = tick < 126;
   const pubLoop = isPubIntro ? -1 : (tick - 126) % 88;
 
   const publisherVisible = tick >= 94;
-  const isPubHumWalk = isPubIntro && tick >= 94 && tick < 126;
+  const isPubWalkToDesigner = !isPubIntro && pubLoop >= 78;
+  // 최초 등장할 때(94~126)뿐 아니라, 완료 후 새 산출물을 받으러 왼쪽으로 걸어갈 때(pubLoop >= 78)도 헤드셋을 끼고 흥얼거리며 이동!
+  const isPubHumWalk = (isPubIntro && tick >= 94 && tick < 126) || isPubWalkToDesigner;
   const isPubReceive = !isPubIntro && pubLoop >= 0 && pubLoop < 12;
   const isPubWalkToDesk = !isPubIntro && pubLoop >= 12 && pubLoop < 18;
   const isPubHeadsetOff = !isPubIntro && pubLoop >= 18 && pubLoop < 28;
   const isPubCodingNoHeadset = !isPubIntro && pubLoop >= 28 && pubLoop < 66;
-  const isPubWalkToDesigner = !isPubIntro && pubLoop >= 78;
 
-  const isPublisherWalking = isPubHumWalk || isPubWalkToDesk || isPubWalkToDesigner;
+  const isPublisherWalking = isPubHumWalk || isPubWalkToDesk;
   const basePublisherMotion = getCharacterMotion(isPublisherWalking, subTick, 13);
 
   // 퍼블리셔 특수 모션 (흥얼거리며 리듬 타기 & 헤드셋 벗을 때 상체 움직임)
@@ -347,12 +363,12 @@ export function SisunRenewalStoryStage() {
   const getPublisherLeft = (): number => {
     if (isPubIntro) {
       if (tick < 94) return 92.0; // 우측 화면 밖 대기
-      return 92.0 - easeInOut((tick - 94) / 32) * 28.5; // 92.0%(우측 끝) -> 63.5%(흥얼거리며 등장)
+      return 92.0 - easeInOut((tick - 94) / 32) * 31.5; // 92.0%(우측 끝) -> 60.5%(디자이너 앞으로 흥얼거리며 밀착 등장)
     }
-    if (pubLoop < 12) return 63.5; // 63.5% 디자이너(48.5%)에게 디자인 산출물 수령!
-    if (pubLoop < 18) return 63.5 + easeInOut((pubLoop - 12) / 6) * 9.0; // 63.5% -> 72.5%(Zone 3 중앙)
-    if (pubLoop < 78) return 72.5; // 헤드셋 벗고 코딩 & 완료
-    return 72.5 - easeInOut((pubLoop - 78) / 10) * 9.0; // 72.5% -> 63.5%(다시 왼쪽으로 걸어가 디자이너의 새 산출물 받기!)
+    if (pubLoop < 12) return 60.5; // 60.5% 디자이너(51.5%)와 9.0% 간격으로 밀착해 디자인 산출물 수령!
+    if (pubLoop < 18) return 60.5 + easeInOut((pubLoop - 12) / 6) * 12.5; // 60.5% -> 73.0%(Zone 3 중앙)
+    if (pubLoop < 78) return 73.0; // 헤드셋 벗고 코딩 & 완료
+    return 73.0 - easeInOut((pubLoop - 78) / 10) * 12.5; // 73.0% -> 60.5%(헤드셋 끼고 흥얼거리며 디자이너의 새 산출물 받으러 이동!)
   };
 
   const publisherLeft = getPublisherLeft();
@@ -361,7 +377,7 @@ export function SisunRenewalStoryStage() {
     ? `hum-walk-${getWorkSubFrame(subTick, 4)}`
     : isPubReceive
     ? `receive-${getInteractSubFrame(subTick, 7)}`
-    : isPubWalkToDesk || isPubWalkToDesigner
+    : isPubWalkToDesk
     ? getWalkSubSprite(subTick, 11)
     : isPubHeadsetOff
     ? `headset-off-${getInteractSubFrame(subTick, 5)}`
@@ -369,12 +385,21 @@ export function SisunRenewalStoryStage() {
     ? `code-focus-${getWorkSubFrame(subTick, 7)}`
     : `complete-${getInteractSubFrame(subTick, 7)}`;
 
-  // 우측 작업석(63.5% -> 72.5%)으로 이동할 때만 우측 방향 반전 (나머지 이동·수령은 모두 왼쪽을 바라봄)
+  // 우측 작업석(60.5% -> 73.0%)으로 이동할 때만 우측 방향 반전 (흥얼거리며 왼쪽으로 이동·수령할 때는 왼쪽을 바라봄)
   const publisherFlipRight = isPubWalkToDesk;
 
-  // 우측 칠판(Zone 3: 퍼블리셔 머리 위) 진행률 (새 산출물 수령 후 코딩하는 동안 100% 완성)
+  // 우측 칠판(Zone 3: 퍼블리셔 머리 위) 진행률 및 새 사이클 전환 시 부드러운 지우개 페이드
+  const isFirstPubLoop = !isPubIntro && tick < 214;
+  const isPublisherErasing = !isPubIntro && !isFirstPubLoop && pubLoop < 10;
+  const publisherBoardFade = isPublisherErasing
+    ? 0.25 + 0.75 * Math.abs(Math.cos((pubLoop / 10) * Math.PI))
+    : 1;
   const publisherBoardProgress = isPubIntro
     ? 0
+    : pubLoop < 5
+    ? isFirstPubLoop
+      ? 0
+      : 100 // 2번째 루프부터는 지우개가 지나가는 전반부 동안 이전 코드가 부드럽게 페이드아웃
     : pubLoop < 12
     ? 0
     : pubLoop < 18
@@ -579,8 +604,15 @@ export function SisunRenewalStoryStage() {
                 </span>
               </div>
 
-              {/* Zone 1 미니멀 와이어프레임 도면 (블록이 순서대로 깔끔하게 그려짐) */}
-              <div style={{ flex: 1, minHeight: 0 }}>
+              {/* Zone 1 미니멀 와이어프레임 도면 (블록이 순서대로 깔끔하게 그려짐 + 새 사이클 시 부드러운 페이드 전환) */}
+              <div
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  opacity: plannerBoardFade,
+                  transition: 'opacity 0.22s ease',
+                }}
+              >
                 <svg viewBox="0 0 340 270" width="100%" height="100%" style={{ display: 'block' }}>
                   {/* 외곽 브라우저 프레임 */}
                   <rect
@@ -760,8 +792,15 @@ export function SisunRenewalStoryStage() {
                 </span>
               </div>
 
-              {/* Zone 2 미니멀 컬러 UI 디자인 보드 (와이어프레임과 동일한 구조에 컬러와 비주얼이 입혀짐) */}
-              <div style={{ flex: 1, minHeight: 0 }}>
+              {/* Zone 2 미니멀 컬러 UI 디자인 보드 (와이어프레임과 동일한 구조에 컬러와 비주얼이 입혀짐 + 부드러운 페이드 전환) */}
+              <div
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  opacity: designerBoardFade,
+                  transition: 'opacity 0.22s ease',
+                }}
+              >
                 <svg viewBox="0 0 340 270" width="100%" height="100%" style={{ display: 'block' }}>
                   <defs>
                     <linearGradient id="cleanHeroGrad" x1="0" y1="0" x2="1" y2="1">
@@ -951,8 +990,15 @@ export function SisunRenewalStoryStage() {
                 </div>
               </div>
 
-              {/* Zone 3 미니멀 코드 에디터 창 (코드가 한 줄씩 깔끔하게 타이핑됨) */}
-              <div style={{ flex: 1, minHeight: 0 }}>
+              {/* Zone 3 미니멀 코드 에디터 창 (코드가 한 줄씩 깔끔하게 타이핑됨 + 부드러운 페이드 전환) */}
+              <div
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  opacity: publisherBoardFade,
+                  transition: 'opacity 0.22s ease',
+                }}
+              >
                 <svg viewBox="0 0 340 270" width="100%" height="100%" style={{ display: 'block' }}>
                   <rect
                     x="4"
@@ -1027,18 +1073,206 @@ export function SisunRenewalStoryStage() {
         </div>
 
         {/* =====================================================================
-            2. 하단 캐릭터 동시 액션 무대 (칠판과 가깝게 밀착, 점선 및 하단 안내 멘트 제거)
+            2. 하단 캐릭터 동시 액션 무대 (따뜻하고 세련된 사무실 벽면·우드 바닥 배경 + 3인 협업)
            ===================================================================== */}
         <div
           style={{
             position: 'relative',
             width: '100%',
             height: '248px',
-            background: '#ffffff',
+            background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 68%, #e2e8f0 100%)',
+            borderRadius: '0 0 16px 16px',
             marginTop: '-10px',
             overflow: 'hidden',
           }}
         >
+          {/* ---------------- [사무실 배경 레이어 1] 스튜디오 벽면 웨인스코팅 패널 & 소품 ---------------- */}
+          <svg
+            viewBox="0 0 1200 190"
+            preserveAspectRatio="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '188px',
+              pointerEvents: 'none',
+              zIndex: 1,
+            }}
+          >
+            {/* 은은한 벽면 웨인스코팅(Wainscoting) 몰딩 라인 */}
+            <rect
+              x="24"
+              y="18"
+              width="356"
+              height="152"
+              rx="6"
+              fill="rgba(255,255,255,0.45)"
+              stroke="#e2e8f0"
+              strokeWidth="1.5"
+            />
+            <rect
+              x="404"
+              y="18"
+              width="392"
+              height="152"
+              rx="6"
+              fill="rgba(255,255,255,0.45)"
+              stroke="#e2e8f0"
+              strokeWidth="1.5"
+            />
+            <rect
+              x="820"
+              y="18"
+              width="356"
+              height="152"
+              rx="6"
+              fill="rgba(255,255,255,0.45)"
+              stroke="#e2e8f0"
+              strokeWidth="1.5"
+            />
+
+            {/* [좌측 · 기획 구역 벽면 소품] 채광 창문 + 미니 벽시계 + 포스트잇 메모 보드 */}
+            <g opacity="0.85">
+              {/* 스튜디오 채광 창문 */}
+              <rect
+                x="48"
+                y="32"
+                width="96"
+                height="94"
+                rx="6"
+                fill="#e0f2fe"
+                stroke="#cbd5e1"
+                strokeWidth="3"
+              />
+              <line x1="96" y1="32" x2="96" y2="126" stroke="#cbd5e1" strokeWidth="2.5" />
+              <line x1="48" y1="79" x2="144" y2="79" stroke="#cbd5e1" strokeWidth="2.5" />
+              <polygon points="56,118 82,42 92,42 66,118" fill="rgba(255,255,255,0.55)" />
+              {/* 원형 벽시계 */}
+              <circle cx="332" cy="54" r="18" fill="#ffffff" stroke="#94a3b8" strokeWidth="2.5" />
+              <line x1="332" y1="54" x2="332" y2="43" stroke="#475569" strokeWidth="2" strokeLinecap="round" />
+              <line x1="332" y1="54" x2="341" y2="54" stroke="#475569" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="332" cy="54" r="2" fill="#ef4444" />
+              {/* 미니 아이디어 메모 보드 */}
+              <rect x="250" y="76" width="62" height="44" rx="4" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.8" />
+              <rect x="257" y="83" width="14" height="13" rx="1.5" fill="#fef08a" />
+              <rect x="275" y="83" width="14" height="13" rx="1.5" fill="#bfdbfe" />
+              <rect x="293" y="83" width="12" height="13" rx="1.5" fill="#fbcfe8" />
+              <rect x="257" y="100" width="22" height="12" rx="1.5" fill="#bbf7d0" />
+            </g>
+
+            {/* [중앙 · 디자인 구역 벽면 소품] 우드 선반 + 컬러 프레임 액자 + 스튜디오 화분 */}
+            <g opacity="0.88">
+              {/* 월넛 우드 벽선반 */}
+              <rect x="546" y="72" width="118" height="6" rx="3" fill="#caa074" />
+              <rect x="558" y="42" width="28" height="30" rx="3" fill="#ffffff" stroke="#94a3b8" strokeWidth="2" />
+              <circle cx="572" cy="54" r="6" fill="#f472b6" />
+              <rect x="564" y="63" width="16" height="4" rx="1" fill="#38bdf8" />
+              {/* 선반 위 디자인 북 & 미니 다육이 */}
+              <rect x="596" y="50" width="8" height="22" rx="1.5" fill="#60a5fa" />
+              <rect x="605" y="53" width="8" height="19" rx="1.5" fill="#fbbf24" />
+              <rect x="615" y="48" width="9" height="24" rx="1.5" fill="#a78bfa" />
+              <rect x="636" y="58" width="14" height="14" rx="3" fill="#f97316" />
+              <circle cx="643" cy="54" r="7" fill="#34d399" />
+              {/* 바닥 쪽 아늑한 스튜디오 몬스테라 화분 (기획-디자인 사이 공간) */}
+              <ellipse cx="392" cy="144" rx="14" ry="8" fill="#6ee7b7" />
+              <ellipse cx="382" cy="150" rx="11" ry="6" fill="#34d399" transform="rotate(-18 382 150)" />
+              <ellipse cx="402" cy="150" rx="11" ry="6" fill="#10b981" transform="rotate(18 402 150)" />
+              <polygon points="382,155 402,155 398,184 386,184" fill="#d97706" />
+              <rect x="380" y="152" width="24" height="5" rx="2" fill="#b45309" />
+            </g>
+
+            {/* [우측 · 퍼블리싱 구역 벽면 소품] 우드 선반 + 머그컵/개발서적 + 우측 코너 화분 */}
+            <g opacity="0.88">
+              <rect x="965" y="72" width="114" height="6" rx="3" fill="#caa074" />
+              {/* 선반 위 커피 머그컵 & 북엔드 */}
+              <rect x="980" y="56" width="14" height="16" rx="2.5" fill="#818cf8" />
+              <path d="M994 59 H998 A3 3 0 0 1 998 68 H994" fill="none" stroke="#818cf8" strokeWidth="2" />
+              <rect x="1010" y="48" width="9" height="24" rx="1.5" fill="#38bdf8" />
+              <rect x="1020" y="51" width="9" height="21" rx="1.5" fill="#f472b6" />
+              <rect x="1030" y="46" width="10" height="26" rx="1.5" fill="#34d399" />
+              {/* 우측 코너 키 큰 오피스 화분 */}
+              <ellipse cx="1138" cy="132" rx="15" ry="9" fill="#34d399" />
+              <ellipse cx="1126" cy="142" rx="13" ry="7" fill="#10b981" transform="rotate(-22 1126 142)" />
+              <ellipse cx="1150" cy="142" rx="13" ry="7" fill="#6ee7b7" transform="rotate(22 1150 142)" />
+              <polygon points="1126,150 1150,150 1146,184 1130,184" fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1.5" />
+            </g>
+          </svg>
+
+          {/* ---------------- [사무실 배경 레이어 2] 원목 걸레받이 몰딩 (Baseboard) ---------------- */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '58px',
+              left: 0,
+              right: 0,
+              height: '8px',
+              background: 'linear-gradient(180deg, #e2c6a6 0%, #c8a074 100%)',
+              borderTop: '1px solid rgba(255, 255, 255, 0.7)',
+              borderBottom: '1px solid #a67c52',
+              boxShadow: '0 2px 4px rgba(15, 23, 42, 0.08)',
+              zIndex: 2,
+            }}
+          />
+
+          {/* ---------------- [사무실 배경 레이어 3] 따뜻한 오크 우드 플로어 & 3인 작업 구역 러그 ---------------- */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: '58px',
+              background:
+                'repeating-linear-gradient(180deg, rgba(166, 124, 82, 0.10) 0px, rgba(166, 124, 82, 0.10) 1px, transparent 1px, transparent 14px), linear-gradient(180deg, #f3e7d8 0%, #ead8c3 52%, #dfcaa9 100%)',
+              zIndex: 2,
+            }}
+          >
+            {/* 우드 플로어 원근감 이음선 & 각 캐릭터 작업석 바닥 포인트 매트 */}
+            <svg
+              viewBox="0 0 1200 58"
+              preserveAspectRatio="none"
+              style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none' }}
+            >
+              {/* 마루바닥 원근 구분선 */}
+              <line x1="180" y1="0" x2="110" y2="58" stroke="rgba(146, 102, 58, 0.16)" strokeWidth="1.5" />
+              <line x1="390" y1="0" x2="345" y2="58" stroke="rgba(146, 102, 58, 0.16)" strokeWidth="1.5" />
+              <line x1="600" y1="0" x2="600" y2="58" stroke="rgba(146, 102, 58, 0.16)" strokeWidth="1.5" />
+              <line x1="810" y1="0" x2="855" y2="58" stroke="rgba(146, 102, 58, 0.16)" strokeWidth="1.5" />
+              <line x1="1020" y1="0" x2="1090" y2="58" stroke="rgba(146, 102, 58, 0.16)" strokeWidth="1.5" />
+
+              {/* 1) 기획자 바닥 착석 매트 (털푸덕 앉아 설계하는 9.5% 구역) */}
+              <ellipse
+                cx="228"
+                cy="34"
+                rx="88"
+                ry="15"
+                fill="rgba(224, 242, 254, 0.72)"
+                stroke="rgba(125, 211, 252, 0.85)"
+                strokeWidth="2"
+              />
+              {/* 2) 디자이너 작업 구역 매트 (41.5% 구역) */}
+              <ellipse
+                cx="616"
+                cy="34"
+                rx="88"
+                ry="15"
+                fill="rgba(209, 250, 229, 0.72)"
+                stroke="rgba(110, 231, 183, 0.85)"
+                strokeWidth="2"
+              />
+              {/* 3) 퍼블리셔 코딩 구역 매트 (73.0% 구역) */}
+              <ellipse
+                cx="994"
+                cy="34"
+                rx="88"
+                ry="15"
+                fill="rgba(237, 233, 254, 0.75)"
+                stroke="rgba(196, 181, 253, 0.85)"
+                strokeWidth="2"
+              />
+            </svg>
+          </div>
           {/* ---------------- 주인공 1: 기획자 (좌측 끝에서 가장 먼저 등장 · 236x268 확대) ---------------- */}
           <div
             style={{
