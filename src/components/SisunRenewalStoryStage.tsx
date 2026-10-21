@@ -4,19 +4,27 @@ import { Play, Pause } from 'lucide-react';
 export function SisunRenewalStoryStage() {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
 
-  // 1서브틱 = 50ms (20fps 안정적인 모션 타이머, 스프라이트는 100ms(10fps) 주기로 깜빡임 없이 전환)
+  // 60fps requestAnimationFrame 기반 초정밀 연속 타이머 (1초 = 20 subTick = 10 tick)
   const [subTick, setSubTick] = useState<number>(0);
 
   useEffect(() => {
     if (!isPlaying) return;
-    const timer = window.setInterval(() => {
-      // 초기 등장 이후 3인이 사라지지 않고 영구적으로 협업 루프를 이어가도록 연속 증가
-      setSubTick((prev) => prev + 1);
-    }, 50);
-    return () => window.clearInterval(timer);
+    let rafId = 0;
+    let lastTime = performance.now();
+
+    const step = (now: number) => {
+      const dt = Math.min(64, Math.max(0, now - lastTime));
+      lastTime = now;
+      // 50ms당 1.0 subTick 속도로 60fps(16.6ms)마다 실수(float) 단위로 매끄럽게 보간 진행
+      setSubTick((prev) => prev + dt / 50);
+      rafId = window.requestAnimationFrame(step);
+    };
+
+    rafId = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(rafId);
   }, [isPlaying]);
 
-  // 연속 타임라인 틱 (0.0, 0.5, 1.0, 1.5 ...)
+  // 60fps 연속 실수 타임라인 틱
   const tick = subTick / 2;
 
   // 부드러운 가감속(Ease-In-Out Sine) 보간 헬퍼
@@ -25,19 +33,19 @@ export function SisunRenewalStoryStage() {
     return -(Math.cos(Math.PI * clamped) - 1) / 2;
   };
 
-  // 12프레임 360° 연속 사인파 워킹 사이클 (100ms마다 한 프레임씩 부드럽게 순환)
+  // 12프레임 360° 연속 하모닉 워킹 사이클 (단일 마스터 기반 흔들림 없는 보행 스프라이트)
   const getWalkSubSprite = (st: number, offset: number) =>
-    `walk-s${(Math.floor((st + offset) / 2) % 12) + 1}`;
+    `walk-s${(Math.floor((st + offset) * 0.5) % 12) + 1}`;
 
-  // 12프레임 360° 연속 사인파 메인 액션 사이클 (1 -> 2 -> ... -> 12 -> 1)
+  // 12프레임 360° 연속 하모닉 메인 액션 사이클 (1 -> 2 -> ... -> 12 -> 1)
   const getWorkSubFrame = (st: number, offset: number) =>
-    (Math.floor((st + offset) / 2) % 12) + 1;
+    (Math.floor((st + offset) * 0.5) % 12) + 1;
 
-  // 8프레임 360° 연속 사인파 인터랙션 사이클 (1 -> 2 -> ... -> 8 -> 1)
+  // 8프레임 360° 연속 하모닉 인터랙션 사이클 (1 -> 2 -> ... -> 8 -> 1)
   const getInteractSubFrame = (st: number, offset: number) =>
-    (Math.floor((st + offset) / 2) % 8) + 1;
+    (Math.floor((st + offset) * 0.5) % 8) + 1;
 
-  // 극장판 애니메이션 물리 엔진: 보행 방향 기울기(Velocity Lean) + 착지 탄성(Snap & Squash) + 비대칭 리듬
+  // 60fps 연속 사인파 모션 엔진 (머리 높이와 상하체 비율을 100% 안정적으로 유지하는 차분한 호흡·보행 물리)
   const getCharacterMotion = (
     isWalking: boolean,
     st: number,
@@ -45,28 +53,25 @@ export function SisunRenewalStoryStage() {
     walkDir: -1 | 0 | 1 = 0
   ) => {
     if (isWalking) {
-      // 6서브틱(300ms) = 1보행 스텝 사이클 (스프라이트 멀티포즈 다리 교차와 100% 동기화!)
       const stepPhase = (((st + phaseOffset) % 6) / 6) * Math.PI;
-      const arch = Math.sin(stepPhase); // 0 -> 1(공중 정점) -> 0(착지)
-      const isContact = arch < 0.28;
-      const bounceY = -Math.pow(arch, 0.85) * 10.5 + (isContact ? 1.8 : 0);
-      const squash = isContact ? -0.038 : arch * 0.028;
-      const scaleX = 1 - squash * 0.8;
+      const arch = Math.sin(stepPhase); // 0 -> 1 -> 0 연속 곡선
+      const bounceY = -arch * 3.6;
+      const squash = Math.cos(stepPhase * 2) * 0.011;
+      const scaleX = 1 - squash * 0.7;
       const scaleY = 1 + squash;
-      // 진행 방향으로 몸을 살짝 기울이는 추진력(Velocity Lean) + 발걸음 리듬 스웨이
-      const velocityLean = walkDir * 2.8;
-      const stepSway = Math.cos(((st + phaseOffset) / 6) * Math.PI) * 2.2;
+      const velocityLean = walkDir * 1.1;
+      const stepSway = Math.cos(((st + phaseOffset) / 6) * Math.PI) * 0.9;
       const rotateDeg = velocityLean + stepSway;
-      const shadowScale = 1 - arch * 0.24 + (isContact ? 0.06 : 0);
+      const shadowScale = 1 - arch * 0.08;
       return { bounceY, scaleX, scaleY, rotateDeg, shadowScale };
     } else {
-      const phase = (st + phaseOffset) * 0.28;
-      const bounceY = Math.sin(phase) * 2.2 - 1.2;
-      const squash = Math.sin(phase) * 0.014;
-      const scaleX = 1 - squash * 0.65;
+      const phase = (st + phaseOffset) * 0.24;
+      const bounceY = Math.sin(phase) * 1.2 - 0.6;
+      const squash = Math.sin(phase) * 0.006;
+      const scaleX = 1 - squash * 0.6;
       const scaleY = 1 + squash;
-      const rotateDeg = Math.sin(phase * 0.7) * 1.1;
-      const shadowScale = 1 + Math.sin(phase) * 0.04;
+      const rotateDeg = Math.sin(phase * 0.7) * 0.55;
+      const shadowScale = 1 + Math.sin(phase) * 0.02;
       return { bounceY, scaleX, scaleY, rotateDeg, shadowScale };
     }
   };
@@ -78,8 +83,9 @@ export function SisunRenewalStoryStage() {
   const isPlannerIntro = tick < 72;
   const pLoop = isPlannerIntro ? 0 : (tick - 72) % 88;
 
-  const isPlannerPeek = isPlannerIntro && tick < 12;
-  const isPlannerThinkWalkRight = isPlannerIntro && tick >= 12 && tick < 26;
+  // 초기 진입 시 0~6틱에 부드럽게 고개를 내밀고 멈춤 없이 바로 6~26틱 동안 걸어 들어오도록 연결
+  const isPlannerPeek = isPlannerIntro && tick < 6;
+  const isPlannerThinkWalkRight = isPlannerIntro && tick >= 6 && tick < 26;
   const isPlannerThinkWalkLeft = !isPlannerIntro && pLoop < 14;
   const isPlannerThinkWalk = isPlannerThinkWalkRight || isPlannerThinkWalkLeft;
 
@@ -98,88 +104,52 @@ export function SisunRenewalStoryStage() {
 
   const getPlannerSpecialMotion = () => {
     if (isPlannerPeek) {
-      // 빼꼼 등장: 두 번 갸우뚱하며 주변을 살피는 Snap & Hold 모션
-      const peekProgress = easeInOut(Math.min(1, tick / 8));
-      const snapLook = tick > 5 && tick < 8.5 ? -4.5 : 0;
-      const peekBob = -Math.abs(Math.sin(subTick * 0.45)) * 4.5;
+      // 0~6틱: 시작과 끝(tick=6)에서 모두 0으로 수렴하는 종 모양(Bell Curve) 보간으로 포즈 전환 시 각도 점프 원천 차단
+      const peekBell = Math.sin((tick / 6) * Math.PI); // 0 -> 1 -> 0
       return {
-        bounceY: peekBob,
-        scaleX: 1.02,
-        scaleY: 0.98,
-        rotateDeg: 14 * peekProgress + snapLook + Math.sin(subTick * 0.4) * 2.5,
-        shadowScale: 0.88,
+        bounceY: -peekBell * 2.4,
+        scaleX: 1 + peekBell * 0.01,
+        scaleY: 1 - peekBell * 0.01,
+        rotateDeg: peekBell * 4.5,
+        shadowScale: 0.94,
       };
     }
     if (isPlannerThinkWalk) {
-      // 골똘히 고민하며 걷기: 고개를 갸우뚱하며 걷다가 착석 직전(마지막 2틱) "유레카(💡)!" 폴짝 점프!
-      const walkRemain = isPlannerThinkWalkRight ? 26 - tick : 14 - pLoop;
-      if (walkRemain <= 2.2) {
-        const eurekaT = (2.2 - walkRemain) / 2.2;
-        const jumpY = -Math.sin(eurekaT * Math.PI) * 14.0;
-        return {
-          bounceY: jumpY,
-          scaleX: 0.96,
-          scaleY: 1.05,
-          rotateDeg: 0,
-          shadowScale: Math.max(0.65, 1 + jumpY * 0.02),
-        };
-      }
-      const thinkTilt = Math.sin(subTick * 0.32) * 3.8;
+      // 고민하며 걷기: 보행 시작/종료 경계에서 바운스와 기울기가 0으로 부드럽게 감쇠되어 착석과 매끄럽게 직결
+      const walkProgress = isPlannerThinkWalkRight ? (tick - 6) / 20 : pLoop / 14;
+      const walkEnv = Math.sin(Math.max(0, Math.min(1, walkProgress)) * Math.PI);
+      const thinkTilt = Math.sin(subTick * 0.28) * 1.4 * walkEnv;
       return {
-        ...basePlannerMotion,
-        rotateDeg: basePlannerMotion.rotateDeg * 0.5 + thinkTilt,
+        bounceY: basePlannerMotion.bounceY * (0.35 + 0.65 * walkEnv),
+        scaleX: 1 + (basePlannerMotion.scaleX - 1) * walkEnv,
+        scaleY: 1 + (basePlannerMotion.scaleY - 1) * walkEnv,
+        rotateDeg: basePlannerMotion.rotateDeg * 0.6 * walkEnv + thinkTilt,
+        shadowScale: basePlannerMotion.shadowScale,
       };
     }
     if (isPlannerSitSketch) {
-      // 착석 직후 4틱 구간: "털푸덕!" 바닥에 주저앉는 탄성 스쿼시 모션
-      if (sitElapsed < 4) {
-        const t = sitElapsed / 4;
-        const dropY = t < 0.45 ? -9 * (1 - t / 0.45) : 10 * Math.sin(((t - 0.45) / 0.55) * Math.PI);
-        const plopSquash = t >= 0.4 ? Math.sin(((t - 0.4) / 0.6) * Math.PI) * 0.095 : -0.045;
-        return {
-          bounceY: dropY + 6,
-          scaleX: 1 + plopSquash,
-          scaleY: 1 - plopSquash,
-          rotateDeg: Math.sin(t * Math.PI * 2) * 3.0,
-          shadowScale: 1.16 + plopSquash * 0.85,
-        };
-      }
-      // 기상 직전 3틱 구간: 바닥에서 폴짝 일어나는 예비 동작(Stand-up Hop)
-      if (sitElapsed >= sitDuration - 3) {
-        const standT = (sitElapsed - (sitDuration - 3)) / 3;
-        const hopY = standT < 0.38 ? 9 : -11 * Math.sin(((standT - 0.38) / 0.62) * Math.PI);
-        const stretch = standT < 0.38 ? -0.06 : 0.055 * Math.sin(((standT - 0.38) / 0.62) * Math.PI);
-        return {
-          bounceY: hopY,
-          scaleX: 1 - stretch,
-          scaleY: 1 + stretch,
-          rotateDeg: (1 - standT) * 2.5,
-          shadowScale: 1.0 - Math.max(0, -hopY) * 0.022,
-        };
-      }
-      // 스케치 본 구간: 빠른 펜 드로잉(Snap) 11서브틱 + 위쪽 칠판 올려다보기(Hold) 5서브틱 비대칭 리듬!
-      const cyclePos = subTick % 16;
-      const isLookingUp = cyclePos >= 11;
-      const rapidStroke = isLookingUp ? 0 : Math.sin(subTick * 1.45) * 2.6;
-      const lookUpLift = isLookingUp ? -3.5 : 1.5;
-      const lookUpTilt = isLookingUp ? -3.2 : 2.2 + Math.sin(subTick * 0.9) * 1.6;
+      // 바닥 착석 스케치: 처음 2.5틱 동안 부드럽게 바닥에 내려앉고, 마지막 2.5틱 동안 부드럽게 일어남 (단절 점프 없음)
+      const sitIn = easeInOut(Math.min(1, sitElapsed / 2.5));
+      const sitOut = easeInOut(Math.min(1, (sitDuration - sitElapsed) / 2.5));
+      const sitEnv = sitIn * sitOut;
+      const sketchBob = Math.sin(subTick * 0.42) * 1.3 * sitEnv;
+      const sketchTilt = Math.sin(subTick * 0.28) * 1.0 * sitEnv;
       return {
-        bounceY: 6 + lookUpLift + rapidStroke,
-        scaleX: isLookingUp ? 0.985 : 1.015 + Math.sin(subTick * 1.45) * 0.014,
-        scaleY: isLookingUp ? 1.018 : 0.988 - Math.sin(subTick * 1.45) * 0.014,
-        rotateDeg: lookUpTilt,
-        shadowScale: 1.15,
+        bounceY: 4.5 * sitEnv + sketchBob,
+        scaleX: 1 + 0.012 * sitEnv - Math.sin(subTick * 0.42) * 0.005 * sitEnv,
+        scaleY: 1 - 0.012 * sitEnv + Math.sin(subTick * 0.42) * 0.005 * sitEnv,
+        rotateDeg: sketchTilt,
+        shadowScale: 1 + 0.08 * sitEnv,
       };
     }
     if (isPlannerHandoff) {
-      // 산출물 전달: 디자이너를 향해 두 손으로 도면을 내밀며 반갑게 두 번 까딱 인사하는 모션
-      const handoffWave = Math.sin(subTick * 0.65);
+      const handoffWave = Math.sin(subTick * 0.45);
       return {
-        bounceY: -Math.abs(handoffWave) * 5.5,
-        scaleX: 1 - handoffWave * 0.018,
-        scaleY: 1 + handoffWave * 0.018,
-        rotateDeg: 2.5 + handoffWave * 2.4,
-        shadowScale: 1 - Math.abs(handoffWave) * 0.1,
+        bounceY: -Math.abs(handoffWave) * 2.6,
+        scaleX: 1 - handoffWave * 0.008,
+        scaleY: 1 + handoffWave * 0.008,
+        rotateDeg: 1.4 + handoffWave * 1.1,
+        shadowScale: 1 - Math.abs(handoffWave) * 0.04,
       };
     }
     return basePlannerMotion;
@@ -189,16 +159,16 @@ export function SisunRenewalStoryStage() {
 
   const getPlannerLeft = (): number => {
     if (isPlannerIntro) {
-      if (tick < 12) return -4.5 + easeInOut(tick / 12) * 5.0; // -4.5% -> 0.5%(빼꼼)
-      if (tick < 26) return 0.5 + easeInOut((tick - 12) / 14) * 9.0; // 0.5% -> 9.5%(고민하며 걸어옴)
+      // 0~26틱 전체를 하나의 단일 연속 곡선(-4.5% -> 9.5%)으로 이동하여 중간에 멈칫거리거나 끊기는 현상 완벽 제거!
+      if (tick < 26) return -4.5 + easeInOut(tick / 26) * 14.0;
       if (tick < 50) return 9.5; // 바닥에 앉아 첫 설계
-      if (tick < 60) return 9.5 + easeInOut((tick - 50) / 10) * 14.0; // 9.5% -> 23.5%(디자이너에게 더 가까이 밀착!)
-      return 23.5; // 60~72: 첫 산출물 전달 (디자이너 32.5%와 9.0% 간격으로 밀착)
+      if (tick < 60) return 9.5 + easeInOut((tick - 50) / 10) * 14.0; // 9.5% -> 23.5%(디자이너에게 밀착 이동)
+      return 23.5; // 60~72: 첫 산출물 전달
     }
-    if (pLoop < 14) return 23.5 - easeInOut(pLoop / 14) * 14.0; // 23.5% -> 9.5%(왼쪽으로 고민하며 걸어감!)
-    if (pLoop < 66) return 9.5; // 바닥에 털푸덕 앉아 새로운 설계
+    if (pLoop < 14) return 23.5 - easeInOut(pLoop / 14) * 14.0; // 23.5% -> 9.5%(왼쪽으로 고민하며 걸어감)
+    if (pLoop < 66) return 9.5; // 바닥에 앉아 새로운 설계
     if (pLoop < 76) return 9.5 + easeInOut((pLoop - 66) / 10) * 14.0; // 9.5% -> 23.5%(디자이너에게 밀착 이동)
-    return 23.5; // 76~88: 디자이너(32.5%)에게 새로운 산출물 전달
+    return 23.5; // 76~88: 디자이너에게 새로운 산출물 전달
   };
 
   const plannerLeft = getPlannerLeft();
@@ -274,52 +244,47 @@ export function SisunRenewalStoryStage() {
     : 0;
   const baseDesignerMotion = getCharacterMotion(isDesignerWalking, subTick, 7, designerWalkDir);
 
-  // 디자이너 특수 모션: 기어올라오기 + 수령/전달 인사 + 역동적인 붓질 스윙(Snap & Hold)
+  // 디자이너 특수 모션: 과도한 흔들거림이나 단절 점프 없이 60fps 연속 사인파로 부드럽게 이어지는 클라이밍·색칠·핸드오프
   const getDesignerSpecialMotion = () => {
     if (!designerVisible) {
       return { bounceY: 220, scaleX: 1, scaleY: 1, rotateDeg: 0, shadowScale: 0 };
     }
     if (isDesignerClimbing) {
-      // "영차! 영차!" 힘을 주어 턱을 짚고 올라오는 비대칭 클라이밍 텐션
       const climbProgress = easeInOut((tick - 28) / 20); // 0.0 -> 1.0
-      const climbY = (1 - climbProgress) * 165;
-      const pullCycle = (subTick % 8) / 8;
-      const pullSnap = pullCycle < 0.45 ? Math.sin((pullCycle / 0.45) * Math.PI) * -9.5 : 0;
-      const swayDeg = Math.sin(subTick * 0.65) * 4.2;
-      const stretchY = 1 + (pullSnap < -3 ? 0.045 : -0.02);
+      const climbEnv = 1 - climbProgress;
+      const climbY = climbEnv * 155;
+      const stepLift = Math.sin(subTick * 0.45) * -2.6 * climbEnv;
+      const swayDeg = Math.sin(subTick * 0.35) * 1.4 * climbEnv;
+      const stretch = Math.sin(subTick * 0.45) * 0.01 * climbEnv;
       return {
-        bounceY: climbY + pullSnap,
-        scaleX: 2 - stretchY,
-        scaleY: stretchY,
+        bounceY: climbY + stepLift,
+        scaleX: 1 - stretch * 0.7,
+        scaleY: 1 + stretch,
         rotateDeg: swayDeg,
-        shadowScale: Math.max(0.15, climbProgress * 0.95),
+        shadowScale: Math.max(0.2, climbProgress * 0.96),
       };
     }
     if (isDesignerPainting) {
-      // 붓으로 도면을 휙휙 칠하는 3연속 붓질(Snap) + 한 발 물러서서 색감 감상(Hold) 리듬!
-      const paintCycle = subTick % 14;
-      const isAdmiring = paintCycle >= 10;
-      const brushSwing = isAdmiring ? 0 : Math.sin(subTick * 1.35) * 4.2;
-      const bodySwayDeg = isAdmiring ? 2.8 : Math.cos(subTick * 1.35) * 3.4;
-      const squash = isAdmiring ? -0.015 : Math.sin(subTick * 1.35) * 0.024;
+      const paintWave = Math.sin(subTick * 0.42);
+      const bodySwayDeg = Math.cos(subTick * 0.32) * 1.2;
+      const squash = paintWave * 0.008;
       return {
-        bounceY: (isAdmiring ? -2.5 : -Math.abs(brushSwing)) - 1.0,
-        scaleX: 1 - squash * 0.8,
+        bounceY: paintWave * 1.4 - 0.8,
+        scaleX: 1 - squash * 0.7,
         scaleY: 1 + squash,
         rotateDeg: bodySwayDeg,
-        shadowScale: 1 - Math.abs(brushSwing) * 0.025,
+        shadowScale: 1 - Math.abs(paintWave) * 0.02,
       };
     }
     if (isDesignerReceiving || isDesignerHandoff) {
-      // 산출물 수령/전달 시 반갑게 몸을 숙여 인사하며 주고받는 탄성 모션
-      const bowWave = Math.sin(subTick * 0.65);
+      const bowWave = Math.sin(subTick * 0.45);
       const dirSign = isDesignerHandoff ? 1 : -1;
       return {
-        bounceY: -Math.abs(bowWave) * 5.8,
-        scaleX: 1 - bowWave * 0.02,
-        scaleY: 1 + bowWave * 0.02,
-        rotateDeg: dirSign * (2.2 + Math.abs(bowWave) * 2.5),
-        shadowScale: 1 - Math.abs(bowWave) * 0.1,
+        bounceY: -Math.abs(bowWave) * 2.6,
+        scaleX: 1 - bowWave * 0.008,
+        scaleY: 1 + bowWave * 0.008,
+        rotateDeg: dirSign * (1.2 + Math.abs(bowWave) * 1.1),
+        shadowScale: 1 - Math.abs(bowWave) * 0.04,
       };
     }
     return baseDesignerMotion;
@@ -396,73 +361,65 @@ export function SisunRenewalStoryStage() {
   const pubWalkDir: -1 | 0 | 1 = isPubWalkToDesk ? 1 : isPubHumWalk ? -1 : 0;
   const basePublisherMotion = getCharacterMotion(isPublisherWalking, subTick, 13, pubWalkDir);
 
-  // 퍼블리셔 특수 모션 (그루브 넘치는 콧노래 걸음 + 헤드셋 탈착 + 초집중 폭풍 타이핑 + 완료 점프 환호!)
+  // 퍼블리셔 특수 모션: 과도한 흔들림 없이 리드미컬하고 부드럽게 이어지는 콧노래 걸음·헤드셋 탈착·코딩·완료 모션
   const getPublisherSpecialMotion = () => {
     if (isPubHumWalk) {
-      // 콧노래 그루브: 6서브틱 스텝마다 신나게 통통 튀며 좌우로 리듬을 타는 댄스 워킹!
       const stepPhase = (((subTick + 3) % 6) / 6) * Math.PI;
       const grooveArch = Math.sin(stepPhase);
-      const bounceY = -Math.pow(grooveArch, 0.8) * 11.5;
-      const swayDeg = Math.sin(subTick * 0.55) * 4.5 - 2.0;
-      const squash = grooveArch < 0.25 ? -0.036 : grooveArch * 0.03;
+      const bounceY = -grooveArch * 4.0;
+      const swayDeg = Math.sin(subTick * 0.36) * 1.4 - 0.8;
+      const squash = Math.cos(stepPhase * 2) * 0.011;
       return {
         bounceY,
-        scaleX: 1 - squash * 0.75,
+        scaleX: 1 - squash * 0.7,
         scaleY: 1 + squash,
         rotateDeg: swayDeg,
-        shadowScale: 1 - grooveArch * 0.24,
+        shadowScale: 1 - grooveArch * 0.08,
       };
     }
     if (isPubReceive) {
-      const bowWave = Math.sin(subTick * 0.65);
+      const bowWave = Math.sin(subTick * 0.45);
       return {
-        bounceY: -Math.abs(bowWave) * 5.5,
-        scaleX: 1 - bowWave * 0.018,
-        scaleY: 1 + bowWave * 0.018,
-        rotateDeg: -2.2 - Math.abs(bowWave) * 2.2,
-        shadowScale: 1 - Math.abs(bowWave) * 0.1,
+        bounceY: -Math.abs(bowWave) * 2.6,
+        scaleX: 1 - bowWave * 0.008,
+        scaleY: 1 + bowWave * 0.008,
+        rotateDeg: -1.2 - Math.abs(bowWave) * 1.1,
+        shadowScale: 1 - Math.abs(bowWave) * 0.04,
       };
     }
     if (isPubHeadsetOff) {
-      const t = (pubLoop - 18) / 10;
-      const liftY =
-        t < 0.45
-          ? -7.5 * Math.sin((t / 0.45) * Math.PI)
-          : 4.5 * Math.sin(((t - 0.45) / 0.55) * Math.PI);
+      const t = Math.max(0, Math.min(1, (pubLoop - 18) / 10));
+      const liftY = -Math.sin(t * Math.PI) * 2.8;
       return {
         bounceY: liftY,
-        scaleX: 1 - liftY * 0.005,
-        scaleY: 1 + liftY * 0.005,
-        rotateDeg: Math.sin(t * Math.PI * 2) * 3.0,
+        scaleX: 1 - liftY * 0.003,
+        scaleY: 1 + liftY * 0.003,
+        rotateDeg: Math.sin(t * Math.PI * 2) * 1.1,
         shadowScale: 1,
       };
     }
     if (isPubCodingNoHeadset) {
-      // 초집중 폭풍 코딩: 빠른 타건 진동(Burst) 10서브틱 + 엔터 키 타격(Snap!) 리듬
-      const codeCycle = subTick % 12;
-      const isEnterHit = codeCycle === 10 || codeCycle === 11;
-      const rapidTap = isEnterHit ? 3.5 : Math.sin(subTick * 1.8) * 2.4;
-      const enterTilt = isEnterHit ? -3.0 : Math.sin(subTick * 0.9) * 1.8;
+      const codeWave = Math.sin(subTick * 0.55);
+      const tiltWave = Math.sin(subTick * 0.32) * 0.85;
       return {
-        bounceY: rapidTap - 1.5,
-        scaleX: isEnterHit ? 1.032 : 1 - Math.sin(subTick * 1.8) * 0.015,
-        scaleY: isEnterHit ? 0.968 : 1 + Math.sin(subTick * 1.8) * 0.015,
-        rotateDeg: enterTilt,
-        shadowScale: 1.04,
+        bounceY: codeWave * 1.1 - 0.6,
+        scaleX: 1 - codeWave * 0.006,
+        scaleY: 1 + codeWave * 0.006,
+        rotateDeg: tiltWave,
+        shadowScale: 1.01,
       };
     }
     if (isPubCelebrating) {
-      // 퍼블리싱 완료 환호: 제자리에서 신나게 두 번 폴짝! 점프하며 만세!
       const celPhase = ((pubLoop - 66) / 6) * Math.PI;
       const jumpArch = Math.abs(Math.sin(celPhase));
-      const jumpY = - jumpArch * 15.5;
-      const stretch = jumpArch > 0.3 ? jumpArch * 0.045 : -0.035;
+      const jumpY = -jumpArch * 5.2;
+      const stretch = Math.cos(celPhase * 2) * -0.012;
       return {
         bounceY: jumpY,
-        scaleX: 1 - stretch * 0.75,
+        scaleX: 1 - stretch * 0.7,
         scaleY: 1 + stretch,
-        rotateDeg: Math.sin(celPhase * 2) * 3.5,
-        shadowScale: Math.max(0.6, 1 - jumpArch * 0.32),
+        rotateDeg: Math.sin(celPhase) * 1.4,
+        shadowScale: Math.max(0.82, 1 - jumpArch * 0.12),
       };
     }
     return basePublisherMotion;
@@ -1408,7 +1365,6 @@ export function SisunRenewalStoryStage() {
               width: '236px',
               height: '268px',
               opacity: plannerVisible ? 1 : 0,
-              transition: plannerVisible ? 'left 0.055s linear' : 'none',
               zIndex: 5,
             }}
           >
@@ -1424,37 +1380,17 @@ export function SisunRenewalStoryStage() {
                 background:
                   'radial-gradient(ellipse at center, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${plannerMotion.shadowScale})`,
-                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             />
 
-            {/* 보행 시 발뒤꿈치에서 포슬포슬 피어오르는 귀여운 스텝 먼지 이펙트 */}
-            {isPlannerWalking && (
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: '18px',
-                  left: plannerWalkDir > 0 ? '26%' : '70%',
-                  width: '12px',
-                  height: '12px',
-                  borderRadius: '50%',
-                  background: 'rgba(203, 213, 225, 0.65)',
-                  transform: `translateY(${-((subTick % 6) * 2.5)}px) scale(${1.2 - (subTick % 6) * 0.16})`,
-                  opacity: 1 - (subTick % 6) * 0.16,
-                  pointerEvents: 'none',
-                }}
-              />
-            )}
-
-            {/* 연속 바운스 · 스쿼시&스트레치 · 미세 회전이 적용되는 캐릭터 바디 컨테이너 */}
+            {/* 60fps 연속 사인파 모션이 적용되는 캐릭터 바디 컨테이너 */}
             <div
               style={{
                 position: 'absolute',
                 inset: 0,
                 transformOrigin: '50% 92%',
                 transform: `translateY(${plannerMotion.bounceY}px) scaleX(${plannerMotion.scaleX}) scaleY(${plannerMotion.scaleY}) rotate(${plannerMotion.rotateDeg}deg)`,
-                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             >
@@ -1503,7 +1439,7 @@ export function SisunRenewalStoryStage() {
               })}
             </div>
 
-            {/* ★ [기획자 독립 VFX 레이어] 캐릭터 몸통과 분리되어 공중에서 살아 움직이는 이펙트 ★ */}
+            {/* ★ [기획자 독립 VFX 레이어] 캐릭터 몸통과 분리되어 차분하게 부유하는 이펙트 ★ */}
             {isPlannerThinkWalk && (
               <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
                 <div
@@ -1511,11 +1447,10 @@ export function SisunRenewalStoryStage() {
                     position: 'absolute',
                     top: '26px',
                     left: plannerFlipRight ? '28px' : '176px',
-                    fontSize: '22px',
+                    fontSize: '21px',
                     fontWeight: 900,
                     color: '#4a3525',
-                    transform: `translateY(${Math.sin(subTick * 0.5) * -9}px) rotate(${Math.cos(subTick * 0.4) * 14}deg) scale(${0.95 + Math.sin(subTick * 0.5) * 0.15})`,
-                    transition: 'transform 0.055s linear',
+                    transform: `translateY(${Math.sin(subTick * 0.28) * -5}px) rotate(${Math.cos(subTick * 0.24) * 8}deg)`,
                     textShadow: '0 2px 4px rgba(255,255,255,0.9)',
                   }}
                 >
@@ -1524,14 +1459,13 @@ export function SisunRenewalStoryStage() {
                 <div
                   style={{
                     position: 'absolute',
-                    top: '10px',
-                    left: plannerFlipRight ? '54px' : '152px',
-                    fontSize: '15px',
+                    top: '12px',
+                    left: plannerFlipRight ? '52px' : '154px',
+                    fontSize: '14px',
                     fontWeight: 900,
                     color: '#2563eb',
-                    opacity: 0.55 + Math.sin(subTick * 0.6 + 1.5) * 0.4,
-                    transform: `translateY(${-((subTick % 10) * 1.8)}px) rotate(${-12 + (subTick % 10) * 2}deg)`,
-                    transition: 'transform 0.055s linear',
+                    opacity: 0.65 + Math.sin(subTick * 0.32 + 1.2) * 0.25,
+                    transform: `translateY(${Math.cos(subTick * 0.32) * -4}px) rotate(-8deg)`,
                   }}
                 >
                   ?
@@ -1541,7 +1475,7 @@ export function SisunRenewalStoryStage() {
 
             {isPlannerSitSketch && (
               <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-                {/* 반짝이며 살아 숨쉬는 아이디어 전구 이펙트 */}
+                {/* 부드럽게 숨쉬는 아이디어 전구 이펙트 */}
                 <svg
                   width="54"
                   height="54"
@@ -1550,13 +1484,12 @@ export function SisunRenewalStoryStage() {
                     position: 'absolute',
                     top: '78px',
                     left: '26px',
-                    transform: `translateY(${Math.sin(subTick * 0.55) * -6}px) scale(${0.92 + Math.abs(Math.sin(subTick * 0.55)) * 0.18}) rotate(${Math.sin(subTick * 0.35) * 8}deg)`,
-                    transition: 'transform 0.055s linear',
-                    filter: 'drop-shadow(0 3px 6px rgba(250, 204, 21, 0.45))',
+                    transform: `translateY(${Math.sin(subTick * 0.3) * -4.5}px) scale(${0.95 + Math.abs(Math.sin(subTick * 0.3)) * 0.1}) rotate(${Math.sin(subTick * 0.22) * 5}deg)`,
+                    filter: 'drop-shadow(0 3px 6px rgba(250, 204, 21, 0.4))',
                   }}
                 >
                   {/* 전구 빛줄기 */}
-                  <g opacity={0.45 + Math.abs(Math.sin(subTick * 0.8)) * 0.55} stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round">
+                  <g opacity={0.55 + Math.abs(Math.sin(subTick * 0.4)) * 0.45} stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round">
                     <line x1="27" y1="4" x2="27" y2="9" />
                     <line x1="10" y1="11" x2="14" y2="15" />
                     <line x1="44" y1="11" x2="40" y2="15" />
@@ -1567,21 +1500,6 @@ export function SisunRenewalStoryStage() {
                   <rect x="22" y="35" width="10" height="6" rx="2" fill="#e2e8f0" stroke="#4a3525" strokeWidth="2" />
                   <path d="M24 27 Q27 20 30 27" fill="none" stroke="#b45309" strokeWidth="1.8" strokeLinecap="round" />
                 </svg>
-                {/* 태블릿 펜 끝에서 톡톡 튀는 설계 스파크 */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '142px',
-                    left: '132px',
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    background: '#38bdf8',
-                    boxShadow: '0 0 8px #38bdf8',
-                    transform: `translate(${Math.cos(subTick * 1.6) * 9}px, ${Math.sin(subTick * 1.6) * -8}px) scale(${0.6 + (subTick % 3) * 0.35})`,
-                    opacity: subTick % 16 < 11 ? 0.9 : 0.2,
-                  }}
-                />
               </div>
             )}
 
@@ -1622,7 +1540,6 @@ export function SisunRenewalStoryStage() {
               width: '236px',
               height: '268px',
               opacity: designerVisible ? 1 : 0,
-              transition: designerVisible ? 'left 0.055s linear' : 'none',
               zIndex: 6,
             }}
           >
@@ -1638,37 +1555,17 @@ export function SisunRenewalStoryStage() {
                 background:
                   'radial-gradient(ellipse at center, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${designerMotion.shadowScale})`,
-                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             />
 
-            {/* 보행 시 발뒤꿈치 스텝 먼지 이펙트 */}
-            {isDesignerWalking && (
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: '18px',
-                  left: designerWalkDir > 0 ? '26%' : '70%',
-                  width: '12px',
-                  height: '12px',
-                  borderRadius: '50%',
-                  background: 'rgba(203, 213, 225, 0.65)',
-                  transform: `translateY(${-(((subTick + 3) % 6) * 2.5)}px) scale(${1.2 - ((subTick + 3) % 6) * 0.16})`,
-                  opacity: 1 - ((subTick + 3) % 6) * 0.16,
-                  pointerEvents: 'none',
-                }}
-              />
-            )}
-
-            {/* 연속 바운스 · 스쿼시&스트레치 · 미세 회전이 적용되는 캐릭터 바디 컨테이너 */}
+            {/* 60fps 연속 사인파 모션이 적용되는 캐릭터 바디 컨테이너 */}
             <div
               style={{
                 position: 'absolute',
                 inset: 0,
                 transformOrigin: '50% 92%',
                 transform: `translateY(${designerMotion.bounceY}px) scaleX(${designerMotion.scaleX}) scaleY(${designerMotion.scaleY}) rotate(${designerMotion.rotateDeg}deg)`,
-                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             >
@@ -1717,16 +1614,15 @@ export function SisunRenewalStoryStage() {
               })}
             </div>
 
-            {/* ★ [디자이너 독립 VFX 레이어] 수령 반짝이 & 붓질 시 사방으로 튀는 컬러 물방울/스와치 ★ */}
+            {/* ★ [디자이너 독립 VFX 레이어] 수령 반짝이 & 컬러 스와치 ★ */}
             {(isDesignerReceiving || isDesignerHandoff) && (
               <div
                 style={{
                   position: 'absolute',
                   top: '44px',
                   left: isDesignerHandoff ? '168px' : '38px',
-                  fontSize: '20px',
-                  transform: `translateY(${Math.sin(subTick * 0.8) * -6}px) scale(${0.9 + Math.abs(Math.sin(subTick * 0.8)) * 0.3})`,
-                  transition: 'transform 0.055s linear',
+                  fontSize: '19px',
+                  transform: `translateY(${Math.sin(subTick * 0.35) * -4}px) scale(${0.92 + Math.abs(Math.sin(subTick * 0.35)) * 0.16})`,
                   pointerEvents: 'none',
                 }}
               >
@@ -1736,7 +1632,7 @@ export function SisunRenewalStoryStage() {
 
             {isDesignerPainting && (
               <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-                {/* 둥실 떠서 회전하는 컬러 스와치 팬 */}
+                {/* 부드럽게 떠서 회전하는 컬러 스와치 팬 */}
                 <svg
                   width="44"
                   height="44"
@@ -1745,39 +1641,13 @@ export function SisunRenewalStoryStage() {
                     position: 'absolute',
                     top: '88px',
                     left: '20px',
-                    transform: `translateY(${Math.sin(subTick * 0.5) * -7}px) rotate(${Math.cos(subTick * 0.45) * 12}deg)`,
-                    transition: 'transform 0.055s linear',
+                    transform: `translateY(${Math.sin(subTick * 0.28) * -4.5}px) rotate(${Math.cos(subTick * 0.24) * 7}deg)`,
                   }}
                 >
                   <rect x="10" y="8" width="10" height="24" rx="2.5" fill="#fb7185" stroke="#4a3525" strokeWidth="1.8" transform="rotate(-18 15 28)" />
                   <rect x="16" y="8" width="10" height="24" rx="2.5" fill="#fde047" stroke="#4a3525" strokeWidth="1.8" transform="rotate(6 21 28)" />
                   <rect x="20" y="10" width="10" height="24" rx="2.5" fill="#34d399" stroke="#4a3525" strokeWidth="1.8" transform="rotate(28 25 28)" />
                 </svg>
-                {/* 붓질할 때마다 도면 위에서 톡톡 튀어오르는 3색 물방울 파티클 */}
-                {[
-                  { color: '#ec4899', x: 52, y: 132, phase: 0 },
-                  { color: '#f59e0b', x: 76, y: 120, phase: 2 },
-                  { color: '#10b981', x: 38, y: 152, phase: 4 },
-                ].map((p, idx) => {
-                  const t = (subTick + p.phase) % 8;
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        position: 'absolute',
-                        left: `${p.x + Math.cos(t * 0.8) * 10}px`,
-                        top: `${p.y - t * 3.2}px`,
-                        width: '7px',
-                        height: '7px',
-                        borderRadius: '50%',
-                        background: p.color,
-                        border: '1.5px solid #4a3525',
-                        opacity: 1 - t / 8,
-                        transform: `scale(${1.15 - t * 0.1})`,
-                      }}
-                    />
-                  );
-                })}
               </div>
             )}
 
@@ -1787,7 +1657,6 @@ export function SisunRenewalStoryStage() {
                 bottom: '0px',
                 left: '50%',
                 transform: `translateX(-50%) translateY(${Math.max(0, designerMotion.bounceY)}px)`,
-                transition: 'transform 0.055s linear',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -1819,7 +1688,6 @@ export function SisunRenewalStoryStage() {
               width: '236px',
               height: '268px',
               opacity: publisherVisible ? 1 : 0,
-              transition: publisherVisible ? 'left 0.055s linear' : 'none',
               zIndex: 7,
             }}
           >
@@ -1835,37 +1703,17 @@ export function SisunRenewalStoryStage() {
                 background:
                   'radial-gradient(ellipse at center, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${publisherMotion.shadowScale})`,
-                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             />
 
-            {/* 보행 시 발뒤꿈치 스텝 먼지 이펙트 */}
-            {isPublisherWalking && (
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: '18px',
-                  left: pubWalkDir > 0 ? '26%' : '70%',
-                  width: '12px',
-                  height: '12px',
-                  borderRadius: '50%',
-                  background: 'rgba(203, 213, 225, 0.65)',
-                  transform: `translateY(${-(((subTick + 1) % 6) * 2.5)}px) scale(${1.2 - ((subTick + 1) % 6) * 0.16})`,
-                  opacity: 1 - ((subTick + 1) % 6) * 0.16,
-                  pointerEvents: 'none',
-                }}
-              />
-            )}
-
-            {/* 연속 바운스 · 스쿼시&스트레치 · 미세 회전이 적용되는 캐릭터 바디 컨테이너 */}
+            {/* 60fps 연속 사인파 모션이 적용되는 캐릭터 바디 컨테이너 */}
             <div
               style={{
                 position: 'absolute',
                 inset: 0,
                 transformOrigin: '50% 92%',
                 transform: `translateY(${publisherMotion.bounceY}px) scaleX(${publisherMotion.scaleX}) scaleY(${publisherMotion.scaleY}) rotate(${publisherMotion.rotateDeg}deg)`,
-                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             >
@@ -1918,30 +1766,28 @@ export function SisunRenewalStoryStage() {
               })}
             </div>
 
-            {/* ★ [퍼블리셔 독립 VFX 레이어] 멜로디 음표 웨이브 · 홀로그램 코드 태그 · 완료 폭죽 ★ */}
+            {/* ★ [퍼블리셔 독립 VFX 레이어] 멜로디 음표 웨이브 · 홀로그램 코드 태그 · 완료 배지 ★ */}
             {isPubHumWalk && (
               <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
                 {[
-                  { note: '♪', baseX: 38, baseY: 52, color: '#8b5cf6', delay: 0 },
-                  { note: '♫', baseX: 58, baseY: 36, color: '#ec4899', delay: 4 },
-                  { note: '♬', baseX: 24, baseY: 30, color: '#10b981', delay: 8 },
+                  { note: '♪', baseX: 38, baseY: 50, color: '#8b5cf6', phase: 0 },
+                  { note: '♫', baseX: 58, baseY: 34, color: '#ec4899', phase: 2.1 },
+                  { note: '♬', baseX: 24, baseY: 28, color: '#10b981', phase: 4.2 },
                 ].map((item, idx) => {
-                  const age = (subTick + item.delay) % 12;
-                  const floatY = -age * 2.6;
-                  const waveX = Math.sin((subTick + item.delay) * 0.55) * 8;
+                  const wave = Math.sin(subTick * 0.28 + item.phase);
                   return (
                     <div
                       key={idx}
                       style={{
                         position: 'absolute',
-                        left: `${item.baseX + waveX}px`,
-                        top: `${item.baseY + floatY}px`,
-                        fontSize: idx === 1 ? '20px' : '17px',
+                        left: `${item.baseX + Math.cos(subTick * 0.24 + item.phase) * 5}px`,
+                        top: `${item.baseY + wave * -6}px`,
+                        fontSize: idx === 1 ? '19px' : '16px',
                         fontWeight: 900,
                         color: item.color,
                         textShadow: '0 2px 4px rgba(255,255,255,0.95)',
-                        opacity: age < 2 ? age * 0.5 : Math.max(0, 1 - (age - 2) / 10),
-                        transform: `rotate(${Math.sin((subTick + item.delay) * 0.5) * 16}deg) scale(${0.85 + (age / 12) * 0.35})`,
+                        opacity: 0.75 + wave * 0.25,
+                        transform: `rotate(${wave * 10}deg)`,
                       }}
                     >
                       {item.note}
@@ -1957,9 +1803,8 @@ export function SisunRenewalStoryStage() {
                   position: 'absolute',
                   top: '42px',
                   left: '166px',
-                  fontSize: '20px',
-                  transform: `translateY(${Math.sin(subTick * 0.8) * -6}px) scale(${0.9 + Math.abs(Math.sin(subTick * 0.8)) * 0.3})`,
-                  transition: 'transform 0.055s linear',
+                  fontSize: '19px',
+                  transform: `translateY(${Math.sin(subTick * 0.35) * -4}px) scale(${0.92 + Math.abs(Math.sin(subTick * 0.35)) * 0.16})`,
                   pointerEvents: 'none',
                 }}
               >
@@ -1975,7 +1820,7 @@ export function SisunRenewalStoryStage() {
                     position: 'absolute',
                     top: '96px',
                     left: '26px',
-                    fontSize: '15px',
+                    fontSize: '14px',
                     fontWeight: 900,
                     fontFamily: 'monospace',
                     color: '#4a3525',
@@ -1983,8 +1828,7 @@ export function SisunRenewalStoryStage() {
                     padding: '1px 5px',
                     borderRadius: '6px',
                     border: '1.5px solid #4a3525',
-                    transform: `translateY(${Math.sin(subTick * 0.7) * -8}px) rotate(-8deg)`,
-                    transition: 'transform 0.055s linear',
+                    transform: `translateY(${Math.sin(subTick * 0.32) * -5}px) rotate(-6deg)`,
                   }}
                 >
                   {'</>'}
@@ -1994,12 +1838,11 @@ export function SisunRenewalStoryStage() {
                     position: 'absolute',
                     top: '70px',
                     left: '44px',
-                    fontSize: '14px',
+                    fontSize: '13.5px',
                     fontWeight: 900,
                     fontFamily: 'monospace',
                     color: '#6d28d9',
-                    transform: `translateY(${Math.cos(subTick * 0.7) * -8}px) rotate(8deg)`,
-                    transition: 'transform 0.055s linear',
+                    transform: `translateY(${Math.cos(subTick * 0.32) * -5}px) rotate(6deg)`,
                   }}
                 >
                   {'{ }'}
@@ -2023,8 +1866,7 @@ export function SisunRenewalStoryStage() {
                     borderRadius: '999px',
                     border: '2px solid #4a3525',
                     boxShadow: '0 3px 8px rgba(109, 40, 217, 0.22)',
-                    transform: `translateY(${Math.sin(subTick * 0.85) * -9}px) rotate(-10deg) scale(${1 + Math.abs(Math.sin(subTick * 0.85)) * 0.12})`,
-                    transition: 'transform 0.055s linear',
+                    transform: `translateY(${Math.sin(subTick * 0.38) * -5}px) rotate(-8deg)`,
                   }}
                 >
                   {'<HTML/> ✨'}
