@@ -7,21 +7,74 @@ type ScreenStageMode = 'auto' | 'wireframe' | 'design' | 'publishing';
 export function SisunRenewalStoryStage() {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [screenMode, setScreenMode] = useState<ScreenStageMode>('auto');
-  // 1틱 = 100ms, 끊김 없이 계속 증가하며 3명의 캐릭터가 각자의 주기로 동시에 움직임
-  const [tick, setTick] = useState<number>(0);
+  // 1서브틱 = 50ms (20fps 고주사율 애니메이션 타이머)
+  // 기존 100ms(10fps) 대비 2배 세밀한 시간 해상도로 캐릭터의 이동·보폭·손동작·호흡을 부드럽게 보간
+  const [subTick, setSubTick] = useState<number>(0);
 
   useEffect(() => {
     if (!isPlaying) return;
     const timer = window.setInterval(() => {
-      setTick((prev) => (prev + 1) % 1200);
-    }, 100);
+      setSubTick((prev) => (prev + 1) % 2400);
+    }, 50);
     return () => window.clearInterval(timer);
   }, [isPlaying]);
 
-  // 공통 4박자 걸음걸이 프레임 인덱스 (0 -> 1 -> 2 -> 1 반복)
-  const walkCycleOrder = [0, 1, 2, 1];
-  const getWalkFrame = (t: number) => walkCycleOrder[Math.floor(t / 2) % 4];
-  const getStepBounce = (t: number) => (Math.floor(t / 2) % 2 === 0 ? -5 : 0);
+  // 기존 타임라인 호환용 연속 틱 (0.0, 0.5, 1.0, 1.5 ...)
+  const tick = subTick / 2;
+
+  // 부드러운 가감속(Ease-In-Out Sine) 이동 보간 헬퍼
+  const easeInOut = (progress: number): number => {
+    const clamped = Math.max(0, Math.min(1, progress));
+    return -(Math.cos(Math.PI * clamped) - 1) / 2;
+  };
+
+  // 8박자 세밀 보행 사이클 (6종의 세분화된 워킹 서브프레임을 왕복·순환하여 끊김 없는 발걸음 연출)
+  const walkSubCycle = [
+    'walk-s1',
+    'walk-s2',
+    'walk-s3',
+    'walk-s4',
+    'walk-s5',
+    'walk-s6',
+    'walk-s4',
+    'walk-s2',
+  ] as const;
+
+  const getWalkSubSprite = (st: number, offset: number) =>
+    walkSubCycle[Math.floor((st + offset) / 2) % walkSubCycle.length];
+
+  // 6프레임 연속 업무 사이클 (1->2->3->4->5->6->4->2 부드러운 루프)
+  const workLoopOrder = [1, 2, 3, 4, 5, 6, 4, 2] as const;
+  const getWorkSubFrame = (st: number, offset: number) =>
+    workLoopOrder[Math.floor((st + offset) / 2) % workLoopOrder.length];
+
+  // 4프레임 연속 인터랙션(고민/수령/전달/완료) 사이클 (1->2->3->4->3->2 부드러운 루프)
+  const interactLoopOrder = [1, 2, 3, 4, 3, 2] as const;
+  const getInteractSubFrame = (st: number, offset: number) =>
+    interactLoopOrder[Math.floor((st + offset) / 2) % interactLoopOrder.length];
+
+  // 연속 사인파 기반 자연스러운 보행 바운스 & 스쿼시-스트레치(Squash & Stretch) 물리 계수
+  const getCharacterMotion = (isWalking: boolean, st: number, phaseOffset: number) => {
+    if (isWalking) {
+      const phase = (st + phaseOffset) * 0.55;
+      const bounceY = -Math.abs(Math.sin(phase)) * 6.5; // 0px ~ -6.5px 연속 아치형 발걸음
+      const squash = Math.sin(phase * 2) * 0.022;
+      const scaleX = 1 - squash * 0.75;
+      const scaleY = 1 + squash;
+      const rotateDeg = Math.cos(phase) * 1.6;
+      const shadowScale = 1 - Math.abs(Math.sin(phase)) * 0.18;
+      return { bounceY, scaleX, scaleY, rotateDeg, shadowScale };
+    } else {
+      const phase = (st + phaseOffset) * 0.28;
+      const bounceY = Math.sin(phase) * 2.0 - 1.5; // 업무 중 살아있는 미세 호흡 리듬
+      const squash = Math.sin(phase) * 0.012;
+      const scaleX = 1 - squash * 0.65;
+      const scaleY = 1 + squash;
+      const rotateDeg = Math.sin(phase * 0.7) * 0.9;
+      const shadowScale = 1 + Math.sin(phase) * 0.05;
+      return { bounceY, scaleX, scaleY, rotateDeg, shadowScale };
+    }
+  };
 
   // =========================================================================
   // 1) 캐릭터 1 · 서비스기획자 (좌측 영역에서 독립 주기 90틱으로 상시 움직임)
@@ -34,37 +87,28 @@ export function SisunRenewalStoryStage() {
   // =========================================================================
   const pTick = tick % 90;
   const isPlannerWalking = pTick < 16 || (pTick >= 58 && pTick < 70) || pTick >= 80;
-  const plannerWalkIdx = getWalkFrame(tick);
-  const plannerBounceY = isPlannerWalking ? getStepBounce(tick) : 0;
+  const plannerMotion = getCharacterMotion(isPlannerWalking, subTick, 0);
 
   const getPlannerLeft = (): number => {
-    if (pTick < 16) return 8 + (pTick / 16) * 7; // 8% -> 15%
+    if (pTick < 16) return 8 + easeInOut(pTick / 16) * 7; // 8% -> 15%
     if (pTick < 58) return 15;
-    if (pTick < 70) return 15 + ((pTick - 58) / 12) * 7; // 15% -> 22%
+    if (pTick < 70) return 15 + easeInOut((pTick - 58) / 12) * 7; // 15% -> 22%
     if (pTick < 80) return 22;
-    return 22 - ((pTick - 80) / 10) * 14; // 22% -> 8%
+    return 22 - easeInOut((pTick - 80) / 10) * 14; // 22% -> 8%
   };
 
   const plannerLeft = getPlannerLeft();
 
-  const plannerSprite: 'walk1' | 'walk2' | 'walk3' | 'think' | 'sketch' | 'handoff' = isPlannerWalking
-    ? plannerWalkIdx === 0
-      ? 'walk1'
-      : plannerWalkIdx === 1
-      ? 'walk2'
-      : 'walk3'
+  const plannerSprite: string = isPlannerWalking
+    ? getWalkSubSprite(subTick, 0)
     : pTick < 32
-    ? 'think'
+    ? `think-${getInteractSubFrame(subTick, 0)}`
     : pTick < 58
-    ? pTick % 6 === 0
-      ? 'think'
-      : 'sketch'
-    : 'handoff';
+    ? `sketch-${getWorkSubFrame(subTick, 0)}`
+    : `handoff-${getInteractSubFrame(subTick, 0)}`;
 
   // 우측으로 걸어갈 때(0~16, 58~70)는 scaleX(-1)로 우측을 바라봄
-  const plannerFlipRight =
-    (pTick < 16 || (pTick >= 58 && pTick < 70)) &&
-    (plannerSprite === 'walk1' || plannerSprite === 'walk2' || plannerSprite === 'walk3');
+  const plannerFlipRight = isPlannerWalking && (pTick < 16 || (pTick >= 58 && pTick < 70));
 
   const plannerActionLabel =
     pTick < 16
@@ -84,38 +128,31 @@ export function SisunRenewalStoryStage() {
   //    - 0 ~ 14: 중앙 좌측(40%)으로 총총 걸어 이동
   //    - 14 ~ 26: 좌측 기획자로부터 화면설계서 두 손으로 수령 (✨)
   //    - 26 ~ 56: 팔레트와 펜툴로 시선닷컴 Figma 고해상도 UI 디자인 작업 (🎨)
-  //    - 56 ~ 68: 우측 퍼블리셔 쪽(48%)으로 총총 걸어 이동
+  //    - 56 ~ 68: 우측 퍼블리셔 쪽(49%)으로 총총 걸어 이동
   //    - 68 ~ 80: 완성된 컬러 UI 디자인 시안 보드 전달 포즈
-  //    - 80 ~ 90: 다시 중앙(43%)으로 총총 걸어 이동
+  //    - 80 ~ 90: 다시 중앙(44%)으로 총총 걸어 이동
   // =========================================================================
-  const dTick = (tick + 22) % 90; // 위상을 살짝 다르게 하여 3명이 동시에 다채롭게 움직이도록 구성
+  const dTick = (tick + 22) % 90; // 위상을 다르게 하여 3명이 동시에 다채롭게 움직이도록 구성
   const isDesignerWalking = dTick < 14 || (dTick >= 56 && dTick < 68) || dTick >= 80;
-  const designerWalkIdx = getWalkFrame(tick + 3);
-  const designerBounceY = isDesignerWalking ? getStepBounce(tick + 1) : 0;
+  const designerMotion = getCharacterMotion(isDesignerWalking, subTick, 7);
 
   const getDesignerLeft = (): number => {
-    if (dTick < 14) return 44 - (dTick / 14) * 4; // 44% -> 40%
-    if (dTick < 56) return 40 + ((dTick - 14) / 42) * 3; // 40% -> 43%
-    if (dTick < 68) return 43 + ((dTick - 56) / 12) * 6; // 43% -> 49%
+    if (dTick < 14) return 44 - easeInOut(dTick / 14) * 4; // 44% -> 40%
+    if (dTick < 56) return 40 + easeInOut((dTick - 14) / 42) * 3; // 40% -> 43%
+    if (dTick < 68) return 43 + easeInOut((dTick - 56) / 12) * 6; // 43% -> 49%
     if (dTick < 80) return 49;
-    return 49 - ((dTick - 80) / 10) * 5; // 49% -> 44%
+    return 49 - easeInOut((dTick - 80) / 10) * 5; // 49% -> 44%
   };
 
   const designerLeft = getDesignerLeft();
 
-  const designerSprite: 'walk1' | 'walk2' | 'walk3' | 'receive' | 'work' | 'handoff' = isDesignerWalking
-    ? designerWalkIdx === 0
-      ? 'walk1'
-      : designerWalkIdx === 1
-      ? 'walk2'
-      : 'walk3'
+  const designerSprite: string = isDesignerWalking
+    ? getWalkSubSprite(subTick, 5)
     : dTick < 26
-    ? 'receive'
+    ? `receive-${getInteractSubFrame(subTick, 3)}`
     : dTick < 56
-    ? dTick % 5 === 0
-      ? 'walk1'
-      : 'work'
-    : 'handoff';
+    ? `work-${getWorkSubFrame(subTick, 3)}`
+    : `handoff-${getInteractSubFrame(subTick, 3)}`;
 
   // 우측으로 걸어갈 때(56~68) 또는 우측 퍼블리셔에게 디자인 시안을 건넬 때(68~80) 좌우 반전
   const designerFlipRight = dTick >= 56 && dTick < 80;
@@ -143,30 +180,24 @@ export function SisunRenewalStoryStage() {
   // =========================================================================
   const pubTick = (tick + 48) % 90;
   const isPublisherWalking = pubTick < 14 || pubTick >= 78;
-  const publisherWalkIdx = getWalkFrame(tick + 6);
-  const publisherBounceY = isPublisherWalking ? getStepBounce(tick + 2) : 0;
+  const publisherMotion = getCharacterMotion(isPublisherWalking, subTick, 13);
 
   const getPublisherLeft = (): number => {
-    if (pubTick < 14) return 78 - (pubTick / 14) * 8; // 78% -> 70%
+    if (pubTick < 14) return 78 - easeInOut(pubTick / 14) * 8; // 78% -> 70%
+    if (pubTick < 26) return 70 + easeInOut((pubTick - 14) / 12) * 2; // 70% -> 72%
     if (pubTick < 78) return 72;
-    return 72 + ((pubTick - 78) / 12) * 6; // 72% -> 78%
+    return 72 + easeInOut((pubTick - 78) / 12) * 6; // 72% -> 78%
   };
 
   const publisherLeft = getPublisherLeft();
 
-  const publisherSprite: 'walk1' | 'walk2' | 'walk3' | 'receive' | 'code' | 'complete' = isPublisherWalking
-    ? publisherWalkIdx === 0
-      ? 'walk1'
-      : publisherWalkIdx === 1
-      ? 'walk2'
-      : 'walk3'
+  const publisherSprite: string = isPublisherWalking
+    ? getWalkSubSprite(subTick, 11)
     : pubTick < 26
-    ? 'receive'
+    ? `receive-${getInteractSubFrame(subTick, 7)}`
     : pubTick < 60
-    ? pubTick % 5 === 0
-      ? 'walk1'
-      : 'code'
-    : 'complete';
+    ? `code-${getWorkSubFrame(subTick, 7)}`
+    : `complete-${getInteractSubFrame(subTick, 7)}`;
 
   // 우측으로 걸어 돌아갈 때(78~90)만 우측 방향으로 반전
   const publisherFlipRight = pubTick >= 78;
@@ -324,7 +355,7 @@ export function SisunRenewalStoryStage() {
 
           <button
             onClick={() => {
-              setTick(0);
+              setSubTick(0);
               setScreenMode('auto');
               setIsPlaying(true);
             }}
@@ -1159,7 +1190,7 @@ export function SisunRenewalStoryStage() {
             }}
           />
 
-          {/* ---------------- 주인공 1: 서비스기획자 (투명 PNG 6종 스왑) ---------------- */}
+          {/* ---------------- 주인공 1: 서비스기획자 (세분화 서브프레임 20종 스왑) ---------------- */}
           <div
             style={{
               position: 'absolute',
@@ -1167,38 +1198,79 @@ export function SisunRenewalStoryStage() {
               left: `${plannerLeft}%`,
               width: '175px',
               height: '205px',
-              transform: `translateY(${plannerBounceY}px)`,
-              transition: 'left 0.12s linear, transform 0.1s ease-in-out',
+              transition: 'left 0.055s linear',
               zIndex: 5,
             }}
           >
-            {[
-              { key: 'walk1', file: 'planner-walk-1.png' },
-              { key: 'walk2', file: 'planner-walk-2.png' },
-              { key: 'walk3', file: 'planner-walk-3.png' },
-              { key: 'think', file: 'planner-think.png' },
-              { key: 'sketch', file: 'planner-sketch.png' },
-              { key: 'handoff', file: 'planner-handoff.png' },
-            ].map((sprite) => {
-              const isCurrent = plannerSprite === sprite.key;
-              return (
-                <img
-                  key={sprite.key}
-                  src={charImgUrl(sprite.file)}
-                  alt={`기획자 ${sprite.key}`}
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                    opacity: isCurrent ? 1 : 0,
-                    transform: plannerFlipRight ? 'scaleX(-1)' : 'none',
-                    pointerEvents: 'none',
-                  }}
-                />
-              );
-            })}
+            {/* 발밑 동적 그림자 */}
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '10px',
+                left: '50%',
+                width: '74px',
+                height: '12px',
+                borderRadius: '50%',
+                background: 'radial-gradient(ellipse at center, rgba(15,23,42,0.16) 0%, rgba(15,23,42,0) 75%)',
+                transform: `translateX(-50%) scale(${plannerMotion.shadowScale})`,
+                transition: 'transform 0.055s linear',
+                pointerEvents: 'none',
+              }}
+            />
+
+            {/* 연속 바운스 · 스쿼시&스트레치 · 미세 회전이 적용되는 캐릭터 바디 컨테이너 */}
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                transformOrigin: '50% 92%',
+                transform: `translateY(${plannerMotion.bounceY}px) scaleX(${plannerMotion.scaleX}) scaleY(${plannerMotion.scaleY}) rotate(${plannerMotion.rotateDeg}deg)`,
+                transition: 'transform 0.055s linear',
+                pointerEvents: 'none',
+              }}
+            >
+              {[
+                { key: 'walk-s1', file: 'planner-walk-s1.png' },
+                { key: 'walk-s2', file: 'planner-walk-s2.png' },
+                { key: 'walk-s3', file: 'planner-walk-s3.png' },
+                { key: 'walk-s4', file: 'planner-walk-s4.png' },
+                { key: 'walk-s5', file: 'planner-walk-s5.png' },
+                { key: 'walk-s6', file: 'planner-walk-s6.png' },
+                { key: 'think-1', file: 'planner-think-1.png' },
+                { key: 'think-2', file: 'planner-think-2.png' },
+                { key: 'think-3', file: 'planner-think-3.png' },
+                { key: 'think-4', file: 'planner-think-4.png' },
+                { key: 'sketch-1', file: 'planner-sketch-1.png' },
+                { key: 'sketch-2', file: 'planner-sketch-2.png' },
+                { key: 'sketch-3', file: 'planner-sketch-3.png' },
+                { key: 'sketch-4', file: 'planner-sketch-4.png' },
+                { key: 'sketch-5', file: 'planner-sketch-5.png' },
+                { key: 'sketch-6', file: 'planner-sketch-6.png' },
+                { key: 'handoff-1', file: 'planner-handoff-1.png' },
+                { key: 'handoff-2', file: 'planner-handoff-2.png' },
+                { key: 'handoff-3', file: 'planner-handoff-3.png' },
+                { key: 'handoff-4', file: 'planner-handoff-4.png' },
+              ].map((sprite) => {
+                const isCurrent = plannerSprite === sprite.key;
+                return (
+                  <img
+                    key={sprite.key}
+                    src={charImgUrl(sprite.file)}
+                    alt={`기획자 ${sprite.key}`}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                      opacity: isCurrent ? 1 : 0,
+                      transform: plannerFlipRight ? 'scaleX(-1)' : 'none',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                );
+              })}
+            </div>
 
             <div
               style={{
@@ -1232,7 +1304,7 @@ export function SisunRenewalStoryStage() {
             </div>
           </div>
 
-          {/* ---------------- 주인공 2: UI/UX 디자이너 (투명 PNG 6종 스왑) ---------------- */}
+          {/* ---------------- 주인공 2: UI/UX 디자이너 (세분화 서브프레임 20종 스왑) ---------------- */}
           <div
             style={{
               position: 'absolute',
@@ -1240,38 +1312,79 @@ export function SisunRenewalStoryStage() {
               left: `${designerLeft}%`,
               width: '175px',
               height: '205px',
-              transform: `translateY(${designerBounceY}px)`,
-              transition: 'left 0.12s linear, transform 0.1s ease-in-out',
+              transition: 'left 0.055s linear',
               zIndex: 6,
             }}
           >
-            {[
-              { key: 'walk1', file: 'designer-walk-1.png' },
-              { key: 'walk2', file: 'designer-walk-2.png' },
-              { key: 'walk3', file: 'designer-walk-3.png' },
-              { key: 'receive', file: 'designer-receive.png' },
-              { key: 'work', file: 'designer-work.png' },
-              { key: 'handoff', file: 'designer-handoff.png' },
-            ].map((sprite) => {
-              const isCurrent = designerSprite === sprite.key;
-              return (
-                <img
-                  key={sprite.key}
-                  src={charImgUrl(sprite.file)}
-                  alt={`디자이너 ${sprite.key}`}
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                    opacity: isCurrent ? 1 : 0,
-                    transform: designerFlipRight ? 'scaleX(-1)' : 'none',
-                    pointerEvents: 'none',
-                  }}
-                />
-              );
-            })}
+            {/* 발밑 동적 그림자 */}
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '10px',
+                left: '50%',
+                width: '74px',
+                height: '12px',
+                borderRadius: '50%',
+                background: 'radial-gradient(ellipse at center, rgba(15,23,42,0.16) 0%, rgba(15,23,42,0) 75%)',
+                transform: `translateX(-50%) scale(${designerMotion.shadowScale})`,
+                transition: 'transform 0.055s linear',
+                pointerEvents: 'none',
+              }}
+            />
+
+            {/* 연속 바운스 · 스쿼시&스트레치 · 미세 회전이 적용되는 캐릭터 바디 컨테이너 */}
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                transformOrigin: '50% 92%',
+                transform: `translateY(${designerMotion.bounceY}px) scaleX(${designerMotion.scaleX}) scaleY(${designerMotion.scaleY}) rotate(${designerMotion.rotateDeg}deg)`,
+                transition: 'transform 0.055s linear',
+                pointerEvents: 'none',
+              }}
+            >
+              {[
+                { key: 'walk-s1', file: 'designer-walk-s1.png' },
+                { key: 'walk-s2', file: 'designer-walk-s2.png' },
+                { key: 'walk-s3', file: 'designer-walk-s3.png' },
+                { key: 'walk-s4', file: 'designer-walk-s4.png' },
+                { key: 'walk-s5', file: 'designer-walk-s5.png' },
+                { key: 'walk-s6', file: 'designer-walk-s6.png' },
+                { key: 'receive-1', file: 'designer-receive-1.png' },
+                { key: 'receive-2', file: 'designer-receive-2.png' },
+                { key: 'receive-3', file: 'designer-receive-3.png' },
+                { key: 'receive-4', file: 'designer-receive-4.png' },
+                { key: 'work-1', file: 'designer-work-1.png' },
+                { key: 'work-2', file: 'designer-work-2.png' },
+                { key: 'work-3', file: 'designer-work-3.png' },
+                { key: 'work-4', file: 'designer-work-4.png' },
+                { key: 'work-5', file: 'designer-work-5.png' },
+                { key: 'work-6', file: 'designer-work-6.png' },
+                { key: 'handoff-1', file: 'designer-handoff-1.png' },
+                { key: 'handoff-2', file: 'designer-handoff-2.png' },
+                { key: 'handoff-3', file: 'designer-handoff-3.png' },
+                { key: 'handoff-4', file: 'designer-handoff-4.png' },
+              ].map((sprite) => {
+                const isCurrent = designerSprite === sprite.key;
+                return (
+                  <img
+                    key={sprite.key}
+                    src={charImgUrl(sprite.file)}
+                    alt={`디자이너 ${sprite.key}`}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                      opacity: isCurrent ? 1 : 0,
+                      transform: designerFlipRight ? 'scaleX(-1)' : 'none',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                );
+              })}
+            </div>
 
             <div
               style={{
@@ -1305,7 +1418,7 @@ export function SisunRenewalStoryStage() {
             </div>
           </div>
 
-          {/* ---------------- 주인공 3: 웹 퍼블리셔 (여성 캐릭터 투명 PNG 6종 스왑) ---------------- */}
+          {/* ---------------- 주인공 3: 웹 퍼블리셔 (여성 캐릭터 세분화 서브프레임 20종 스왑) ---------------- */}
           <div
             style={{
               position: 'absolute',
@@ -1313,38 +1426,79 @@ export function SisunRenewalStoryStage() {
               left: `${publisherLeft}%`,
               width: '175px',
               height: '205px',
-              transform: `translateY(${publisherBounceY}px)`,
-              transition: 'left 0.12s linear, transform 0.1s ease-in-out',
+              transition: 'left 0.055s linear',
               zIndex: 7,
             }}
           >
-            {[
-              { key: 'walk1', file: 'publisher-walk-1.png' },
-              { key: 'walk2', file: 'publisher-walk-2.png' },
-              { key: 'walk3', file: 'publisher-walk-3.png' },
-              { key: 'receive', file: 'publisher-receive.png' },
-              { key: 'code', file: 'publisher-code.png' },
-              { key: 'complete', file: 'publisher-complete.png' },
-            ].map((sprite) => {
-              const isCurrent = publisherSprite === sprite.key;
-              return (
-                <img
-                  key={sprite.key}
-                  src={charImgUrl(sprite.file)}
-                  alt={`퍼블리셔 ${sprite.key}`}
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'contain',
-                    opacity: isCurrent ? 1 : 0,
-                    transform: publisherFlipRight ? 'scaleX(-1)' : 'none',
-                    pointerEvents: 'none',
-                  }}
-                />
-              );
-            })}
+            {/* 발밑 동적 그림자 */}
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '10px',
+                left: '50%',
+                width: '74px',
+                height: '12px',
+                borderRadius: '50%',
+                background: 'radial-gradient(ellipse at center, rgba(15,23,42,0.16) 0%, rgba(15,23,42,0) 75%)',
+                transform: `translateX(-50%) scale(${publisherMotion.shadowScale})`,
+                transition: 'transform 0.055s linear',
+                pointerEvents: 'none',
+              }}
+            />
+
+            {/* 연속 바운스 · 스쿼시&스트레치 · 미세 회전이 적용되는 캐릭터 바디 컨테이너 */}
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                transformOrigin: '50% 92%',
+                transform: `translateY(${publisherMotion.bounceY}px) scaleX(${publisherMotion.scaleX}) scaleY(${publisherMotion.scaleY}) rotate(${publisherMotion.rotateDeg}deg)`,
+                transition: 'transform 0.055s linear',
+                pointerEvents: 'none',
+              }}
+            >
+              {[
+                { key: 'walk-s1', file: 'publisher-walk-s1.png' },
+                { key: 'walk-s2', file: 'publisher-walk-s2.png' },
+                { key: 'walk-s3', file: 'publisher-walk-s3.png' },
+                { key: 'walk-s4', file: 'publisher-walk-s4.png' },
+                { key: 'walk-s5', file: 'publisher-walk-s5.png' },
+                { key: 'walk-s6', file: 'publisher-walk-s6.png' },
+                { key: 'receive-1', file: 'publisher-receive-1.png' },
+                { key: 'receive-2', file: 'publisher-receive-2.png' },
+                { key: 'receive-3', file: 'publisher-receive-3.png' },
+                { key: 'receive-4', file: 'publisher-receive-4.png' },
+                { key: 'code-1', file: 'publisher-code-1.png' },
+                { key: 'code-2', file: 'publisher-code-2.png' },
+                { key: 'code-3', file: 'publisher-code-3.png' },
+                { key: 'code-4', file: 'publisher-code-4.png' },
+                { key: 'code-5', file: 'publisher-code-5.png' },
+                { key: 'code-6', file: 'publisher-code-6.png' },
+                { key: 'complete-1', file: 'publisher-complete-1.png' },
+                { key: 'complete-2', file: 'publisher-complete-2.png' },
+                { key: 'complete-3', file: 'publisher-complete-3.png' },
+                { key: 'complete-4', file: 'publisher-complete-4.png' },
+              ].map((sprite) => {
+                const isCurrent = publisherSprite === sprite.key;
+                return (
+                  <img
+                    key={sprite.key}
+                    src={charImgUrl(sprite.file)}
+                    alt={`퍼블리셔 ${sprite.key}`}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'contain',
+                      opacity: isCurrent ? 1 : 0,
+                      transform: publisherFlipRight ? 'scaleX(-1)' : 'none',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                );
+              })}
+            </div>
 
             <div
               style={{
