@@ -4,27 +4,18 @@ import { Play, Pause } from 'lucide-react';
 export function SisunRenewalStoryStage() {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
 
-  // 60fps requestAnimationFrame 기반 초정밀 연속 타이머 (1초 = 20 subTick = 10 tick)
+  // 1서브틱 = 50ms (20fps 안정적인 모션 타이머, 스프라이트는 100ms(10fps) 주기로 깜빡임 없이 100% 불투명 전환)
   const [subTick, setSubTick] = useState<number>(0);
 
   useEffect(() => {
     if (!isPlaying) return;
-    let rafId = 0;
-    let lastTime = performance.now();
-
-    const step = (now: number) => {
-      const dt = Math.min(64, Math.max(0, now - lastTime));
-      lastTime = now;
-      // 50ms당 1.0 subTick 속도로 60fps(16.6ms)마다 실수(float) 단위로 매끄럽게 보간 진행
-      setSubTick((prev) => prev + dt / 50);
-      rafId = window.requestAnimationFrame(step);
-    };
-
-    rafId = window.requestAnimationFrame(step);
-    return () => window.cancelAnimationFrame(rafId);
+    const timer = window.setInterval(() => {
+      setSubTick((prev) => prev + 1);
+    }, 50);
+    return () => window.clearInterval(timer);
   }, [isPlaying]);
 
-  // 60fps 연속 실수 타임라인 틱
+  // 연속 타임라인 틱 (0.0, 0.5, 1.0, 1.5 ...)
   const tick = subTick / 2;
 
   // 부드러운 가감속(Ease-In-Out Sine) 보간 헬퍼
@@ -33,19 +24,19 @@ export function SisunRenewalStoryStage() {
     return -(Math.cos(Math.PI * clamped) - 1) / 2;
   };
 
-  // 12프레임 360° 스켈레탈 교차 보행 사이클 (15fps = 초당 15컷으로 왼발·오른발 교차와 팔/머리 움직임을 촘촘하게 표현)
+  // 12프레임 360° 스켈레탈 교차 보행 사이클 (100ms(10fps)마다 한 프레임씩 깜빡임 없이 전환)
   const getWalkSubSprite = (st: number, offset: number) =>
-    `walk-s${(Math.floor(st * 0.75 + offset) % 12) + 1}`;
+    `walk-s${(Math.floor((st + offset) / 2) % 12) + 1}`;
 
   // 12프레임 360° 스켈레탈 메인 액션 사이클 (1 -> 2 -> ... -> 12 -> 1)
   const getWorkSubFrame = (st: number, offset: number) =>
-    (Math.floor(st * 0.75 + offset) % 12) + 1;
+    (Math.floor((st + offset) / 2) % 12) + 1;
 
   // 8프레임 360° 스켈레탈 인터랙션 사이클 (1 -> 2 -> ... -> 8 -> 1)
   const getInteractSubFrame = (st: number, offset: number) =>
-    (Math.floor(st * 0.65 + offset) % 8) + 1;
+    (Math.floor((st + offset) / 2) % 8) + 1;
 
-  // 60fps 연속 사인파 모션 엔진 (12프레임 왼발·오른발 교차 주기(F1·F7 착지, F4·F10 교차 정점)와 1:1 완전 동기화)
+  // 12프레임 왼발·오른발 교차 주기(F1·F7 착지, F4·F10 교차 정점)와 1:1 동기화된 보행·호흡 물리
   const getCharacterMotion = (
     isWalking: boolean,
     st: number,
@@ -53,7 +44,7 @@ export function SisunRenewalStoryStage() {
     walkDir: -1 | 0 | 1 = 0
   ) => {
     if (isWalking) {
-      const cyclePos = (st * 0.75 + phaseOffset) % 12;
+      const cyclePos = ((st + phaseOffset) / 2) % 12;
       const stepPhase = (cyclePos / 6) * Math.PI;
       const arch = Math.abs(Math.sin(stepPhase)); // F1(0)·F7(6) 착지(0), F4(3)·F10(9) 다리 교차 정점(1)
       const bounceY = -arch * 3.2;
@@ -1366,6 +1357,7 @@ export function SisunRenewalStoryStage() {
               width: '236px',
               height: '268px',
               opacity: plannerVisible ? 1 : 0,
+              transition: plannerVisible ? 'left 0.055s linear' : 'none',
               zIndex: 5,
             }}
           >
@@ -1381,17 +1373,19 @@ export function SisunRenewalStoryStage() {
                 background:
                   'radial-gradient(ellipse at center, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${plannerMotion.shadowScale})`,
+                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             />
 
-            {/* 60fps 연속 사인파 모션이 적용되는 캐릭터 바디 컨테이너 */}
+            {/* 연속 사인파 모션이 적용되는 캐릭터 바디 컨테이너 */}
             <div
               style={{
                 position: 'absolute',
                 inset: 0,
                 transformOrigin: '50% 92%',
                 transform: `translateY(${plannerMotion.bounceY}px) scaleX(${plannerMotion.scaleX}) scaleY(${plannerMotion.scaleY}) rotate(${plannerMotion.rotateDeg}deg)`,
+                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             >
@@ -1432,7 +1426,6 @@ export function SisunRenewalStoryStage() {
                       height: '100%',
                       objectFit: 'contain',
                       opacity: isCurrent ? 1 : 0,
-                      transition: 'opacity 0.085s ease-out',
                       transform: plannerFlipRight ? 'scaleX(-1)' : 'none',
                       pointerEvents: 'none',
                     }}
@@ -1542,6 +1535,7 @@ export function SisunRenewalStoryStage() {
               width: '236px',
               height: '268px',
               opacity: designerVisible ? 1 : 0,
+              transition: designerVisible ? 'left 0.055s linear' : 'none',
               zIndex: 6,
             }}
           >
@@ -1557,17 +1551,19 @@ export function SisunRenewalStoryStage() {
                 background:
                   'radial-gradient(ellipse at center, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${designerMotion.shadowScale})`,
+                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             />
 
-            {/* 60fps 연속 사인파 모션이 적용되는 캐릭터 바디 컨테이너 */}
+            {/* 연속 사인파 모션이 적용되는 캐릭터 바디 컨테이너 */}
             <div
               style={{
                 position: 'absolute',
                 inset: 0,
                 transformOrigin: '50% 92%',
                 transform: `translateY(${designerMotion.bounceY}px) scaleX(${designerMotion.scaleX}) scaleY(${designerMotion.scaleY}) rotate(${designerMotion.rotateDeg}deg)`,
+                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             >
@@ -1608,7 +1604,6 @@ export function SisunRenewalStoryStage() {
                       height: '100%',
                       objectFit: 'contain',
                       opacity: isCurrent ? 1 : 0,
-                      transition: 'opacity 0.085s ease-out',
                       transform: designerFlipRight ? 'scaleX(-1)' : 'none',
                       pointerEvents: 'none',
                     }}
@@ -1691,6 +1686,7 @@ export function SisunRenewalStoryStage() {
               width: '236px',
               height: '268px',
               opacity: publisherVisible ? 1 : 0,
+              transition: publisherVisible ? 'left 0.055s linear' : 'none',
               zIndex: 7,
             }}
           >
@@ -1706,17 +1702,19 @@ export function SisunRenewalStoryStage() {
                 background:
                   'radial-gradient(ellipse at center, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${publisherMotion.shadowScale})`,
+                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             />
 
-            {/* 60fps 연속 사인파 모션이 적용되는 캐릭터 바디 컨테이너 */}
+            {/* 연속 사인파 모션이 적용되는 캐릭터 바디 컨테이너 */}
             <div
               style={{
                 position: 'absolute',
                 inset: 0,
                 transformOrigin: '50% 92%',
                 transform: `translateY(${publisherMotion.bounceY}px) scaleX(${publisherMotion.scaleX}) scaleY(${publisherMotion.scaleY}) rotate(${publisherMotion.rotateDeg}deg)`,
+                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             >
@@ -1761,7 +1759,6 @@ export function SisunRenewalStoryStage() {
                       height: '100%',
                       objectFit: 'contain',
                       opacity: isCurrent ? 1 : 0,
-                      transition: 'opacity 0.085s ease-out',
                       transform: publisherFlipRight ? 'scaleX(-1)' : 'none',
                       pointerEvents: 'none',
                     }}
