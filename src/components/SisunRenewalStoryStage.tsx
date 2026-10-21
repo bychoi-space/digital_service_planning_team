@@ -1,12 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Sparkles, Palette, Code2 } from 'lucide-react';
-
-// 상단 칠판 포커스 모드 ('auto'일 때는 3개 영역 모두 각 캐릭터와 실시간 동기화, 특정 단계 선택 시 해당 칠판 영역을 100% 완성 상태로 하이라이트)
-type ScreenStageMode = 'auto' | 'wireframe' | 'design' | 'publishing';
+import { Play, Pause } from 'lucide-react';
 
 export function SisunRenewalStoryStage() {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [screenMode, setScreenMode] = useState<ScreenStageMode>('auto');
 
   // 1서브틱 = 50ms (20fps 고주사율 애니메이션 타이머)
   const [subTick, setSubTick] = useState<number>(0);
@@ -110,24 +106,9 @@ export function SisunRenewalStoryStage() {
   // 우측으로 걸어갈 때(0~16, 58~70)는 scaleX(-1)로 우측을 바라봄
   const plannerFlipRight = isPlannerWalking && (pTick < 16 || (pTick >= 58 && pTick < 70));
 
-  const plannerActionLabel =
-    pTick < 16
-      ? '좌측 끝에서 걸어 등장 중'
-      : pTick < 32
-      ? 'Mobile·PC UX 고민 중 (?)'
-      : pTick < 58
-      ? '와이어프레임 스케치 중 (💡)'
-      : pTick < 70
-      ? '디자이너에게 이동 중'
-      : pTick < 80
-      ? '화면설계서 전달! 📋'
-      : '좌측 자리로 이동 중';
-
   // 좌측 칠판(Zone 1: 기획자 머리 위) 진행률 (0 ~ 100%)
   const plannerBoardProgress =
-    screenMode === 'wireframe'
-      ? 100
-      : pTick < 16
+    pTick < 16
       ? Math.round((pTick / 16) * 25)
       : pTick < 32
       ? Math.round(25 + ((pTick - 16) / 16) * 25)
@@ -174,24 +155,9 @@ export function SisunRenewalStoryStage() {
   // 우측으로 이동할 때(26~34, 56~68) 또는 우측 퍼블리셔에게 디자인 시안을 건넬 때(68~80) 좌우 반전
   const designerFlipRight = (dTick >= 26 && dTick < 32) || (dTick >= 56 && dTick < 80);
 
-  const designerActionLabel =
-    dTick < 14
-      ? '기획자에게 걸어가는 중'
-      : dTick < 26
-      ? '화면설계서 수령 완료 ✨'
-      : dTick < 56
-      ? 'Figma UI 디자인 리뉴얼 중 🎨'
-      : dTick < 68
-      ? '퍼블리셔에게 이동 중'
-      : dTick < 80
-      ? 'UI 디자인 시안 전달! 🎨'
-      : '중앙 자리로 이동 중';
-
   // 중앙 칠판(Zone 2: 디자이너 머리 위) 진행률 (0 ~ 100%)
   const designerBoardProgress =
-    screenMode === 'design'
-      ? 100
-      : dTick < 14
+    dTick < 14
       ? Math.round((dTick / 14) * 20)
       : dTick < 26
       ? Math.round(20 + ((dTick - 14) / 12) * 20)
@@ -234,22 +200,9 @@ export function SisunRenewalStoryStage() {
   // 우측으로 걸어 이동할 때(26~32, 78~90) 우측 방향으로 반전
   const publisherFlipRight = (pubTick >= 26 && pubTick < 32) || pubTick >= 78;
 
-  const publisherActionLabel =
-    pubTick < 14
-      ? '우측 끝에서 걸어 등장 중'
-      : pubTick < 26
-      ? '디자인 시안 수령 완료 ✨'
-      : pubTick < 60
-      ? 'HTML/CSS 반응형 코딩 중 💻'
-      : pubTick < 78
-      ? '시선닷컴 LIVE 배포 완료! 🎉'
-      : '우측 끝 자리로 이동 중';
-
   // 우측 칠판(Zone 3: 퍼블리셔 머리 위) 진행률 (0 ~ 100%)
   const publisherBoardProgress =
-    screenMode === 'publishing'
-      ? 100
-      : pubTick < 14
+    pubTick < 14
       ? Math.round((pubTick / 14) * 18)
       : pubTick < 26
       ? Math.round(18 + ((pubTick - 14) / 12) * 17)
@@ -257,8 +210,7 @@ export function SisunRenewalStoryStage() {
       ? Math.min(100, Math.round(35 + ((pubTick - 26) / 30) * 65))
       : 100;
 
-  const isPublisherLiveCelebration =
-    screenMode === 'publishing' ? subTick % 80 >= 45 : pubTick >= 60 && pubTick < 80;
+  const isPublisherLiveCelebration = pubTick >= 60 && pubTick < 80;
 
   // GitHub Pages 호환 투명 PNG 이미지 경로 헬퍼
   const baseUrl = import.meta.env.BASE_URL || './';
@@ -272,135 +224,53 @@ export function SisunRenewalStoryStage() {
         borderRadius: '24px',
         border: '2px solid #e2e8f0',
         boxShadow: '0 16px 40px -12px rgba(15, 23, 42, 0.08)',
-        padding: '20px 18px 24px',
+        padding: '12px 18px 16px',
         position: 'relative',
         overflow: 'hidden',
       }}
     >
-      {/* 상단 미니 컨트롤 바 */}
+      {/* 우측 상단 미니 플레이/정지 아이콘 버튼 */}
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          marginBottom: '14px',
-          padding: '0 6px 12px',
-          borderBottom: '1px solid #f1f5f9',
+          justifyContent: 'flex-end',
+          marginBottom: '6px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: '#ecfdf5',
-              color: '#065f46',
-              border: '1px solid #a7f3d0',
-              padding: '4px 12px',
-              borderRadius: '9999px',
-              fontSize: '12px',
-              fontWeight: 800,
-            }}
-          >
-            <Sparkles size={13} color="#059669" />
-            시선닷컴(sisun.com) UI/UX 개편 라이브 칠판 스튜디오
-          </span>
-          <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
-            각 캐릭터 머리 위의 칠판 구역에서 [① 와이어프레임 설계 · ② Figma 디자인 · ③ HTML/CSS 퍼블리싱]이 동시에 진행됩니다
-          </span>
-        </div>
-
-        {/* 재생/일시정지 및 칠판 하이라이트 모드 선택 버튼 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setIsPlaying((p) => !p)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              background: isPlaying ? '#0f172a' : '#2563eb',
-              color: '#ffffff',
-              fontSize: '12px',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            {isPlaying ? <Pause size={12} /> : <Play size={12} />}
-            {isPlaying ? '일시정지' : '재생'}
-          </button>
-
-          <button
-            onClick={() => {
-              setSubTick(0);
-              setScreenMode('auto');
-              setIsPlaying(true);
-            }}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              padding: '6px 10px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              background: screenMode === 'auto' ? '#e2e8f0' : '#f8fafc',
-              color: '#1e293b',
-              fontSize: '12px',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            <RotateCcw size={12} /> 3인 동시 라이브
-          </button>
-
-          {[
-            { mode: 'wireframe' as const, label: '① 기획 칠판 100%', color: '#dbeafe', text: '#1e3a8a', icon: <Sparkles size={11} /> },
-            { mode: 'design' as const, label: '② 디자인 칠판 100%', color: '#d1fae5', text: '#065f46', icon: <Palette size={11} /> },
-            { mode: 'publishing' as const, label: '③ 퍼블리싱 칠판 100%', color: '#ede9fe', text: '#5b21b6', icon: <Code2 size={11} /> },
-          ].map((btn) => {
-            const isSelected = screenMode === btn.mode;
-            return (
-              <button
-                key={btn.mode}
-                onClick={() => setScreenMode(btn.mode)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '5px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid #e2e8f0',
-                  background: isSelected ? btn.color : '#ffffff',
-                  color: isSelected ? btn.text : '#475569',
-                  fontSize: '11.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                {btn.icon}
-                {btn.label}
-              </button>
-            );
-          })}
-        </div>
+        <button
+          onClick={() => setIsPlaying((p) => !p)}
+          title={isPlaying ? '정지' : '재생'}
+          aria-label={isPlaying ? '정지' : '재생'}
+          style={{
+            width: '28px',
+            height: '28px',
+            borderRadius: '8px',
+            border: '1px solid #cbd5e1',
+            background: isPlaying ? '#0f172a' : '#2563eb',
+            color: '#ffffff',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 2px 5px rgba(15, 23, 42, 0.12)',
+            transition: 'background 0.2s',
+          }}
+        >
+          {isPlaying ? <Pause size={13} /> : <Play size={13} />}
+        </button>
       </div>
 
       {/* =======================================================================
           메인 애니메이션 무대 (좌/우 여백 없이 100% 풀와이드 구성)
           - 상단: 원목 프레임 격자 칠판 (높이 392px 완전 고정, 3분할 구역)
-          - 하단: 큼직해진 2등신 캐릭터 3총사 (좌측 끝 / 중앙 / 우측 끝에서 동시 액션)
+          - 하단: 큼직해진 2등신 캐릭터 3총사 (칠판과 가깝게 밀착, 좌측 끝 / 중앙 / 우측 끝에서 동시 액션)
          ======================================================================= */}
       <div
         style={{
           width: '100%',
           display: 'flex',
           flexDirection: 'column',
-          gap: '4px',
+          gap: '0px',
         }}
       >
         {/* =====================================================================
@@ -509,11 +379,6 @@ export function SisunRenewalStoryStage() {
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                background:
-                  screenMode === 'wireframe'
-                    ? 'rgba(56, 189, 248, 0.08)'
-                    : 'transparent',
-                transition: 'background 0.3s',
               }}
             >
               {/* Zone 1 상단 고정 헤더 (높이 28px 고정) */}
@@ -861,11 +726,6 @@ export function SisunRenewalStoryStage() {
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                background:
-                  screenMode === 'design'
-                    ? 'rgba(236, 72, 153, 0.08)'
-                    : 'transparent',
-                transition: 'background 0.3s',
               }}
             >
               {/* Zone 2 상단 고정 헤더 (높이 28px 고정) */}
@@ -1228,11 +1088,6 @@ export function SisunRenewalStoryStage() {
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                background:
-                  screenMode === 'publishing'
-                    ? 'rgba(167, 139, 250, 0.09)'
-                    : 'transparent',
-                transition: 'background 0.3s',
               }}
             >
               {/* Zone 3 상단 고정 헤더 (높이 28px 고정 + 참고 이미지 우측 상단 3색 자석 재현) */}
@@ -1507,58 +1362,23 @@ export function SisunRenewalStoryStage() {
         </div>
 
         {/* =====================================================================
-            2. 하단 캐릭터 동시 액션 무대 (고정 높이 300px, 캐릭터 35% 확대, 좌측 끝/우측 끝 등장)
+            2. 하단 캐릭터 동시 액션 무대 (칠판과 가깝게 밀착, 점선 및 하단 안내 멘트 제거)
            ===================================================================== */}
         <div
           style={{
             position: 'relative',
             width: '100%',
-            height: '300px',
+            height: '248px',
             background: '#ffffff',
-            marginTop: '6px',
+            marginTop: '-10px',
             overflow: 'hidden',
           }}
         >
-          {/* 칠판 3개 구역과 캐릭터를 이어주는 은은한 수직 가이드 라인 */}
+          {/* ---------------- 주인공 1: 기획자 (좌측 끝 0.5%에서부터 등장 · 236x268 확대) ---------------- */}
           <div
             style={{
               position: 'absolute',
-              top: 0,
-              bottom: '28px',
-              left: '33.33%',
-              borderLeft: '1px dashed #f1f5f9',
-              pointerEvents: 'none',
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              bottom: '28px',
-              left: '66.66%',
-              borderLeft: '1px dashed #f1f5f9',
-              pointerEvents: 'none',
-            }}
-          />
-
-          {/* 바닥 가이드 라인 (은은한 점선) */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '26px',
-              left: '1%',
-              right: '1%',
-              height: '2px',
-              background:
-                'repeating-linear-gradient(to right, #e2e8f0 0, #e2e8f0 8px, transparent 8px, transparent 16px)',
-            }}
-          />
-
-          {/* ---------------- 주인공 1: 서비스기획자 (좌측 끝 0.5%에서부터 등장 · 236x268 확대) ---------------- */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '16px',
+              bottom: '6px',
               left: `${plannerLeft}%`,
               width: '236px',
               height: '268px',
@@ -1640,13 +1460,12 @@ export function SisunRenewalStoryStage() {
             <div
               style={{
                 position: 'absolute',
-                bottom: '-8px',
+                bottom: '0px',
                 left: '50%',
                 transform: 'translateX(-50%)',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '2px',
               }}
             >
               <div
@@ -1655,25 +1474,22 @@ export function SisunRenewalStoryStage() {
                   color: '#ffffff',
                   fontSize: '12px',
                   fontWeight: 800,
-                  padding: '3px 12px',
+                  padding: '3px 14px',
                   borderRadius: '999px',
                   whiteSpace: 'nowrap',
                   boxShadow: '0 2px 6px rgba(30,58,138,0.22)',
                 }}
               >
-                1. 서비스기획자
+                기획자
               </div>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb', whiteSpace: 'nowrap' }}>
-                {plannerActionLabel}
-              </span>
             </div>
           </div>
 
-          {/* ---------------- 주인공 2: UI/UX 디자이너 (중앙 칠판 아래 · 236x268 확대) ---------------- */}
+          {/* ---------------- 주인공 2: 디자이너 (중앙 칠판 아래 · 236x268 확대) ---------------- */}
           <div
             style={{
               position: 'absolute',
-              bottom: '16px',
+              bottom: '6px',
               left: `${designerLeft}%`,
               width: '236px',
               height: '268px',
@@ -1755,13 +1571,12 @@ export function SisunRenewalStoryStage() {
             <div
               style={{
                 position: 'absolute',
-                bottom: '-8px',
+                bottom: '0px',
                 left: '50%',
                 transform: 'translateX(-50%)',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '2px',
               }}
             >
               <div
@@ -1770,25 +1585,22 @@ export function SisunRenewalStoryStage() {
                   color: '#ffffff',
                   fontSize: '12px',
                   fontWeight: 800,
-                  padding: '3px 12px',
+                  padding: '3px 14px',
                   borderRadius: '999px',
                   whiteSpace: 'nowrap',
                   boxShadow: '0 2px 6px rgba(4,120,87,0.22)',
                 }}
               >
-                2. UI/UX 디자이너
+                디자이너
               </div>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#059669', whiteSpace: 'nowrap' }}>
-                {designerActionLabel}
-              </span>
             </div>
           </div>
 
-          {/* ---------------- 주인공 3: 웹 퍼블리셔 (우측 끝 81.5%에서부터 등장 · 236x268 확대) ---------------- */}
+          {/* ---------------- 주인공 3: 퍼블리셔 (우측 끝 81.5%에서부터 등장 · 236x268 확대) ---------------- */}
           <div
             style={{
               position: 'absolute',
-              bottom: '16px',
+              bottom: '6px',
               left: `${publisherLeft}%`,
               width: '236px',
               height: '268px',
@@ -1870,13 +1682,12 @@ export function SisunRenewalStoryStage() {
             <div
               style={{
                 position: 'absolute',
-                bottom: '-8px',
+                bottom: '0px',
                 left: '50%',
                 transform: 'translateX(-50%)',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '2px',
               }}
             >
               <div
@@ -1885,17 +1696,14 @@ export function SisunRenewalStoryStage() {
                   color: '#ffffff',
                   fontSize: '12px',
                   fontWeight: 800,
-                  padding: '3px 12px',
+                  padding: '3px 14px',
                   borderRadius: '999px',
                   whiteSpace: 'nowrap',
                   boxShadow: '0 2px 6px rgba(109,40,217,0.22)',
                 }}
               >
-                3. 웹 퍼블리셔
+                퍼블리셔
               </div>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', whiteSpace: 'nowrap' }}>
-                {publisherActionLabel}
-              </span>
             </div>
           </div>
         </div>
