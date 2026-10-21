@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Play, Pause, RotateCcw, Sparkles, Palette, Code2 } from 'lucide-react';
 
-// 상단 말풍선(Mobile & PC 화면) 프리뷰 모드
+// 상단 칠판 포커스 모드 ('auto'일 때는 3개 영역 모두 각 캐릭터와 실시간 동기화, 특정 단계 선택 시 해당 칠판 영역을 100% 완성 상태로 하이라이트)
 type ScreenStageMode = 'auto' | 'wireframe' | 'design' | 'publishing';
 
 export function SisunRenewalStoryStage() {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [screenMode, setScreenMode] = useState<ScreenStageMode>('auto');
+
   // 1서브틱 = 50ms (20fps 고주사율 애니메이션 타이머)
-  // 기존 100ms(10fps) 대비 2배 세밀한 시간 해상도로 캐릭터의 이동·보폭·손동작·호흡을 부드럽게 보간
   const [subTick, setSubTick] = useState<number>(0);
 
   useEffect(() => {
@@ -19,16 +19,16 @@ export function SisunRenewalStoryStage() {
     return () => window.clearInterval(timer);
   }, [isPlaying]);
 
-  // 기존 타임라인 호환용 연속 틱 (0.0, 0.5, 1.0, 1.5 ...)
+  // 연속 타임라인 틱 (0.0, 0.5, 1.0, 1.5 ...)
   const tick = subTick / 2;
 
-  // 부드러운 가감속(Ease-In-Out Sine) 이동 보간 헬퍼
+  // 부드러운 가감속(Ease-In-Out Sine) 보간 헬퍼
   const easeInOut = (progress: number): number => {
     const clamped = Math.max(0, Math.min(1, progress));
     return -(Math.cos(Math.PI * clamped) - 1) / 2;
   };
 
-  // 8박자 세밀 보행 사이클 (6종의 세분화된 워킹 서브프레임을 왕복·순환하여 끊김 없는 발걸음 연출)
+  // 8박자 세밀 보행 사이클 (6종의 세분화된 워킹 서브프레임 순환)
   const walkSubCycle = [
     'walk-s1',
     'walk-s2',
@@ -43,12 +43,12 @@ export function SisunRenewalStoryStage() {
   const getWalkSubSprite = (st: number, offset: number) =>
     walkSubCycle[Math.floor((st + offset) / 2) % walkSubCycle.length];
 
-  // 6프레임 연속 업무 사이클 (1->2->3->4->5->6->4->2 부드러운 루프)
+  // 6프레임 연속 업무 사이클 (1->2->3->4->5->6->4->2)
   const workLoopOrder = [1, 2, 3, 4, 5, 6, 4, 2] as const;
   const getWorkSubFrame = (st: number, offset: number) =>
     workLoopOrder[Math.floor((st + offset) / 2) % workLoopOrder.length];
 
-  // 4프레임 연속 인터랙션(고민/수령/전달/완료) 사이클 (1->2->3->4->3->2 부드러운 루프)
+  // 4프레임 연속 인터랙션(고민/수령/전달/완료) 사이클 (1->2->3->4->3->2)
   const interactLoopOrder = [1, 2, 3, 4, 3, 2] as const;
   const getInteractSubFrame = (st: number, offset: number) =>
     interactLoopOrder[Math.floor((st + offset) / 2) % interactLoopOrder.length];
@@ -57,44 +57,44 @@ export function SisunRenewalStoryStage() {
   const getCharacterMotion = (isWalking: boolean, st: number, phaseOffset: number) => {
     if (isWalking) {
       const phase = (st + phaseOffset) * 0.55;
-      const bounceY = -Math.abs(Math.sin(phase)) * 6.5; // 0px ~ -6.5px 연속 아치형 발걸음
-      const squash = Math.sin(phase * 2) * 0.022;
+      const bounceY = -Math.abs(Math.sin(phase)) * 7.5; // 0px ~ -7.5px 연속 아치형 발걸음
+      const squash = Math.sin(phase * 2) * 0.024;
       const scaleX = 1 - squash * 0.75;
       const scaleY = 1 + squash;
-      const rotateDeg = Math.cos(phase) * 1.6;
-      const shadowScale = 1 - Math.abs(Math.sin(phase)) * 0.18;
+      const rotateDeg = Math.cos(phase) * 1.7;
+      const shadowScale = 1 - Math.abs(Math.sin(phase)) * 0.2;
       return { bounceY, scaleX, scaleY, rotateDeg, shadowScale };
     } else {
       const phase = (st + phaseOffset) * 0.28;
-      const bounceY = Math.sin(phase) * 2.0 - 1.5; // 업무 중 살아있는 미세 호흡 리듬
-      const squash = Math.sin(phase) * 0.012;
+      const bounceY = Math.sin(phase) * 2.2 - 1.5; // 업무 중 살아있는 미세 호흡 리듬
+      const squash = Math.sin(phase) * 0.013;
       const scaleX = 1 - squash * 0.65;
       const scaleY = 1 + squash;
-      const rotateDeg = Math.sin(phase * 0.7) * 0.9;
+      const rotateDeg = Math.sin(phase * 0.7) * 0.95;
       const shadowScale = 1 + Math.sin(phase) * 0.05;
       return { bounceY, scaleX, scaleY, rotateDeg, shadowScale };
     }
   };
 
   // =========================================================================
-  // 1) 캐릭터 1 · 서비스기획자 (좌측 영역에서 독립 주기 90틱으로 상시 움직임)
-  //    - 0 ~ 16: 좌측(8%)에서 중앙 쪽(15%)으로 총총 걸어 이동
-  //    - 16 ~ 32: 멈춰 서서 Mobile & PC 화면 구성 골똘히 고민 (?)
+  // 1) 캐릭터 1 · 서비스기획자 (하얀색 영역의 좌측 끝(0.5%)에서부터 등장!)
+  //    - 0 ~ 16: 좌측 끝(0.5%)에서 좌측 칠판(Zone 1) 중앙 아래(9.5%)로 총총 걸어 등장
+  //    - 16 ~ 32: 좌측 칠판 아래에서 Mobile & PC 화면 구성 골똘히 고민 (?)
   //    - 32 ~ 58: 유레카(💡)! 태블릿에 시선닷컴 와이어프레임 스케치
-  //    - 58 ~ 70: 우측(22%)으로 걸어가 디자이너 쪽으로 이동
-  //    - 70 ~ 80: 두 손으로 화면설계서(산출물) 전달 포즈
-  //    - 80 ~ 90: 다시 좌측(8%) 자리로 총총 걸어 복귀
+  //    - 58 ~ 70: 중앙 디자이너 쪽(20.5%)으로 총총 걸어 이동
+  //    - 70 ~ 80: 두 손으로 화면설계서(산출물) 전달 포즈 (📋)
+  //    - 80 ~ 90: 다시 좌측 끝(0.5%)으로 총총 걸어 복귀
   // =========================================================================
   const pTick = tick % 90;
   const isPlannerWalking = pTick < 16 || (pTick >= 58 && pTick < 70) || pTick >= 80;
   const plannerMotion = getCharacterMotion(isPlannerWalking, subTick, 0);
 
   const getPlannerLeft = (): number => {
-    if (pTick < 16) return 8 + easeInOut(pTick / 16) * 7; // 8% -> 15%
-    if (pTick < 58) return 15;
-    if (pTick < 70) return 15 + easeInOut((pTick - 58) / 12) * 7; // 15% -> 22%
-    if (pTick < 80) return 22;
-    return 22 - easeInOut((pTick - 80) / 10) * 14; // 22% -> 8%
+    if (pTick < 16) return 0.5 + easeInOut(pTick / 16) * 9.0; // 0.5%(좌측 끝) -> 9.5%(Zone 1 중앙)
+    if (pTick < 58) return 9.5;
+    if (pTick < 70) return 9.5 + easeInOut((pTick - 58) / 12) * 11.0; // 9.5% -> 20.5%
+    if (pTick < 80) return 20.5;
+    return 20.5 - easeInOut((pTick - 80) / 10) * 20.0; // 20.5% -> 0.5%(좌측 끝)
   };
 
   const plannerLeft = getPlannerLeft();
@@ -112,7 +112,7 @@ export function SisunRenewalStoryStage() {
 
   const plannerActionLabel =
     pTick < 16
-      ? '총총 걸어 이동 중'
+      ? '좌측 끝에서 걸어 등장 중'
       : pTick < 32
       ? 'Mobile·PC UX 고민 중 (?)'
       : pTick < 58
@@ -121,45 +121,62 @@ export function SisunRenewalStoryStage() {
       ? '디자이너에게 이동 중'
       : pTick < 80
       ? '화면설계서 전달! 📋'
-      : '자리로 이동 중';
+      : '좌측 자리로 이동 중';
+
+  // 좌측 칠판(Zone 1: 기획자 머리 위) 진행률 (0 ~ 100%)
+  const plannerBoardProgress =
+    screenMode === 'wireframe'
+      ? 100
+      : pTick < 16
+      ? Math.round((pTick / 16) * 25)
+      : pTick < 32
+      ? Math.round(25 + ((pTick - 16) / 16) * 25)
+      : pTick < 58
+      ? Math.min(100, Math.round(50 + ((pTick - 32) / 22) * 50))
+      : 100;
+
+  const isPlannerHandoffActive = pTick >= 66 && pTick < 82;
 
   // =========================================================================
-  // 2) 캐릭터 2 · UI/UX 디자이너 (중앙 영역에서 독립 주기 90틱으로 동시에 상시 움직임)
-  //    - 0 ~ 14: 중앙 좌측(40%)으로 총총 걸어 이동
+  // 2) 캐릭터 2 · UI/UX 디자이너 (중앙 칠판(Zone 2) 아래에서 독립 주기 90틱으로 상시 움직임)
+  //    - 0 ~ 14: 중앙(41%)에서 좌측 기획자 쪽(33.5%)으로 총총 걸어 이동
   //    - 14 ~ 26: 좌측 기획자로부터 화면설계서 두 손으로 수령 (✨)
-  //    - 26 ~ 56: 팔레트와 펜툴로 시선닷컴 Figma 고해상도 UI 디자인 작업 (🎨)
-  //    - 56 ~ 68: 우측 퍼블리셔 쪽(49%)으로 총총 걸어 이동
+  //    - 26 ~ 56: 중앙 칠판 아래(41%)에서 팔레트와 펜툴로 시선닷컴 Figma UI 디자인 작업 (🎨)
+  //    - 56 ~ 68: 우측 퍼블리셔 쪽(48.5%)으로 총총 걸어 이동
   //    - 68 ~ 80: 완성된 컬러 UI 디자인 시안 보드 전달 포즈
-  //    - 80 ~ 90: 다시 중앙(44%)으로 총총 걸어 이동
+  //    - 80 ~ 90: 다시 중앙(41%)으로 총총 걸어 복귀
   // =========================================================================
-  const dTick = (tick + 22) % 90; // 위상을 다르게 하여 3명이 동시에 다채롭게 움직이도록 구성
+  const dTick = (tick + 22) % 90;
   const isDesignerWalking = dTick < 14 || (dTick >= 56 && dTick < 68) || dTick >= 80;
   const designerMotion = getCharacterMotion(isDesignerWalking, subTick, 7);
 
   const getDesignerLeft = (): number => {
-    if (dTick < 14) return 44 - easeInOut(dTick / 14) * 4; // 44% -> 40%
-    if (dTick < 56) return 40 + easeInOut((dTick - 14) / 42) * 3; // 40% -> 43%
-    if (dTick < 68) return 43 + easeInOut((dTick - 56) / 12) * 6; // 43% -> 49%
-    if (dTick < 80) return 49;
-    return 49 - easeInOut((dTick - 80) / 10) * 5; // 49% -> 44%
+    if (dTick < 14) return 41.0 - easeInOut(dTick / 14) * 7.5; // 41.0% -> 33.5%
+    if (dTick < 26) return 33.5;
+    if (dTick < 34) return 33.5 + easeInOut((dTick - 26) / 8) * 7.5; // 33.5% -> 41.0%
+    if (dTick < 56) return 41.0;
+    if (dTick < 68) return 41.0 + easeInOut((dTick - 56) / 12) * 7.5; // 41.0% -> 48.5%
+    if (dTick < 80) return 48.5;
+    return 48.5 - easeInOut((dTick - 80) / 10) * 7.5; // 48.5% -> 41.0%
   };
 
   const designerLeft = getDesignerLeft();
 
-  const designerSprite: string = isDesignerWalking
-    ? getWalkSubSprite(subTick, 5)
-    : dTick < 26
-    ? `receive-${getInteractSubFrame(subTick, 3)}`
-    : dTick < 56
-    ? `work-${getWorkSubFrame(subTick, 3)}`
-    : `handoff-${getInteractSubFrame(subTick, 3)}`;
+  const designerSprite: string =
+    isDesignerWalking || (dTick >= 26 && dTick < 32)
+      ? getWalkSubSprite(subTick, 5)
+      : dTick < 26
+      ? `receive-${getInteractSubFrame(subTick, 3)}`
+      : dTick < 56
+      ? `work-${getWorkSubFrame(subTick, 3)}`
+      : `handoff-${getInteractSubFrame(subTick, 3)}`;
 
-  // 우측으로 걸어갈 때(56~68) 또는 우측 퍼블리셔에게 디자인 시안을 건넬 때(68~80) 좌우 반전
-  const designerFlipRight = dTick >= 56 && dTick < 80;
+  // 우측으로 이동할 때(26~34, 56~68) 또는 우측 퍼블리셔에게 디자인 시안을 건넬 때(68~80) 좌우 반전
+  const designerFlipRight = (dTick >= 26 && dTick < 32) || (dTick >= 56 && dTick < 80);
 
   const designerActionLabel =
     dTick < 14
-      ? '총총 걸어 이동 중'
+      ? '기획자에게 걸어가는 중'
       : dTick < 26
       ? '화면설계서 수령 완료 ✨'
       : dTick < 56
@@ -168,25 +185,40 @@ export function SisunRenewalStoryStage() {
       ? '퍼블리셔에게 이동 중'
       : dTick < 80
       ? 'UI 디자인 시안 전달! 🎨'
-      : '중앙으로 이동 중';
+      : '중앙 자리로 이동 중';
+
+  // 중앙 칠판(Zone 2: 디자이너 머리 위) 진행률 (0 ~ 100%)
+  const designerBoardProgress =
+    screenMode === 'design'
+      ? 100
+      : dTick < 14
+      ? Math.round((dTick / 14) * 20)
+      : dTick < 26
+      ? Math.round(20 + ((dTick - 14) / 12) * 20)
+      : dTick < 56
+      ? Math.min(100, Math.round(40 + ((dTick - 26) / 26) * 60))
+      : 100;
+
+  const isDesignerHandoffActive = dTick >= 66 && dTick < 82;
 
   // =========================================================================
-  // 3) 캐릭터 3 · 여성 웹 퍼블리셔 (우측 영역에서 독립 주기 90틱으로 동시에 상시 움직임)
-  //    - 0 ~ 14: 우측(78%)에서 디자이너 쪽(70%)으로 노트북 들고 총총 걸어옴
+  // 3) 캐릭터 3 · 여성 웹 퍼블리셔 (하얀색 영역의 우측 끝(81.5%)에서부터 등장!)
+  //    - 0 ~ 14: 우측 끝(81.5%)에서 디자이너 쪽(64.5%)으로 노트북 들고 총총 걸어옴
   //    - 14 ~ 26: 디자이너가 건넨 컬러 UI 디자인 시안 보드 수령 (✨)
-  //    - 26 ~ 60: 노트북으로 HTML5/CSS3 반응형 마크업 코딩 타이핑 (</> { })
+  //    - 26 ~ 60: 우측 칠판(Zone 3) 아래(72.5%)에서 HTML5/CSS3 반응형 마크업 코딩 타이핑 (</> { })
   //    - 60 ~ 78: 시선닷컴(sisun.com) 반응형 웹 배포 완료 환호! (<HTML/> 🎉)
-  //    - 78 ~ 90: 우측(78%)으로 다시 총총 걸어 이동
+  //    - 78 ~ 90: 다시 우측 끝(81.5%)으로 총총 걸어 이동
   // =========================================================================
   const pubTick = (tick + 48) % 90;
-  const isPublisherWalking = pubTick < 14 || pubTick >= 78;
+  const isPublisherWalking = pubTick < 14 || (pubTick >= 26 && pubTick < 32) || pubTick >= 78;
   const publisherMotion = getCharacterMotion(isPublisherWalking, subTick, 13);
 
   const getPublisherLeft = (): number => {
-    if (pubTick < 14) return 78 - easeInOut(pubTick / 14) * 8; // 78% -> 70%
-    if (pubTick < 26) return 70 + easeInOut((pubTick - 14) / 12) * 2; // 70% -> 72%
-    if (pubTick < 78) return 72;
-    return 72 + easeInOut((pubTick - 78) / 12) * 6; // 72% -> 78%
+    if (pubTick < 14) return 81.5 - easeInOut(pubTick / 14) * 17.0; // 81.5%(우측 끝) -> 64.5%
+    if (pubTick < 26) return 64.5;
+    if (pubTick < 32) return 64.5 + easeInOut((pubTick - 26) / 6) * 8.0; // 64.5% -> 72.5%(Zone 3 중앙)
+    if (pubTick < 78) return 72.5;
+    return 72.5 + easeInOut((pubTick - 78) / 12) * 9.0; // 72.5% -> 81.5%(우측 끝)
   };
 
   const publisherLeft = getPublisherLeft();
@@ -199,73 +231,34 @@ export function SisunRenewalStoryStage() {
     ? `code-${getWorkSubFrame(subTick, 7)}`
     : `complete-${getInteractSubFrame(subTick, 7)}`;
 
-  // 우측으로 걸어 돌아갈 때(78~90)만 우측 방향으로 반전
-  const publisherFlipRight = pubTick >= 78;
+  // 우측으로 걸어 이동할 때(26~32, 78~90) 우측 방향으로 반전
+  const publisherFlipRight = (pubTick >= 26 && pubTick < 32) || pubTick >= 78;
 
   const publisherActionLabel =
     pubTick < 14
-      ? '노트북 들고 걸어오는 중'
+      ? '우측 끝에서 걸어 등장 중'
       : pubTick < 26
       ? '디자인 시안 수령 완료 ✨'
       : pubTick < 60
       ? 'HTML/CSS 반응형 코딩 중 💻'
       : pubTick < 78
       ? '시선닷컴 LIVE 배포 완료! 🎉'
-      : '자리로 이동 중';
+      : '우측 끝 자리로 이동 중';
 
-  // =========================================================================
-  // 4) 상단 대형 말풍선 (Mobile & PC 화면) 상태 계산
-  //    - 'auto' 모드일 때는 150틱(15초) 주기로 [기획 와이어프레임 ➔ Figma 디자인 ➔ HTML/CSS 코딩 & LIVE] 자연 전환
-  //    - 사용자가 상단 버튼을 누르면 해당 화면 모드를 고정해서 볼 수도 있음
-  // =========================================================================
-  const autoCycleTick = tick % 150;
-  const activeStage: 1 | 2 | 3 =
-    screenMode === 'wireframe'
-      ? 1
-      : screenMode === 'design'
-      ? 2
-      : screenMode === 'publishing'
-      ? 3
-      : autoCycleTick < 50
-      ? 1
-      : autoCycleTick < 100
-      ? 2
-      : 3;
-
-  // 각 단계 내부 진행률 (0 ~ 100%)
-  const sketchProgress =
-    screenMode === 'wireframe'
-      ? 100
-      : activeStage === 1
-      ? Math.min(100, Math.round((autoCycleTick / 35) * 100))
-      : 100;
-
-  const designProgress =
-    screenMode === 'design'
-      ? 100
-      : activeStage === 1
-      ? 0
-      : activeStage === 2
-      ? Math.min(100, Math.round(((autoCycleTick - 50) / 35) * 100))
-      : 100;
-
-  const codeProgress =
+  // 우측 칠판(Zone 3: 퍼블리셔 머리 위) 진행률 (0 ~ 100%)
+  const publisherBoardProgress =
     screenMode === 'publishing'
       ? 100
-      : activeStage < 3
-      ? 0
-      : Math.min(100, Math.round(((autoCycleTick - 100) / 32) * 100));
+      : pubTick < 14
+      ? Math.round((pubTick / 14) * 18)
+      : pubTick < 26
+      ? Math.round(18 + ((pubTick - 14) / 12) * 17)
+      : pubTick < 60
+      ? Math.min(100, Math.round(35 + ((pubTick - 26) / 30) * 65))
+      : 100;
 
-  const isCodingOverlayVisible =
-    activeStage === 3 && (screenMode === 'publishing' ? tick % 60 < 40 : autoCycleTick < 134);
-  const isLiveComplete = activeStage === 3 && !isCodingOverlayVisible;
-
-  // 말풍선 꼬리 위치 (현재 상단 화면 단계의 주인공 위치를 자연스럽게 가리킴)
-  const bubbleTailLeft =
-    activeStage === 1 ? plannerLeft + 5 : activeStage === 2 ? designerLeft + 5 : publisherLeft + 4;
-
-  const bubbleBgColor = activeStage === 1 ? '#4a7cc7' : activeStage === 2 ? '#3b6db5' : '#5b4bc4';
-  const bubbleBorderColor = activeStage === 1 ? '#2b5494' : activeStage === 2 ? '#1e4278' : '#37298a';
+  const isPublisherLiveCelebration =
+    screenMode === 'publishing' ? subTick % 80 >= 45 : pubTick >= 60 && pubTick < 80;
 
   // GitHub Pages 호환 투명 PNG 이미지 경로 헬퍼
   const baseUrl = import.meta.env.BASE_URL || './';
@@ -279,7 +272,7 @@ export function SisunRenewalStoryStage() {
         borderRadius: '24px',
         border: '2px solid #e2e8f0',
         boxShadow: '0 16px 40px -12px rgba(15, 23, 42, 0.08)',
-        padding: '24px 28px 28px',
+        padding: '20px 18px 24px',
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -292,8 +285,8 @@ export function SisunRenewalStoryStage() {
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '12px',
-          marginBottom: '18px',
-          paddingBottom: '14px',
+          marginBottom: '14px',
+          padding: '0 6px 12px',
           borderBottom: '1px solid #f1f5f9',
         }}
       >
@@ -302,36 +295,25 @@ export function SisunRenewalStoryStage() {
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '5px',
-              background:
-                activeStage === 1 ? '#eff6ff' : activeStage === 2 ? '#ecfdf5' : '#f5f3ff',
-              color:
-                activeStage === 1 ? '#1d4ed8' : activeStage === 2 ? '#047857' : '#6d28d9',
-              border: `1px solid ${
-                activeStage === 1 ? '#bfdbfe' : activeStage === 2 ? '#a7f3d0' : '#ddd6fe'
-              }`,
-              padding: '4px 11px',
+              gap: '6px',
+              background: '#ecfdf5',
+              color: '#065f46',
+              border: '1px solid #a7f3d0',
+              padding: '4px 12px',
               borderRadius: '9999px',
               fontSize: '12px',
               fontWeight: 800,
-              transition: 'all 0.3s',
             }}
           >
-            {activeStage === 1 ? (
-              <Sparkles size={13} />
-            ) : activeStage === 2 ? (
-              <Palette size={13} />
-            ) : (
-              <Code2 size={13} />
-            )}
-            시선닷컴(sisun.com) UI/UX 개편 라이브 무대
+            <Sparkles size={13} color="#059669" />
+            시선닷컴(sisun.com) UI/UX 개편 라이브 칠판 스튜디오
           </span>
           <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
-            기획자 · 디자이너 · 퍼블리셔 3인이 동시에 협업하며 Mobile & PC 화면을 완성합니다
+            각 캐릭터 머리 위의 칠판 구역에서 [① 와이어프레임 설계 · ② Figma 디자인 · ③ HTML/CSS 퍼블리싱]이 동시에 진행됩니다
           </span>
         </div>
 
-        {/* 재생/일시정지 및 상단 말풍선 화면 모드 선택 버튼 */}
+        {/* 재생/일시정지 및 칠판 하이라이트 모드 선택 버튼 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <button
             onClick={() => setIsPlaying((p) => !p)}
@@ -373,13 +355,13 @@ export function SisunRenewalStoryStage() {
               cursor: 'pointer',
             }}
           >
-            <RotateCcw size={12} /> 자동 순환
+            <RotateCcw size={12} /> 3인 동시 라이브
           </button>
 
           {[
-            { mode: 'wireframe' as const, label: '① 기획 스케치 화면', color: '#dbeafe', text: '#1e3a8a' },
-            { mode: 'design' as const, label: '② Figma 디자인 화면', color: '#d1fae5', text: '#065f46' },
-            { mode: 'publishing' as const, label: '③ HTML/CSS 퍼블리싱 화면', color: '#ede9fe', text: '#5b21b6' },
+            { mode: 'wireframe' as const, label: '① 기획 칠판 100%', color: '#dbeafe', text: '#1e3a8a', icon: <Sparkles size={11} /> },
+            { mode: 'design' as const, label: '② 디자인 칠판 100%', color: '#d1fae5', text: '#065f46', icon: <Palette size={11} /> },
+            { mode: 'publishing' as const, label: '③ 퍼블리싱 칠판 100%', color: '#ede9fe', text: '#5b21b6', icon: <Code2 size={11} /> },
           ].map((btn) => {
             const isSelected = screenMode === btn.mode;
             return (
@@ -387,6 +369,9 @@ export function SisunRenewalStoryStage() {
                 key={btn.mode}
                 onClick={() => setScreenMode(btn.mode)}
                 style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
                   padding: '5px 10px',
                   borderRadius: '6px',
                   border: '1px solid #e2e8f0',
@@ -397,6 +382,7 @@ export function SisunRenewalStoryStage() {
                   cursor: 'pointer',
                 }}
               >
+                {btn.icon}
                 {btn.label}
               </button>
             );
@@ -405,799 +391,1177 @@ export function SisunRenewalStoryStage() {
       </div>
 
       {/* =======================================================================
-          메인 애니메이션 무대
-          - 상단: 대형 말풍선 (좌측 세로 Mobile 화면 + 우측 가로 PC 화면)
-          - 하단: 투명 PNG 배경의 2등신 캐릭터 3총사가 동시에 각자의 업무 동작을 수행
+          메인 애니메이션 무대 (좌/우 여백 없이 100% 풀와이드 구성)
+          - 상단: 원목 프레임 격자 칠판 (높이 392px 완전 고정, 3분할 구역)
+          - 하단: 큼직해진 2등신 캐릭터 3총사 (좌측 끝 / 중앙 / 우측 끝에서 동시 액션)
          ======================================================================= */}
       <div
         style={{
           width: '100%',
-          maxWidth: '980px',
-          margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: '8px',
+          gap: '4px',
         }}
       >
-        {/* 1. 상단 대형 말풍선 영역 (좌측 Mobile + 우측 PC) */}
+        {/* =====================================================================
+            1. 상단 풀와이드 원목 칠판 판넬 (높이 완전 고정: 392px)
+               - 두 번째 첨부 이미지의 원목 테두리 + 짙은 녹색 모눈 칠판 + 컬러 자석 완벽 재현
+               - 캐릭터 각각의 머리 위 3개 구역(기획 / 디자인 / 퍼블리싱)으로 명확히 구분
+           ===================================================================== */}
         <div
           style={{
             position: 'relative',
-            background: bubbleBgColor,
-            border: `3px solid ${bubbleBorderColor}`,
-            borderRadius: '38px',
-            padding: '22px 26px',
-            minHeight: '335px',
-            display: 'grid',
-            gridTemplateColumns: '240px 1fr',
-            gap: '22px',
-            boxShadow: '0 12px 28px rgba(43, 84, 148, 0.18)',
-            transition: 'background 0.4s ease, border-color 0.4s ease',
+            width: '100%',
+            height: '392px',
+            boxSizing: 'border-box',
+            // 원목 프레임 질감 (베벨 입체 테두리)
+            background:
+              'linear-gradient(180deg, #e7c196 0%, #d3a26f 22%, #c5915d 80%, #b37e4a 100%)',
+            padding: '13px 14px 16px',
+            borderRadius: '12px',
+            border: '2px solid #a87442',
+            boxShadow:
+              '0 14px 32px rgba(15, 23, 42, 0.14), inset 0 2px 2px rgba(255, 255, 255, 0.55), inset 0 -3px 5px rgba(92, 57, 25, 0.45)',
           }}
         >
-          {/* ---------------- 좌측 세로 창: Mobile 디바이스 화면 ---------------- */}
+          {/* 원목 프레임 네 모서리 사선 이음매(Miter Joint) 디테일 */}
           <div
             style={{
-              background: '#ffffff',
-              border: `3px solid ${bubbleBorderColor}`,
-              borderRadius: '26px',
-              padding: '12px 14px',
-              display: 'flex',
-              flexDirection: 'column',
+              position: 'absolute',
+              inset: '3px',
+              border: '1px solid rgba(120, 74, 34, 0.28)',
+              borderRadius: '9px',
+              pointerEvents: 'none',
+            }}
+          />
+
+          {/* 칠판 하단 분필 받침대 (Wooden Chalk Ledge - 참고 이미지 하단 디테일) */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '-6px',
+              left: '14%',
+              right: '14%',
+              height: '8px',
+              background: 'linear-gradient(180deg, #dfb484 0%, #b8824e 100%)',
+              border: '1px solid #966536',
+              borderRadius: '0 0 5px 5px',
+              boxShadow: '0 4px 8px rgba(15, 23, 42, 0.18)',
+              zIndex: 4,
+            }}
+          />
+          {/* 받침대 위 작은 흰색/노란색 분필 디테일 */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '1px',
+              left: '28%',
+              width: '28px',
+              height: '5px',
+              borderRadius: '2px',
+              background: '#f8fafc',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+              zIndex: 5,
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '1px',
+              left: '62%',
+              width: '24px',
+              height: '5px',
+              borderRadius: '2px',
+              background: '#fde047',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+              zIndex: 5,
+            }}
+          />
+
+          {/* 칠판 내부 짙은 녹색 모눈(Grid) 보드 영역 (높이 100% 고정, overflow hidden) */}
+          <div
+            style={{
               position: 'relative',
+              width: '100%',
+              height: '100%',
+              boxSizing: 'border-box',
+              borderRadius: '4px',
               overflow: 'hidden',
+              backgroundColor: '#06462e',
+              backgroundImage:
+                'linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px), radial-gradient(ellipse at 50% 45%, #0a583b 0%, #053b26 100%)',
+              backgroundSize: '24px 24px, 24px 24px, 100% 100%',
+              boxShadow: 'inset 0 3px 10px rgba(0, 0, 0, 0.55)',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
             }}
           >
+            {/* =================================================================
+                [칠판 ZONE 1 · 좌측] 서비스기획자 머리 위: Mobile & PC 와이어프레임 설계
+               ================================================================= */}
             <div
               style={{
+                position: 'relative',
+                height: '100%',
+                padding: '12px 14px',
+                boxSizing: 'border-box',
+                borderRight: '1.5px dashed rgba(255, 255, 255, 0.16)',
                 display: 'flex',
-                alignItems: 'center',
+                flexDirection: 'column',
                 justifyContent: 'space-between',
-                marginBottom: '8px',
+                background:
+                  screenMode === 'wireframe'
+                    ? 'rgba(56, 189, 248, 0.08)'
+                    : 'transparent',
+                transition: 'background 0.3s',
               }}
             >
-              <span
-                style={{
-                  fontSize: '9.5px',
-                  fontWeight: 800,
-                  color:
-                    activeStage === 1 ? '#1d4ed8' : activeStage === 2 ? '#059669' : '#6d28d9',
-                  background:
-                    activeStage === 1 ? '#eff6ff' : activeStage === 2 ? '#ecfdf5' : '#f5f3ff',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                }}
-              >
-                {activeStage === 1
-                  ? '📐 Mobile Wireframe'
-                  : activeStage === 2
-                  ? '🎨 Figma · Mobile_UI'
-                  : isLiveComplete
-                  ? '🟢 LIVE · m.sisun.com'
-                  : '💻 HTML/CSS · 390px'}
-              </span>
+              {/* Zone 1 상단 고정 헤더 (높이 28px 고정) */}
               <div
                 style={{
-                  width: '36px',
-                  height: '4px',
-                  background: '#cbd5e1',
-                  borderRadius: '999px',
+                  height: '28px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
+                  paddingBottom: '6px',
+                  flexShrink: 0,
                 }}
-              />
-            </div>
-
-            <svg viewBox="0 0 200 260" width="100%" height="100%">
-              <defs>
-                <linearGradient id="sisunMobileHeroGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#fdf2f8" />
-                  <stop offset="50%" stopColor="#fce7f3" />
-                  <stop offset="100%" stopColor="#f3e8ff" />
-                </linearGradient>
-                <linearGradient id="sisunCoatGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#fef3c7" />
-                  <stop offset="100%" stopColor="#fde68a" />
-                </linearGradient>
-                <linearGradient id="sisunTweedGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#e0e7ff" />
-                  <stop offset="100%" stopColor="#c7d2fe" />
-                </linearGradient>
-              </defs>
-
-              {/* [Layer 1] 기획자가 그린 와이어프레임 스케치 레이어 */}
-              <g style={{ opacity: designProgress >= 85 ? 0.12 : 1, transition: 'opacity 0.4s' }}>
-                <g style={{ opacity: sketchProgress >= 10 ? 1 : 0, transition: 'opacity 0.3s' }}>
-                  <rect x="4" y="2" width="192" height="24" rx="4" fill="#f8fafc" stroke="#475569" strokeWidth="2" />
-                  <line x1="12" y1="10" x2="24" y2="10" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-                  <line x1="12" y1="14" x2="24" y2="14" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-                  <line x1="12" y1="18" x2="20" y2="18" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
-                  <text x="100" y="18" fontSize="11" fontWeight="bold" fill="#1e293b" textAnchor="middle">
-                    SISUN.COM
-                  </text>
-                  <circle cx="182" cy="14" r="5" fill="none" stroke="#334155" strokeWidth="1.8" />
-                </g>
-
-                <g style={{ opacity: sketchProgress >= 30 ? 1 : 0, transition: 'opacity 0.35s' }}>
-                  <rect
-                    x="4"
-                    y="34"
-                    width="192"
-                    height="92"
-                    rx="6"
-                    fill="#eff6ff"
-                    stroke="#2563eb"
-                    strokeWidth="2"
-                    strokeDasharray="4 2"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  {/* 입체 자석 (민트색) */}
+                  <span
+                    style={{
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle at 35% 35%, #5eead4, #0d9488)',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.45)',
+                      display: 'inline-block',
+                      flexShrink: 0,
+                    }}
                   />
-                  <line x1="4" y1="34" x2="196" y2="126" stroke="#93c5fd" strokeWidth="1.5" />
-                  <line x1="196" y1="34" x2="4" y2="126" stroke="#93c5fd" strokeWidth="1.5" />
-                  <rect x="42" y="66" width="116" height="26" rx="5" fill="#ffffff" stroke="#2563eb" strokeWidth="1.5" />
-                  <text x="100" y="83" fontSize="9.5" fontWeight="bold" fill="#1d4ed8" textAnchor="middle">
-                    모바일 풀스크린 룩북
-                  </text>
-                </g>
-
-                <g style={{ opacity: sketchProgress >= 60 ? 1 : 0, transition: 'opacity 0.35s' }}>
-                  <rect x="4" y="136" width="91" height="72" rx="5" fill="#f8fafc" stroke="#475569" strokeWidth="1.8" />
-                  <line x1="4" y1="136" x2="95" y2="188" stroke="#cbd5e1" strokeWidth="1.2" />
-                  <rect x="105" y="136" width="91" height="72" rx="5" fill="#f8fafc" stroke="#475569" strokeWidth="1.8" />
-                  <line x1="105" y1="136" x2="196" y2="188" stroke="#cbd5e1" strokeWidth="1.2" />
-                </g>
-
-                <g style={{ opacity: sketchProgress >= 85 ? 1 : 0, transition: 'opacity 0.35s' }}>
-                  <rect x="4" y="218" width="192" height="34" rx="8" fill="#dbeafe" stroke="#2563eb" strokeWidth="2" />
-                  <text x="100" y="239" fontSize="10" fontWeight="bold" fill="#1e3a8a" textAnchor="middle">
-                    ✓ 엄지손가락 원클릭 구매 동선
-                  </text>
-                </g>
-              </g>
-
-              {/* [Layer 2] 디자이너의 Figma 고해상도 컬러 UI 레이어 */}
-              {designProgress > 0 && (
-                <g>
-                  <g style={{ opacity: designProgress >= 15 ? 1 : 0, transition: 'opacity 0.35s' }}>
-                    <rect x="4" y="2" width="192" height="26" rx="6" fill="#0f172a" />
-                    <text x="16" y="19" fontSize="10.5" fontWeight="bold" fill="#ffffff" letterSpacing="1.5">
-                      SISUN
-                    </text>
-                    <rect x="78" y="8" width="34" height="14" rx="7" fill="#f43f5e" />
-                    <text x="95" y="18" fontSize="8" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                      26 FW
-                    </text>
-                    <circle cx="168" cy="15" r="4" fill="none" stroke="#f8fafc" strokeWidth="1.5" />
-                    <rect x="179" y="11" width="8" height="8" rx="1.5" fill="none" stroke="#f8fafc" strokeWidth="1.5" />
-                  </g>
-
-                  <g style={{ opacity: designProgress >= 40 ? 1 : 0, transition: 'opacity 0.4s' }}>
-                    <rect
-                      x="4"
-                      y="34"
-                      width="192"
-                      height="94"
-                      rx="8"
-                      fill="url(#sisunMobileHeroGrad)"
-                      stroke={isLiveComplete ? '#8b5cf6' : '#ec4899'}
-                      strokeWidth="1.8"
-                    />
-                    <circle cx="152" cy="64" r="14" fill="#f9a8d4" />
-                    <path d="M132 122 C134 86, 170 86, 172 122 Z" fill="#be185d" />
-                    <text x="16" y="54" fontSize="8.5" fontWeight="bold" fill="#9d174d">
-                      MICHAA · it MICHAA
-                    </text>
-                    <text x="16" y="72" fontSize="12" fontWeight="bold" fill="#0f172a">
-                      TIMELESS
-                    </text>
-                    <text x="16" y="87" fontSize="12" fontWeight="bold" fill="#be185d">
-                      ELEGANCE
-                    </text>
-                    <rect x="16" y="97" width="76" height="20" rx="10" fill="#0f172a" />
-                    <text x="54" y="110" fontSize="8.5" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                      화보 컬렉션 보기 →
-                    </text>
-                  </g>
-
-                  <g style={{ opacity: designProgress >= 65 ? 1 : 0, transition: 'opacity 0.4s' }}>
-                    <rect x="4" y="135" width="91" height="76" rx="7" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1.5" />
-                    <rect x="8" y="139" width="83" height="44" rx="5" fill="url(#sisunCoatGrad)" />
-                    <text x="50" y="165" fontSize="16" textAnchor="middle">
-                      🧥
-                    </text>
-                    <text x="10" y="195" fontSize="8.5" fontWeight="bold" fill="#1e293b">
-                      캐시미어 벨티드 코트
-                    </text>
-                    <circle cx="14" cy="204" r="3" fill="#d97706" />
-                    <circle cx="23" cy="204" r="3" fill="#1e293b" />
-                    <text x="88" y="206" fontSize="8" fontWeight="bold" fill="#e11d48" textAnchor="end">
-                      ♥ 1.2k
-                    </text>
-
-                    <rect x="105" y="135" width="91" height="76" rx="7" fill="#ffffff" stroke="#e2e8f0" strokeWidth="1.5" />
-                    <rect x="109" y="139" width="83" height="44" rx="5" fill="url(#sisunTweedGrad)" />
-                    <text x="150" y="165" fontSize="16" textAnchor="middle">
-                      👗
-                    </text>
-                    <text x="111" y="195" fontSize="8.5" fontWeight="bold" fill="#1e293b">
-                      시그니처 트위드 셋업
-                    </text>
-                    <circle cx="115" cy="204" r="3" fill="#6366f1" />
-                    <circle cx="124" cy="204" r="3" fill="#f43f5e" />
-                    <text x="189" y="206" fontSize="8" fontWeight="bold" fill="#e11d48" textAnchor="end">
-                      ♥ 980
-                    </text>
-                  </g>
-
-                  <g style={{ opacity: designProgress >= 85 ? 1 : 0, transition: 'opacity 0.4s' }}>
-                    <rect x="4" y="218" width="192" height="34" rx="10" fill="#0f172a" />
-                    <rect x="12" y="224" width="82" height="22" rx="6" fill="#ec4899" />
-                    <text x="53" y="238" fontSize="9" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                      ⚡ AI 사이즈 추천
-                    </text>
-                    <text x="145" y="238" fontSize="9" fontWeight="bold" fill="#f8fafc" textAnchor="middle">
-                      🛍️ 원클릭 구매
-                    </text>
-                  </g>
-                </g>
-              )}
-
-              {/* [Layer 3] 퍼블리셔의 HTML/CSS 반응형 코딩 오버레이 */}
-              {isCodingOverlayVisible && (
-                <g>
-                  <rect
-                    x="4"
-                    y="2"
-                    width="192"
-                    height="250"
-                    rx="6"
-                    fill="none"
-                    stroke="#8b5cf6"
-                    strokeWidth="1.5"
-                    strokeDasharray="3 2"
-                  />
-                  <rect
-                    x="8"
-                    y="42"
-                    width="184"
-                    height="138"
-                    rx="8"
-                    fill="rgba(15, 23, 42, 0.92)"
-                    stroke="#a78bfa"
-                    strokeWidth="1.5"
-                  />
-                  <text x="16" y="58" fontSize="8" fontWeight="bold" fill="#a78bfa" fontFamily="monospace">
-                    {'<!-- mobile_sisun.html -->'}
-                  </text>
-                  {codeProgress >= 15 && (
-                    <text x="16" y="74" fontSize="8.5" fill="#38bdf8" fontFamily="monospace">
-                      {'<header class="m-gnb">'}
-                    </text>
-                  )}
-                  {codeProgress >= 30 && (
-                    <text x="22" y="88" fontSize="8" fill="#f472b6" fontFamily="monospace">
-                      {'<LookbookHero full />'}
-                    </text>
-                  )}
-                  {codeProgress >= 50 && (
-                    <text x="16" y="104" fontSize="8" fill="#34d399" fontFamily="monospace">
-                      {'@media (max-width:768px){'}
-                    </text>
-                  )}
-                  {codeProgress >= 65 && (
-                    <text x="22" y="118" fontSize="8" fill="#fde047" fontFamily="monospace">
-                      {'grid-template: 1fr 1fr;'}
-                    </text>
-                  )}
-                  {codeProgress >= 80 && (
-                    <text x="22" y="132" fontSize="8" fill="#fde047" fontFamily="monospace">
-                      {'touch-action: manipulation;'}
-                    </text>
-                  )}
-                  {codeProgress >= 90 && (
-                    <text x="16" y="148" fontSize="8.5" fontWeight="bold" fill="#4ade80" fontFamily="monospace">
-                      {'✓ Responsive Build 100%'}
-                    </text>
-                  )}
-                  <rect x="16" y="160" width="168" height="6" rx="3" fill="#334155" />
-                  <rect
-                    x="16"
-                    y="160"
-                    width={Math.max(8, (168 * codeProgress) / 100)}
-                    height="6"
-                    rx="3"
-                    fill="#a855f7"
-                  />
-                </g>
-              )}
-
-              {isLiveComplete && (
-                <g>
-                  <rect x="26" y="116" width="148" height="22" rx="11" fill="#6d28d9" stroke="#ffffff" strokeWidth="1.5" />
-                  <text x="100" y="130" fontSize="8.5" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                    ✨ 모바일 반응형 웹 배포 완료!
-                  </text>
-                </g>
-              )}
-            </svg>
-          </div>
-
-          {/* ---------------- 우측 가로 창: PC 와이드 디바이스 화면 ---------------- */}
-          <div
-            style={{
-              background: '#ffffff',
-              border: `3px solid ${bubbleBorderColor}`,
-              borderRadius: '26px',
-              padding: '14px 20px',
-              display: 'flex',
-              flexDirection: 'column',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingBottom: '10px',
-                marginBottom: '8px',
-                borderBottom: '2px solid #f1f5f9',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f87171' }} />
-                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#fbbf24' }} />
-                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#34d399' }} />
-                <div
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 800,
+                      color: '#e0f2fe',
+                      letterSpacing: '0.3px',
+                    }}
+                  >
+                    STEP 01 · 기획 와이어프레임 (SB)
+                  </span>
+                </div>
+                <span
                   style={{
-                    marginLeft: '8px',
-                    background:
-                      activeStage === 1 ? '#f8fafc' : activeStage === 2 ? '#ecfdf5' : '#f5f3ff',
-                    border: `1px solid ${
-                      activeStage === 1 ? '#e2e8f0' : activeStage === 2 ? '#a7f3d0' : '#ddd6fe'
-                    }`,
-                    borderRadius: '6px',
-                    padding: '2px 12px',
-                    fontSize: '11px',
-                    color:
-                      activeStage === 1 ? '#64748b' : activeStage === 2 ? '#047857' : '#6d28d9',
-                    fontWeight: 700,
-                    transition: 'all 0.3s',
+                    fontSize: '10.5px',
+                    fontWeight: 800,
+                    color: '#fde047',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    border: '1px solid rgba(253, 224, 71, 0.35)',
                   }}
                 >
-                  {activeStage === 1
-                    ? 'https://www.sisun.com — PC 화면설계서 (Wireframe)'
-                    : activeStage === 2
-                    ? '🎨 Figma — SISUN.COM 2026 UI/UX 디자인 리뉴얼 (Design System v2.0)'
-                    : isLiveComplete
-                    ? '🟢 https://www.sisun.com — 반응형 웹 퍼블리싱 배포 완료 (LIVE)'
-                    : '💻 VS Code — index.html · sisun-responsive.css (퍼블리싱 마크업 중...)'}
-                </div>
+                  설계 {plannerBoardProgress}%
+                </span>
               </div>
 
-              {activeStage === 2 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', marginRight: '2px' }}>
-                    Color Tokens
+              {/* Zone 1 메인 칠판 스케치 캔버스 (SVG 고정 뷰박스) */}
+              <div style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: '6px' }}>
+                <svg viewBox="0 0 360 285" width="100%" height="100%" style={{ display: 'block' }}>
+                  {/* 좌측: Mobile 와이어프레임 분필 도면 */}
+                  <g>
+                    <text x="62" y="13" fontSize="9.5" fontWeight="bold" fill="#93c5fd" textAnchor="middle">
+                      📱 Mobile (390px)
+                    </text>
+                    <rect
+                      x="8"
+                      y="20"
+                      width="108"
+                      height="232"
+                      rx="12"
+                      fill="rgba(15, 23, 42, 0.38)"
+                      stroke="#bae6fd"
+                      strokeWidth="1.8"
+                    />
+                    {/* 상단 GNB */}
+                    <g style={{ opacity: plannerBoardProgress >= 12 ? 1 : 0.2, transition: 'opacity 0.25s' }}>
+                      <rect
+                        x="15"
+                        y="30"
+                        width="94"
+                        height="18"
+                        rx="3"
+                        fill="none"
+                        stroke="#e0f2fe"
+                        strokeWidth="1.3"
+                      />
+                      <line x1="20" y1="36" x2="28" y2="36" stroke="#bae6fd" strokeWidth="1.4" />
+                      <line x1="20" y1="41" x2="28" y2="41" stroke="#bae6fd" strokeWidth="1.4" />
+                      <text x="62" y="42" fontSize="7.5" fontWeight="bold" fill="#ffffff" textAnchor="middle">
+                        SISUN.COM
+                      </text>
+                    </g>
+
+                    {/* 메인 풀스크린 룩북 배너 와이어프레임 */}
+                    <g style={{ opacity: plannerBoardProgress >= 30 ? 1 : 0.15, transition: 'opacity 0.25s' }}>
+                      <rect
+                        x="15"
+                        y="54"
+                        width="94"
+                        height="76"
+                        rx="4"
+                        fill="rgba(56, 189, 248, 0.1)"
+                        stroke="#7dd3fc"
+                        strokeWidth="1.4"
+                        strokeDasharray="4 2"
+                      />
+                      <line x1="15" y1="54" x2="109" y2="130" stroke="rgba(125, 211, 252, 0.45)" strokeWidth="1.1" />
+                      <line x1="109" y1="54" x2="15" y2="130" stroke="rgba(125, 211, 252, 0.45)" strokeWidth="1.1" />
+                      <rect
+                        x="25"
+                        y="81"
+                        width="74"
+                        height="20"
+                        rx="3"
+                        fill="#06462e"
+                        stroke="#fde047"
+                        strokeWidth="1.2"
+                      />
+                      <text x="62" y="94" fontSize="7.5" fontWeight="bold" fill="#fde047" textAnchor="middle">
+                        풀스크린 화보 배너
+                      </text>
+                    </g>
+
+                    {/* 2열 상품 그리드 와이어프레임 */}
+                    <g style={{ opacity: plannerBoardProgress >= 55 ? 1 : 0.15, transition: 'opacity 0.25s' }}>
+                      <rect
+                        x="15"
+                        y="137"
+                        width="44"
+                        height="64"
+                        rx="3"
+                        fill="none"
+                        stroke="#cbd5e1"
+                        strokeWidth="1.3"
+                      />
+                      <line x1="15" y1="137" x2="59" y2="180" stroke="rgba(203,213,225,0.4)" strokeWidth="1" />
+                      <text x="37" y="193" fontSize="6.8" fill="#e2e8f0" textAnchor="middle">
+                        상품 01
+                      </text>
+
+                      <rect
+                        x="65"
+                        y="137"
+                        width="44"
+                        height="64"
+                        rx="3"
+                        fill="none"
+                        stroke="#cbd5e1"
+                        strokeWidth="1.3"
+                      />
+                      <line x1="65" y1="137" x2="109" y2="180" stroke="rgba(203,213,225,0.4)" strokeWidth="1" />
+                      <text x="87" y="193" fontSize="6.8" fill="#e2e8f0" textAnchor="middle">
+                        상품 02
+                      </text>
+                    </g>
+
+                    {/* 하단 원클릭 구매 고정 바 */}
+                    <g style={{ opacity: plannerBoardProgress >= 80 ? 1 : 0.15, transition: 'opacity 0.25s' }}>
+                      <rect
+                        x="15"
+                        y="208"
+                        width="94"
+                        height="34"
+                        rx="5"
+                        fill="rgba(253, 224, 71, 0.14)"
+                        stroke="#fde047"
+                        strokeWidth="1.4"
+                      />
+                      <text x="62" y="223" fontSize="7.2" fontWeight="bold" fill="#fef08a" textAnchor="middle">
+                        ✓ 엄지 영역 Floating Bar
+                      </text>
+                      <text x="62" y="235" fontSize="6.8" fill="#bae6fd" textAnchor="middle">
+                        [AI 사이즈 추천 / 원클릭 구매]
+                      </text>
+                    </g>
+                  </g>
+
+                  {/* 우측: PC 와이드 화면설계서 분필 도면 */}
+                  <g>
+                    <text x="242" y="13" fontSize="9.5" fontWeight="bold" fill="#93c5fd" textAnchor="middle">
+                      🖥️ PC Wide Wireframe (1440px)
+                    </text>
+                    <rect
+                      x="128"
+                      y="20"
+                      width="224"
+                      height="232"
+                      rx="8"
+                      fill="rgba(15, 23, 42, 0.38)"
+                      stroke="#bae6fd"
+                      strokeWidth="1.8"
+                    />
+                    {/* PC 상단 GNB */}
+                    <g style={{ opacity: plannerBoardProgress >= 20 ? 1 : 0.15, transition: 'opacity 0.25s' }}>
+                      <rect
+                        x="136"
+                        y="28"
+                        width="208"
+                        height="20"
+                        rx="3"
+                        fill="none"
+                        stroke="#e0f2fe"
+                        strokeWidth="1.2"
+                      />
+                      <text x="144" y="41" fontSize="7.5" fontWeight="bold" fill="#ffffff">
+                        SISUN
+                      </text>
+                      <text x="184" y="41" fontSize="6.8" fill="#bae6fd">
+                        MICHAA · it MICHAA · E.B.M · LOOKBOOK
+                      </text>
+                    </g>
+
+                    {/* PC 히어로 + AI 큐레이션 분할 레이아웃 */}
+                    <g style={{ opacity: plannerBoardProgress >= 45 ? 1 : 0.15, transition: 'opacity 0.25s' }}>
+                      <rect
+                        x="136"
+                        y="55"
+                        width="132"
+                        height="84"
+                        rx="4"
+                        fill="rgba(56, 189, 248, 0.1)"
+                        stroke="#7dd3fc"
+                        strokeWidth="1.4"
+                        strokeDasharray="4 2"
+                      />
+                      <line x1="136" y1="55" x2="268" y2="139" stroke="rgba(125, 211, 252, 0.4)" strokeWidth="1" />
+                      <line x1="268" y1="55" x2="136" y2="139" stroke="rgba(125, 211, 252, 0.4)" strokeWidth="1" />
+                      <rect
+                        x="156"
+                        y="85"
+                        width="92"
+                        height="22"
+                        rx="3"
+                        fill="#06462e"
+                        stroke="#bae6fd"
+                        strokeWidth="1.2"
+                      />
+                      <text x="202" y="99" fontSize="7.5" fontWeight="bold" fill="#e0f2fe" textAnchor="middle">
+                        26 FW 캠페인 와이드 배너
+                      </text>
+
+                      {/* 우측 AI 코디 추천 위젯 설계 */}
+                      <rect
+                        x="274"
+                        y="55"
+                        width="70"
+                        height="84"
+                        rx="4"
+                        fill="rgba(253, 224, 71, 0.1)"
+                        stroke="#fde047"
+                        strokeWidth="1.4"
+                      />
+                      <text x="309" y="70" fontSize="7.2" fontWeight="bold" fill="#fde047" textAnchor="middle">
+                        [AI 맞춤 코디]
+                      </text>
+                      <rect x="281" y="77" width="25" height="36" rx="2" fill="none" stroke="#fef08a" strokeWidth="1" />
+                      <rect x="312" y="77" width="25" height="36" rx="2" fill="none" stroke="#fef08a" strokeWidth="1" />
+                      <text x="309" y="128" fontSize="6.5" fill="#fef08a" textAnchor="middle">
+                        개인화 추천 알고리즘
+                      </text>
+                    </g>
+
+                    {/* PC 4열 상품 그리드 설계 */}
+                    <g style={{ opacity: plannerBoardProgress >= 70 ? 1 : 0.15, transition: 'opacity 0.25s' }}>
+                      {[0, 1, 2, 3].map((idx) => {
+                        const bx = 136 + idx * 53;
+                        return (
+                          <g key={idx}>
+                            <rect
+                              x={bx}
+                              y="148"
+                              width="49"
+                              height="62"
+                              rx="3"
+                              fill="none"
+                              stroke="#cbd5e1"
+                              strokeWidth="1.2"
+                            />
+                            <line
+                              x1={bx}
+                              y1="148"
+                              x2={bx + 49}
+                              y2="188"
+                              stroke="rgba(203,213,225,0.35)"
+                              strokeWidth="1"
+                            />
+                            <text x={bx + 24.5} y="201" fontSize="6.5" fill="#e2e8f0" textAnchor="middle">
+                              ITEM 0{idx + 1}
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </g>
+
+                    {/* 기획 주석(Annotation) 콜아웃 */}
+                    <g style={{ opacity: plannerBoardProgress >= 88 ? 1 : 0.2, transition: 'opacity 0.25s' }}>
+                      <rect
+                        x="136"
+                        y="217"
+                        width="208"
+                        height="26"
+                        rx="4"
+                        fill="rgba(16, 185, 129, 0.18)"
+                        stroke="#6ee7b7"
+                        strokeWidth="1.2"
+                      />
+                      <text x="240" y="234" fontSize="7.8" fontWeight="bold" fill="#a7f3d0" textAnchor="middle">
+                        📐 기획 주석: 탐색➔구매 클릭 뎁스 4단계➔2단계 단축 (이탈률 -15%)
+                      </text>
+                    </g>
+                  </g>
+
+                  {/* 실시간 움직이는 분필 스케치 펜 커서 */}
+                  <g
+                    style={{
+                      transform: `translate(${40 + (plannerBoardProgress * 2.4) % 260}px, ${
+                        65 + Math.sin(subTick * 0.25) * 45
+                      }px)`,
+                      transition: 'transform 0.08s linear',
+                    }}
+                  >
+                    <circle cx="0" cy="0" r="11" fill="rgba(253, 224, 71, 0.22)" stroke="#fde047" strokeWidth="1.5" />
+                    <text x="0" y="4" fontSize="11" textAnchor="middle">
+                      ✏️
+                    </text>
+                  </g>
+
+                  {/* 하단 상태 바 */}
+                  <text x="10" y="274" fontSize="9" fontWeight="bold" fill="#bae6fd">
+                    {isPlannerHandoffActive
+                      ? '📋 화면설계서(SB v2.4) 작성 완료 ➔ 디자이너에게 인계 중!'
+                      : '💡 IA 메뉴 구조도 · 화면설계서(Wireframe) 실시간 드로잉'}
+                  </text>
+                </svg>
+              </div>
+            </div>
+
+            {/* =================================================================
+                [칠판 ZONE 2 · 중앙] UI/UX 디자이너 머리 위: Figma 고해상도 UI 디자인
+               ================================================================= */}
+            <div
+              style={{
+                position: 'relative',
+                height: '100%',
+                padding: '12px 14px',
+                boxSizing: 'border-box',
+                borderRight: '1.5px dashed rgba(255, 255, 255, 0.16)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                background:
+                  screenMode === 'design'
+                    ? 'rgba(236, 72, 153, 0.08)'
+                    : 'transparent',
+                transition: 'background 0.3s',
+              }}
+            >
+              {/* Zone 2 상단 고정 헤더 (높이 28px 고정) */}
+              <div
+                style={{
+                  height: '28px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
+                  paddingBottom: '6px',
+                  flexShrink: 0,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  {/* 입체 자석 (노란색) */}
+                  <span
+                    style={{
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle at 35% 35%, #fef08a, #eab308)',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.45)',
+                      display: 'inline-block',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 800,
+                      color: '#fce7f3',
+                      letterSpacing: '0.3px',
+                    }}
+                  >
+                    STEP 02 · Figma UI/UX 디자인
                   </span>
-                  {['#0f172a', '#be185d', '#ec4899', '#10b981', '#f59e0b'].map((hex) => (
+                </div>
+
+                {/* 컬러 토큰 칩 + 진행률 배지 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {['#0f172a', '#be185d', '#ec4899', '#10b981'].map((hex) => (
                     <span
                       key={hex}
                       style={{
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '4px',
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '3px',
                         background: hex,
-                        border: '1px solid rgba(0,0,0,0.1)',
+                        border: '1px solid rgba(255,255,255,0.6)',
                       }}
                     />
                   ))}
-                </div>
-              )}
-
-              {activeStage === 3 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <span
                     style={{
-                      fontSize: '10px',
+                      marginLeft: '3px',
+                      fontSize: '10.5px',
                       fontWeight: 800,
-                      background: '#ede9fe',
-                      color: '#5b21b6',
+                      color: '#fbcfe8',
+                      background: 'rgba(236, 72, 153, 0.22)',
                       padding: '2px 8px',
                       borderRadius: '999px',
+                      border: '1px solid rgba(244, 114, 182, 0.45)',
                     }}
                   >
-                    {'<HTML5 />'}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: 800,
-                      background: '#dcfce7',
-                      color: '#15803d',
-                      padding: '2px 8px',
-                      borderRadius: '999px',
-                    }}
-                  >
-                    ⚡ 웹표준·반응형 {codeProgress}%
+                    그래픽 {designerBoardProgress}%
                   </span>
                 </div>
-              )}
-            </div>
+              </div>
 
-            <svg viewBox="0 0 540 230" width="100%" height="100%">
-              <defs>
-                <linearGradient id="pcLookbookGrad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#1e1b4b" />
-                  <stop offset="55%" stopColor="#831843" />
-                  <stop offset="100%" stopColor="#be185d" />
-                </linearGradient>
-                <linearGradient id="pcCurationGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#fdf4ff" />
-                  <stop offset="100%" stopColor="#fae8ff" />
-                </linearGradient>
-              </defs>
+              {/* Zone 2 메인 Figma 고해상도 컬러 UI 아트보드 (SVG 고정 뷰박스) */}
+              <div style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: '6px' }}>
+                <svg viewBox="0 0 360 285" width="100%" height="100%" style={{ display: 'block' }}>
+                  <defs>
+                    <linearGradient id="boardHeroGrad" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#1e1b4b" />
+                      <stop offset="55%" stopColor="#831843" />
+                      <stop offset="100%" stopColor="#db2777" />
+                    </linearGradient>
+                    <linearGradient id="boardMobileGrad" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#fdf2f8" />
+                      <stop offset="100%" stopColor="#f3e8ff" />
+                    </linearGradient>
+                  </defs>
 
-              {/* [Layer 1] 기획자가 그린 PC 와이어프레임 스케치 레이어 */}
-              <g style={{ opacity: designProgress >= 85 ? 0.12 : 1, transition: 'opacity 0.4s' }}>
-                <g style={{ opacity: sketchProgress >= 15 ? 1 : 0, transition: 'opacity 0.3s' }}>
-                  <rect x="4" y="2" width="532" height="28" rx="5" fill="#f8fafc" stroke="#475569" strokeWidth="2" />
-                  <text x="24" y="20" fontSize="12" fontWeight="bold" fill="#0f172a">
-                    SISUN.COM
-                  </text>
-                  <text x="145" y="20" fontSize="10" fontWeight="bold" fill="#475569">
-                    MICHAA &nbsp;&nbsp;|&nbsp;&nbsp; it MICHAA &nbsp;&nbsp;|&nbsp;&nbsp; E.B.M &nbsp;&nbsp;|&nbsp;&nbsp; LOOKBOOK &nbsp;&nbsp;|&nbsp;&nbsp; CURATION
-                  </text>
-                </g>
-
-                <g style={{ opacity: sketchProgress >= 40 ? 1 : 0, transition: 'opacity 0.35s' }}>
-                  <rect
-                    x="4"
-                    y="38"
-                    width="336"
-                    height="102"
-                    rx="6"
-                    fill="#eff6ff"
-                    stroke="#2563eb"
-                    strokeWidth="2"
-                    strokeDasharray="5 3"
-                  />
-                  <line x1="4" y1="38" x2="340" y2="140" stroke="#93c5fd" strokeWidth="1.5" />
-                  <line x1="340" y1="38" x2="4" y2="140" stroke="#93c5fd" strokeWidth="1.5" />
-                  <rect x="92" y="73" width="160" height="30" rx="6" fill="#ffffff" stroke="#2563eb" strokeWidth="1.8" />
-                  <text x="172" y="92" fontSize="11" fontWeight="bold" fill="#1d4ed8" textAnchor="middle">
-                    PC 와이드 브랜드 화보 배너
-                  </text>
-
-                  <rect x="350" y="38" width="186" height="102" rx="6" fill="#f8fafc" stroke="#475569" strokeWidth="2" />
-                  <text x="443" y="62" fontSize="10.5" fontWeight="bold" fill="#334155" textAnchor="middle">
-                    [기획] AI 맞춤 코디 추천 영역
-                  </text>
-                  <rect x="366" y="72" width="70" height="54" rx="4" fill="#ffffff" stroke="#94a3b8" strokeWidth="1.5" />
-                  <rect x="448" y="72" width="70" height="54" rx="4" fill="#ffffff" stroke="#94a3b8" strokeWidth="1.5" />
-                </g>
-
-                <g style={{ opacity: sketchProgress >= 75 ? 1 : 0, transition: 'opacity 0.35s' }}>
-                  {[0, 1, 2, 3].map((idx) => {
-                    const xPos = 4 + idx * 135;
-                    return (
-                      <g key={idx}>
-                        <rect
-                          x={xPos}
-                          y="150"
-                          width="126"
-                          height="74"
-                          rx="5"
-                          fill="#f8fafc"
-                          stroke="#475569"
-                          strokeWidth="1.8"
-                        />
-                        <line x1={xPos} y1="150" x2={xPos + 126} y2="198" stroke="#cbd5e1" strokeWidth="1.2" />
-                        <text x={xPos + 63} y="180" fontSize="9.5" fill="#64748b" textAnchor="middle" fontWeight="bold">
-                          상품 카드 0{idx + 1}
-                        </text>
-                      </g>
-                    );
-                  })}
-
-                  {activeStage === 1 && (
-                    <g
-                      style={{
-                        transform: `translate(${Math.min(420, sketchProgress * 4.2)}px, 0px)`,
-                        transition: 'transform 0.15s linear',
-                      }}
-                    >
-                      <circle cx="45" cy="135" r="12" fill="#fef08a" stroke="#ca8a04" strokeWidth="2" />
-                      <text x="45" y="139" fontSize="12" textAnchor="middle">
-                        ✏️
-                      </text>
-                    </g>
-                  )}
-                </g>
-              </g>
-
-              {/* [Layer 2] 디자이너의 Figma 고해상도 PC 와이드 리뉴얼 레이어 */}
-              {designProgress > 0 && (
-                <g>
-                  <g style={{ opacity: designProgress >= 15 ? 1 : 0, transition: 'opacity 0.35s' }}>
-                    <rect x="4" y="2" width="532" height="28" rx="6" fill="#0f172a" />
-                    <text x="22" y="20" fontSize="12" fontWeight="bold" fill="#ffffff" letterSpacing="2">
-                      SISUN.COM
+                  {/* 좌측: Mobile Figma 고해상도 컬러 시안 */}
+                  <g>
+                    <text x="62" y="13" fontSize="9.5" fontWeight="bold" fill="#f9a8d4" textAnchor="middle">
+                      🎨 Mobile_UI_v2
                     </text>
-                    <text x="145" y="20" fontSize="10" fontWeight="bold" fill="#cbd5e1">
-                      MICHAA &nbsp;&nbsp;·&nbsp;&nbsp; it MICHAA &nbsp;&nbsp;·&nbsp;&nbsp; E.B.M &nbsp;&nbsp;·&nbsp;&nbsp; S SOLEZIA &nbsp;&nbsp;·&nbsp;&nbsp; 26 FW LOOKBOOK
-                    </text>
-                    <rect x="466" y="7" width="58" height="18" rx="9" fill="#ec4899" />
-                    <text x="495" y="19" fontSize="9" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                      LIVE 룩북
-                    </text>
-                  </g>
-
-                  <g style={{ opacity: designProgress >= 45 ? 1 : 0, transition: 'opacity 0.4s' }}>
                     <rect
-                      x="4"
-                      y="38"
-                      width="336"
-                      height="102"
-                      rx="8"
-                      fill="url(#pcLookbookGrad)"
-                      stroke={isLiveComplete ? '#8b5cf6' : '#ec4899'}
-                      strokeWidth="1.8"
+                      x="8"
+                      y="20"
+                      width="108"
+                      height="232"
+                      rx="12"
+                      fill="#ffffff"
+                      stroke="#f472b6"
+                      strokeWidth="2"
                     />
-                    <circle cx="280" cy="78" r="38" fill="rgba(244, 114, 182, 0.22)" />
-                    <circle cx="255" cy="95" r="24" fill="rgba(251, 191, 36, 0.18)" />
-                    <text x="26" y="62" fontSize="9.5" fontWeight="bold" fill="#f9a8d4" letterSpacing="1.2">
-                      2026 FALL / WINTER CAMPAIGN
+                    {/* 다크 럭셔리 헤더 */}
+                    <rect x="13" y="26" width="98" height="20" rx="5" fill="#0f172a" />
+                    <text x="21" y="39" fontSize="8" fontWeight="bold" fill="#ffffff" letterSpacing="1">
+                      SISUN
                     </text>
-                    <text x="26" y="86" fontSize="17" fontWeight="bold" fill="#ffffff">
-                      THE NEW ARCHIVE : 시선닷컴 리뉴얼
-                    </text>
-                    <text x="26" y="104" fontSize="10" fill="#fce7f3">
-                      브랜드 정체성을 살린 몰입형 화보와 직관적인 쇼핑 UX의 결합
-                    </text>
-                    <rect x="26" y="112" width="108" height="20" rx="10" fill="#ffffff" />
-                    <text x="80" y="125" fontSize="9" fontWeight="bold" fill="#831843" textAnchor="middle">
-                      캠페인 화보 감상하기 →
+                    <rect x="76" y="30" width="28" height="12" rx="6" fill="#f43f5e" />
+                    <text x="90" y="38.5" fontSize="6.5" fontWeight="bold" fill="#ffffff" textAnchor="middle">
+                      26 FW
                     </text>
 
-                    <rect
-                      x="350"
-                      y="38"
-                      width="186"
-                      height="102"
-                      rx="8"
-                      fill="url(#pcCurationGrad)"
-                      stroke="#c084fc"
-                      strokeWidth="1.8"
-                    />
-                    <rect x="362" y="47" width="84" height="16" rx="8" fill="#9333ea" />
-                    <text x="404" y="58" fontSize="8.5" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                      ✨ AI 스타일 큐레이션
-                    </text>
-                    <rect x="362" y="69" width="76" height="62" rx="6" fill="#ffffff" stroke="#e9d5ff" strokeWidth="1.5" />
-                    <text x="400" y="94" fontSize="16" textAnchor="middle">
-                      🧥+👜
-                    </text>
-                    <text x="400" y="112" fontSize="8.5" fontWeight="bold" fill="#581c87" textAnchor="middle">
-                      #오피스_캐시미어룩
-                    </text>
-                    <text x="400" y="124" fontSize="8" fontWeight="bold" fill="#9333ea" textAnchor="middle">
-                      매칭률 98%
-                    </text>
-
-                    <rect x="448" y="69" width="76" height="62" rx="6" fill="#ffffff" stroke="#e9d5ff" strokeWidth="1.5" />
-                    <text x="486" y="94" fontSize="16" textAnchor="middle">
-                      👗+👠
-                    </text>
-                    <text x="486" y="112" fontSize="8.5" fontWeight="bold" fill="#581c87" textAnchor="middle">
-                      #주말_트위드셋업
-                    </text>
-                    <text x="486" y="124" fontSize="8" fontWeight="bold" fill="#9333ea" textAnchor="middle">
-                      매칭률 95%
-                    </text>
-                  </g>
-
-                  <g style={{ opacity: designProgress >= 75 ? 1 : 0, transition: 'opacity 0.4s' }}>
-                    {[
-                      { brand: 'MICHAA', name: '핸드메이드 캐시미어 코트', price: '1,290,000', bg: '#fef3c7', icon: '🧥', accent: '#d97706' },
-                      { brand: 'it MICHAA', name: '펄 버튼 크롭 트위드 자켓', price: '459,000', bg: '#fce7f3', icon: '👚', accent: '#db2777' },
-                      { brand: 'E.B.M', name: '와이드 턱 울 슬랙스 셋업', price: '289,000', bg: '#e0e7ff', icon: '👖', accent: '#4f46e5' },
-                      { brand: 'S SOLEZIA', name: '실크 블렌드 플리츠 드레스', price: '529,000', bg: '#d1fae5', icon: '👗', accent: '#059669' },
-                    ].map((item, idx) => {
-                      const xPos = 4 + idx * 135;
-                      return (
-                        <g key={item.brand}>
-                          <rect
-                            x={xPos}
-                            y="148"
-                            width="126"
-                            height="78"
-                            rx="7"
-                            fill="#ffffff"
-                            stroke="#cbd5e1"
-                            strokeWidth="1.5"
-                          />
-                          <rect x={xPos + 5} y="153" width="116" height="40" rx="5" fill={item.bg} />
-                          <text x={xPos + 63} y="178" fontSize="16" textAnchor="middle">
-                            {item.icon}
-                          </text>
-                          <rect x={xPos + 9} y="157" width="44" height="12" rx="4" fill="#0f172a" />
-                          <text x={xPos + 31} y="166" fontSize="7" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                            {item.brand}
-                          </text>
-                          <text x={xPos + 8} y="206" fontSize="8.5" fontWeight="bold" fill="#0f172a">
-                            {item.name}
-                          </text>
-                          <text x={xPos + 8} y="219" fontSize="8.5" fontWeight="bold" fill={item.accent}>
-                            ₩{item.price}
-                          </text>
-                          <text x={xPos + 118} y="219" fontSize="8" fontWeight="bold" fill="#e11d48" textAnchor="end">
-                            ♥
-                          </text>
-                        </g>
-                      );
-                    })}
-                  </g>
-
-                  {activeStage === 2 && (
-                    <g
-                      style={{
-                        transform: `translate(${Math.min(410, 40 + designProgress * 3.8)}px, ${
-                          designProgress < 50 ? 65 : 155
-                        }px)`,
-                        transition: 'transform 0.2s ease-out',
-                      }}
-                    >
-                      <rect x="10" y="8" width="92" height="20" rx="10" fill="#10b981" stroke="#ffffff" strokeWidth="1.5" />
-                      <text x="56" y="21" fontSize="9.5" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                        🎨 UI Designer
-                      </text>
-                      <polygon
-                        points="0,0 0,14 5,10 10,16 13,14 8,8 14,8"
-                        fill="#059669"
-                        stroke="#ffffff"
+                    {/* 모바일 컬러 룩북 배너 */}
+                    <g style={{ opacity: designerBoardProgress >= 25 ? 1 : 0.25, transition: 'opacity 0.3s' }}>
+                      <rect
+                        x="13"
+                        y="51"
+                        width="98"
+                        height="78"
+                        rx="6"
+                        fill="url(#boardMobileGrad)"
+                        stroke="#ec4899"
                         strokeWidth="1.2"
                       />
+                      <circle cx="88" cy="78" r="11" fill="#f9a8d4" />
+                      <path d="M74 124 C75 94, 101 94, 102 124 Z" fill="#be185d" />
+                      <text x="19" y="67" fontSize="6.5" fontWeight="bold" fill="#9d174d">
+                        MICHAA · it MICHAA
+                      </text>
+                      <text x="19" y="81" fontSize="9" fontWeight="bold" fill="#0f172a">
+                        TIMELESS
+                      </text>
+                      <text x="19" y="92" fontSize="9" fontWeight="bold" fill="#be185d">
+                        ELEGANCE
+                      </text>
+                      <rect x="19" y="101" width="52" height="15" rx="7.5" fill="#0f172a" />
+                      <text x="45" y="111" fontSize="6.2" fontWeight="bold" fill="#ffffff" textAnchor="middle">
+                        컬렉션 보기 →
+                      </text>
                     </g>
-                  )}
-                </g>
-              )}
 
-              {/* [Layer 3] 퍼블리셔의 VS Code HTML/CSS 코딩 에디터 오버레이 */}
-              {isCodingOverlayVisible && (
-                <g>
-                  <rect
-                    x="185"
-                    y="36"
-                    width="348"
-                    height="186"
-                    rx="10"
-                    fill="rgba(15, 23, 42, 0.94)"
-                    stroke="#a78bfa"
-                    strokeWidth="2"
-                  />
-                  <rect x="185" y="36" width="348" height="24" rx="10" fill="#1e293b" />
-                  <text x="200" y="52" fontSize="9" fontWeight="bold" fill="#c4b5fd" fontFamily="monospace">
-                    📄 sisun_main_renewal.html &nbsp;|&nbsp; 🎨 responsive_grid.css
+                    {/* 모바일 컬러 상품 카드 2종 */}
+                    <g style={{ opacity: designerBoardProgress >= 55 ? 1 : 0.25, transition: 'opacity 0.3s' }}>
+                      <rect x="13" y="135" width="46" height="68" rx="5" fill="#fffbeb" stroke="#fde68a" strokeWidth="1.2" />
+                      <text x="36" y="162" fontSize="15" textAnchor="middle">
+                        🧥
+                      </text>
+                      <text x="36" y="182" fontSize="6.5" fontWeight="bold" fill="#1e293b" textAnchor="middle">
+                        캐시미어 코트
+                      </text>
+                      <text x="36" y="194" fontSize="6.5" fontWeight="bold" fill="#e11d48" textAnchor="middle">
+                        ♥ 1.2k
+                      </text>
+
+                      <rect x="65" y="135" width="46" height="68" rx="5" fill="#eef2ff" stroke="#c7d2fe" strokeWidth="1.2" />
+                      <text x="88" y="162" fontSize="15" textAnchor="middle">
+                        👗
+                      </text>
+                      <text x="88" y="182" fontSize="6.5" fontWeight="bold" fill="#1e293b" textAnchor="middle">
+                        트위드 셋업
+                      </text>
+                      <text x="88" y="194" fontSize="6.5" fontWeight="bold" fill="#e11d48" textAnchor="middle">
+                        ♥ 980
+                      </text>
+                    </g>
+
+                    {/* 모바일 하단 컬러 CTA 바 */}
+                    <g style={{ opacity: designerBoardProgress >= 75 ? 1 : 0.25, transition: 'opacity 0.3s' }}>
+                      <rect x="13" y="210" width="98" height="34" rx="7" fill="#0f172a" />
+                      <rect x="17" y="216" width="46" height="22" rx="5" fill="#ec4899" />
+                      <text x="40" y="230" fontSize="6.5" fontWeight="bold" fill="#ffffff" textAnchor="middle">
+                        ⚡ AI 사이즈
+                      </text>
+                      <text x="86" y="230" fontSize="6.5" fontWeight="bold" fill="#f8fafc" textAnchor="middle">
+                        🛍️ 바로구매
+                      </text>
+                    </g>
+                  </g>
+
+                  {/* 우측: PC Figma 고해상도 와이드 아트보드 */}
+                  <g>
+                    <text x="242" y="13" fontSize="9.5" fontWeight="bold" fill="#f9a8d4" textAnchor="middle">
+                      ✨ PC_Desktop_Renewal (Design System v2.0)
+                    </text>
+                    <rect
+                      x="128"
+                      y="20"
+                      width="224"
+                      height="232"
+                      rx="8"
+                      fill="#ffffff"
+                      stroke="#f472b6"
+                      strokeWidth="2"
+                    />
+                    {/* PC 다크 GNB */}
+                    <rect x="134" y="26" width="212" height="22" rx="4" fill="#0f172a" />
+                    <text x="142" y="40" fontSize="8" fontWeight="bold" fill="#ffffff" letterSpacing="1.2">
+                      SISUN.COM
+                    </text>
+                    <text x="196" y="40" fontSize="6.5" fill="#cbd5e1">
+                      MICHAA · it MICHAA · E.B.M · S SOLEZIA
+                    </text>
+                    <rect x="306" y="30" width="34" height="14" rx="7" fill="#ec4899" />
+                    <text x="323" y="39.5" fontSize="6.2" fontWeight="bold" fill="#ffffff" textAnchor="middle">
+                      LOOKBOOK
+                    </text>
+
+                    {/* PC 메인 캠페인 화보 + AI 큐레이션 컬러 그래픽 */}
+                    <g style={{ opacity: designerBoardProgress >= 35 ? 1 : 0.25, transition: 'opacity 0.3s' }}>
+                      <rect
+                        x="134"
+                        y="53"
+                        width="138"
+                        height="86"
+                        rx="6"
+                        fill="url(#boardHeroGrad)"
+                      />
+                      <circle cx="242" cy="86" r="24" fill="rgba(244, 114, 182, 0.25)" />
+                      <text x="144" y="70" fontSize="6.8" fontWeight="bold" fill="#f9a8d4" letterSpacing="0.8">
+                        2026 FW CAMPAIGN
+                      </text>
+                      <text x="144" y="87" fontSize="11" fontWeight="bold" fill="#ffffff">
+                        THE NEW ARCHIVE
+                      </text>
+                      <text x="144" y="100" fontSize="7" fill="#fce7f3">
+                        시선닷컴 프리미엄 브랜드 화보
+                      </text>
+                      <rect x="144" y="110" width="72" height="17" rx="8.5" fill="#ffffff" />
+                      <text x="180" y="121" fontSize="6.8" fontWeight="bold" fill="#831843" textAnchor="middle">
+                        화보 감상하기 →
+                      </text>
+
+                      {/* 우측 AI 코디 카드 */}
+                      <rect
+                        x="277"
+                        y="53"
+                        width="69"
+                        height="86"
+                        rx="6"
+                        fill="#fdf4ff"
+                        stroke="#d8b4fe"
+                        strokeWidth="1.4"
+                      />
+                      <rect x="283" y="59" width="57" height="13" rx="6.5" fill="#9333ea" />
+                      <text x="311.5" y="68" fontSize="6.2" fontWeight="bold" fill="#ffffff" textAnchor="middle">
+                        ✨ AI 스타일링
+                      </text>
+                      <text x="311.5" y="96" fontSize="16" textAnchor="middle">
+                        🧥+👜
+                      </text>
+                      <text x="311.5" y="115" fontSize="6.8" fontWeight="bold" fill="#581c87" textAnchor="middle">
+                        #오피스_캐시미어
+                      </text>
+                      <text x="311.5" y="128" fontSize="6.5" fontWeight="bold" fill="#9333ea" textAnchor="middle">
+                        매칭 98%
+                      </text>
+                    </g>
+
+                    {/* PC 4열 컬러 상품 카드 */}
+                    <g style={{ opacity: designerBoardProgress >= 65 ? 1 : 0.25, transition: 'opacity 0.3s' }}>
+                      {[
+                        { brand: 'MICHAA', icon: '🧥', price: '1,290,000', bg: '#fef3c7' },
+                        { brand: 'it MICHAA', icon: '👚', price: '459,000', bg: '#fce7f3' },
+                        { brand: 'E.B.M', icon: '👖', price: '289,000', bg: '#e0e7ff' },
+                        { brand: 'SOLEZIA', icon: '👗', price: '529,000', bg: '#d1fae5' },
+                      ].map((item, idx) => {
+                        const bx = 134 + idx * 54;
+                        return (
+                          <g key={item.brand}>
+                            <rect
+                              x={bx}
+                              y="146"
+                              width="50"
+                              height="66"
+                              rx="4"
+                              fill="#ffffff"
+                              stroke="#cbd5e1"
+                              strokeWidth="1.1"
+                            />
+                            <rect x={bx + 3} y="149" width="44" height="34" rx="3" fill={item.bg} />
+                            <text x={bx + 25} y="171" fontSize="13" textAnchor="middle">
+                              {item.icon}
+                            </text>
+                            <text x={bx + 6} y="194" fontSize="6.2" fontWeight="bold" fill="#0f172a">
+                              {item.brand}
+                            </text>
+                            <text x={bx + 6} y="205" fontSize="6.2" fontWeight="bold" fill="#be185d">
+                              ₩{item.price}
+                            </text>
+                          </g>
+                        );
+                      })}
+                    </g>
+
+                    {/* Figma 컴포넌트 바운딩 박스 & 디자이너 마우스 커서 */}
+                    <rect
+                      x="133"
+                      y="52"
+                      width="140"
+                      height="88"
+                      rx="6"
+                      fill="none"
+                      stroke="#10b981"
+                      strokeWidth="1.5"
+                      strokeDasharray="3 2"
+                    />
+                    <g
+                      style={{
+                        transform: `translate(${150 + (designerBoardProgress * 1.6) % 160}px, ${
+                          85 + Math.cos(subTick * 0.22) * 40
+                        }px)`,
+                        transition: 'transform 0.08s linear',
+                      }}
+                    >
+                      <polygon
+                        points="0,0 0,12 4,9 8,14 10,12 6,7 12,7"
+                        fill="#10b981"
+                        stroke="#ffffff"
+                        strokeWidth="1"
+                      />
+                      <rect x="8" y="8" width="66" height="15" rx="7.5" fill="#10b981" />
+                      <text x="41" y="18" fontSize="7" fontWeight="bold" fill="#ffffff" textAnchor="middle">
+                        🎨 UI Designer
+                      </text>
+                    </g>
+
+                    {/* 하단 디자인 시스템 배지 */}
+                    <rect
+                      x="134"
+                      y="218"
+                      width="212"
+                      height="25"
+                      rx="4"
+                      fill="#fdf2f8"
+                      stroke="#f9a8d4"
+                      strokeWidth="1.2"
+                    />
+                    <text x="240" y="234" fontSize="7.8" fontWeight="bold" fill="#9d174d" textAnchor="middle">
+                      ✨ Auto-Layout · 컬러 토큰 · 반응형 브레이크포인트 에셋 완료
+                    </text>
+                  </g>
+
+                  {/* 하단 상태 바 */}
+                  <text x="10" y="274" fontSize="9" fontWeight="bold" fill="#fbcfe8">
+                    {isDesignerHandoffActive
+                      ? '🎨 Figma 고해상도 UI 시안 완성 ➔ 웹퍼블리셔에게 인계 중!'
+                      : '🎨 브랜드 화보 배너 · 컬러 토큰 · Figma UI 컴포넌트 스타일링'}
                   </text>
+                </svg>
+              </div>
+            </div>
 
-                  {codeProgress >= 10 && (
-                    <text x="200" y="76" fontSize="9.5" fill="#94a3b8" fontFamily="monospace">
-                      {'01  <!DOCTYPE html><html lang="ko">'}
-                    </text>
-                  )}
-                  {codeProgress >= 22 && (
-                    <text x="200" y="93" fontSize="9.5" fill="#38bdf8" fontFamily="monospace">
-                      {'02  <main class="sisun-2026-renewal-container">'}
-                    </text>
-                  )}
-                  {codeProgress >= 36 && (
-                    <text x="200" y="110" fontSize="9.5" fill="#f472b6" fontFamily="monospace">
-                      {'03    <section class="hero-lookbook-split" data-aos="fade-up">'}
-                    </text>
-                  )}
-                  {codeProgress >= 50 && (
-                    <text x="200" y="127" fontSize="9.5" fill="#fde047" fontFamily="monospace">
-                      {'04    <aside class="ai-curation-widget" aria-label="AI 코디 추천">'}
-                    </text>
-                  )}
-                  {codeProgress >= 65 && (
-                    <text x="200" y="144" fontSize="9.5" fill="#34d399" fontFamily="monospace">
-                      {'05    .product-grid { display: grid; grid-template-columns: repeat(4, 1fr); }'}
-                    </text>
-                  )}
-                  {codeProgress >= 80 && (
-                    <text x="200" y="161" fontSize="9.5" fill="#c084fc" fontFamily="monospace">
-                      {'06    </main> <!-- 웹표준 · 크로스브라우징 · 성능 최적화 완료 -->'}
-                    </text>
-                  )}
+            {/* =================================================================
+                [칠판 ZONE 3 · 우측] 여성 웹 퍼블리셔 머리 위: HTML/CSS 코딩 & LIVE 배포
+               ================================================================= */}
+            <div
+              style={{
+                position: 'relative',
+                height: '100%',
+                padding: '12px 14px',
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                background:
+                  screenMode === 'publishing'
+                    ? 'rgba(167, 139, 250, 0.09)'
+                    : 'transparent',
+                transition: 'background 0.3s',
+              }}
+            >
+              {/* Zone 3 상단 고정 헤더 (높이 28px 고정 + 참고 이미지 우측 상단 3색 자석 재현) */}
+              <div
+                style={{
+                  height: '28px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
+                  paddingBottom: '6px',
+                  flexShrink: 0,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {/* 두 번째 참고 이미지 우측 상단의 초록/노랑/네이비 자석 3총사 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <span
+                      style={{
+                        width: '12px',
+                        height: '12px',
+                        borderRadius: '50%',
+                        background: 'radial-gradient(circle at 35% 35%, #6ee7b7, #059669)',
+                        boxShadow: '0 2px 3px rgba(0,0,0,0.45)',
+                      }}
+                    />
+                    <span
+                      style={{
+                        width: '12px',
+                        height: '12px',
+                        borderRadius: '50%',
+                        background: 'radial-gradient(circle at 35% 35%, #fef08a, #ca8a04)',
+                        boxShadow: '0 2px 3px rgba(0,0,0,0.45)',
+                      }}
+                    />
+                    <span
+                      style={{
+                        width: '12px',
+                        height: '12px',
+                        borderRadius: '50%',
+                        background: 'radial-gradient(circle at 35% 35%, #93c5fd, #1e3a8a)',
+                        boxShadow: '0 2px 3px rgba(0,0,0,0.45)',
+                      }}
+                    />
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 800,
+                      color: '#ede9fe',
+                      letterSpacing: '0.3px',
+                    }}
+                  >
+                    STEP 03 · HTML/CSS 반응형 퍼블리싱
+                  </span>
+                </div>
 
-                  <rect x="200" y="176" width="318" height="32" rx="6" fill="#0f172a" stroke="#4c1d95" strokeWidth="1" />
-                  <text x="212" y="196" fontSize="9.5" fontWeight="bold" fill="#4ade80" fontFamily="monospace">
-                    {codeProgress < 100
-                      ? `⚡ Compiling HTML5 / CSS3 Markup... (${codeProgress}%)`
-                      : '✓ Build Success! Deploying to https://www.sisun.com'}
+                <span
+                  style={{
+                    fontSize: '10.5px',
+                    fontWeight: 800,
+                    color: isPublisherLiveCelebration ? '#86efac' : '#ddd6fe',
+                    background: isPublisherLiveCelebration
+                      ? 'rgba(22, 163, 74, 0.35)'
+                      : 'rgba(139, 92, 246, 0.25)',
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    border: `1px solid ${
+                      isPublisherLiveCelebration
+                        ? 'rgba(134, 239, 172, 0.6)'
+                        : 'rgba(196, 181, 253, 0.45)'
+                    }`,
+                  }}
+                >
+                  {isPublisherLiveCelebration ? '🟢 LIVE 배포완료' : `마크업 ${publisherBoardProgress}%`}
+                </span>
+              </div>
+
+              {/* Zone 3 메인 VS Code 에디터 + 반응형 멀티 디바이스 LIVE 프리뷰 (SVG 고정 뷰박스) */}
+              <div style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: '6px' }}>
+                <svg viewBox="0 0 360 285" width="100%" height="100%" style={{ display: 'block' }}>
+                  {/* 상단: VS Code 다크 글래스 코드 에디터 창 */}
+                  <g>
+                    <rect
+                      x="6"
+                      y="6"
+                      width="348"
+                      height="142"
+                      rx="8"
+                      fill="rgba(15, 23, 42, 0.92)"
+                      stroke="#a78bfa"
+                      strokeWidth="1.6"
+                    />
+                    {/* 에디터 탭 바 */}
+                    <rect x="6" y="6" width="348" height="22" rx="8" fill="#1e293b" />
+                    <circle cx="18" cy="17" r="3.5" fill="#f87171" />
+                    <circle cx="29" cy="17" r="3.5" fill="#fbbf24" />
+                    <circle cx="40" cy="17" r="3.5" fill="#34d399" />
+                    <text x="54" y="20" fontSize="8" fontWeight="bold" fill="#c4b5fd" fontFamily="monospace">
+                      sisun_main_renewal.html &nbsp;|&nbsp; responsive_grid.css
+                    </text>
+
+                    {/* 실시간 타이핑 코드 라인들 */}
+                    <text x="16" y="42" fontSize="8.2" fill="#94a3b8" fontFamily="monospace">
+                      {'01 <!DOCTYPE html><html lang="ko">'}
+                    </text>
+                    {publisherBoardProgress >= 18 && (
+                      <text x="16" y="56" fontSize="8.2" fill="#38bdf8" fontFamily="monospace">
+                        {'02 <main class="sisun-2026-layout" data-theme="luxury">'}
+                      </text>
+                    )}
+                    {publisherBoardProgress >= 34 && (
+                      <text x="16" y="70" fontSize="8.2" fill="#f472b6" fontFamily="monospace">
+                        {'03   <LookbookHero src="26fw_michaa.webp" priority />'}
+                      </text>
+                    )}
+                    {publisherBoardProgress >= 50 && (
+                      <text x="16" y="84" fontSize="8.2" fill="#fde047" fontFamily="monospace">
+                        {'04   <AICurationWidget matchRate={98} responsive />'}
+                      </text>
+                    )}
+                    {publisherBoardProgress >= 66 && (
+                      <text x="16" y="98" fontSize="8.2" fill="#34d399" fontFamily="monospace">
+                        {'05   @media (max-width:768px){ .grid{grid-template:1fr 1fr} }'}
+                      </text>
+                    )}
+                    {publisherBoardProgress >= 82 && (
+                      <text x="16" y="112" fontSize="8.2" fill="#c084fc" fontFamily="monospace">
+                        {'06 </main> <!-- 웹표준·크로스브라우징·성능 최적화 100% -->'}
+                      </text>
+                    )}
+
+                    {/* 에디터 하단 컴파일 게이지 바 */}
+                    <rect x="16" y="122" width="328" height="16" rx="4" fill="#0f172a" stroke="#4c1d95" strokeWidth="1" />
+                    <rect
+                      x="18"
+                      y="124"
+                      width={Math.max(12, (324 * publisherBoardProgress) / 100)}
+                      height="12"
+                      rx="3"
+                      fill="rgba(168, 85, 247, 0.35)"
+                    />
+                    <text x="24" y="133" fontSize="7.8" fontWeight="bold" fill="#4ade80" fontFamily="monospace">
+                      {publisherBoardProgress < 100
+                        ? `⚡ Compiling Semantic HTML5 & CSS3 Grid... (${publisherBoardProgress}%)`
+                        : '✓ Build Success! Deployed to https://www.sisun.com'}
+                    </text>
+                  </g>
+
+                  {/* 하단: 반응형 웹 렌더링 결과물 (Mobile 390px + PC 1440px 동시 검증 프리뷰) */}
+                  <g>
+                    {/* 좌측 미니 모바일 LIVE 프리뷰 */}
+                    <rect
+                      x="6"
+                      y="156"
+                      width="102"
+                      height="96"
+                      rx="7"
+                      fill="#ffffff"
+                      stroke={isPublisherLiveCelebration ? '#4ade80' : '#a78bfa'}
+                      strokeWidth="1.8"
+                    />
+                    <rect x="11" y="161" width="92" height="13" rx="3" fill="#0f172a" />
+                    <text x="57" y="170" fontSize="6.5" fontWeight="bold" fill="#38bdf8" textAnchor="middle">
+                      m.sisun.com (390px)
+                    </text>
+                    <rect x="11" y="177" width="92" height="36" rx="4" fill="url(#boardMobileGrad)" />
+                    <text x="57" y="198" fontSize="7" fontWeight="bold" fill="#be185d" textAnchor="middle">
+                      📱 모바일 반응형 OK
+                    </text>
+                    <rect x="11" y="216" width="44" height="30" rx="3" fill="#fef3c7" />
+                    <rect x="59" y="216" width="44" height="30" rx="3" fill="#e0e7ff" />
+
+                    {/* 우측 PC 와이드 LIVE 프리뷰 + Lighthouse 성능 지표 */}
+                    <rect
+                      x="116"
+                      y="156"
+                      width="238"
+                      height="96"
+                      rx="7"
+                      fill="#ffffff"
+                      stroke={isPublisherLiveCelebration ? '#4ade80' : '#a78bfa'}
+                      strokeWidth="1.8"
+                    />
+                    <rect x="122" y="161" width="226" height="14" rx="3" fill="#0f172a" />
+                    <text x="130" y="170.5" fontSize="6.8" fontWeight="bold" fill="#4ade80">
+                      🟢 https://www.sisun.com — Responsive Web LIVE
+                    </text>
+
+                    <rect x="122" y="179" width="142" height="44" rx="4" fill="url(#boardHeroGrad)" />
+                    <text x="193" y="200" fontSize="8" fontWeight="bold" fill="#ffffff" textAnchor="middle">
+                      SISUN 2026 RENEWAL
+                    </text>
+                    <text x="193" y="213" fontSize="6.5" fill="#fbcfe8" textAnchor="middle">
+                      CSS Grid · Flex · WebP 최적화
+                    </text>
+
+                    {/* 우측 Lighthouse 100점 게이지 카드 */}
+                    <rect
+                      x="269"
+                      y="179"
+                      width="79"
+                      height="67"
+                      rx="5"
+                      fill="#f0fdf4"
+                      stroke="#86efac"
+                      strokeWidth="1.3"
+                    />
+                    <circle
+                      cx="308.5"
+                      cy="204"
+                      r="15"
+                      fill="none"
+                      stroke="#16a34a"
+                      strokeWidth="3"
+                    />
+                    <text x="308.5" y="207.5" fontSize="8.5" fontWeight="bold" fill="#15803d" textAnchor="middle">
+                      99점
+                    </text>
+                    <text x="308.5" y="232" fontSize="6.5" fontWeight="bold" fill="#166534" textAnchor="middle">
+                      웹표준·접근성
+                    </text>
+                    <text x="308.5" y="241" fontSize="6" fill="#15803d" textAnchor="middle">
+                      크로스브라우징 PASS
+                    </text>
+
+                    {/* 하단 미니 4열 그리드 */}
+                    {[0, 1, 2, 3].map((idx) => (
+                      <rect
+                        key={idx}
+                        x={122 + idx * 36}
+                        y="227"
+                        width="32"
+                        height="19"
+                        rx="2.5"
+                        fill="#f1f5f9"
+                        stroke="#cbd5e1"
+                        strokeWidth="1"
+                      />
+                    ))}
+
+                    {/* 퍼블리셔 배포 완료 시 뜨는 축하 뱃지 */}
+                    {isPublisherLiveCelebration && (
+                      <g>
+                        <rect
+                          x="126"
+                          y="188"
+                          width="218"
+                          height="28"
+                          rx="14"
+                          fill="#5b21b6"
+                          stroke="#ffffff"
+                          strokeWidth="1.8"
+                        />
+                        <text x="235" y="206" fontSize="9.2" fontWeight="bold" fill="#ffffff" textAnchor="middle">
+                          🎉 시선닷컴(sisun.com) 반응형 배포 완료!
+                        </text>
+                      </g>
+                    )}
+                  </g>
+
+                  {/* 하단 상태 바 */}
+                  <text x="10" y="274" fontSize="9" fontWeight="bold" fill="#ddd6fe">
+                    {isPublisherLiveCelebration
+                      ? '🎉 시선닷컴 Mobile & PC 반응형 웹 퍼블리싱 배포 완료!'
+                      : '💻 HTML5 시맨틱 마크업 · CSS3 반응형 미디어쿼리 실시간 코딩'}
                   </text>
-                </g>
-              )}
-
-              {isLiveComplete && (
-                <g>
-                  <rect
-                    x="130"
-                    y="102"
-                    width="280"
-                    height="34"
-                    rx="17"
-                    fill="#5b21b6"
-                    stroke="#ffffff"
-                    strokeWidth="2"
-                  />
-                  <text x="270" y="123" fontSize="11" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                    🎉 시선닷컴(sisun.com) 기획·디자인·퍼블리싱 완성!
-                  </text>
-                </g>
-              )}
-            </svg>
+                </svg>
+              </div>
+            </div>
           </div>
-
-          {/* 말풍선 하단 삼각형 꼬리 */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '-24px',
-              left: `${bubbleTailLeft}%`,
-              width: 0,
-              height: 0,
-              borderLeft: '18px solid transparent',
-              borderRight: '28px solid transparent',
-              borderTop: `24px solid ${bubbleBorderColor}`,
-              transition: 'left 0.25s ease, border-top-color 0.4s ease',
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '-19px',
-              left: `calc(${bubbleTailLeft}% + 3px)`,
-              width: 0,
-              height: 0,
-              borderLeft: '15px solid transparent',
-              borderRight: '24px solid transparent',
-              borderTop: `21px solid ${bubbleBgColor}`,
-              transition: 'left 0.25s ease, border-top-color 0.4s ease',
-            }}
-          />
         </div>
 
-        {/* 2. 하단 캐릭터 동시 액션 무대 (투명 배경 PNG 3인이 개별로 동시에 움직임) */}
+        {/* =====================================================================
+            2. 하단 캐릭터 동시 액션 무대 (고정 높이 300px, 캐릭터 35% 확대, 좌측 끝/우측 끝 등장)
+           ===================================================================== */}
         <div
           style={{
             position: 'relative',
-            height: '245px',
+            width: '100%',
+            height: '300px',
             background: '#ffffff',
-            marginTop: '10px',
+            marginTop: '6px',
             overflow: 'hidden',
           }}
         >
+          {/* 칠판 3개 구역과 캐릭터를 이어주는 은은한 수직 가이드 라인 */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: '28px',
+              left: '33.33%',
+              borderLeft: '1px dashed #f1f5f9',
+              pointerEvents: 'none',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: '28px',
+              left: '66.66%',
+              borderLeft: '1px dashed #f1f5f9',
+              pointerEvents: 'none',
+            }}
+          />
+
           {/* 바닥 가이드 라인 (은은한 점선) */}
           <div
             style={{
               position: 'absolute',
-              bottom: '24px',
-              left: '5%',
-              right: '5%',
+              bottom: '26px',
+              left: '1%',
+              right: '1%',
               height: '2px',
               background:
                 'repeating-linear-gradient(to right, #e2e8f0 0, #e2e8f0 8px, transparent 8px, transparent 16px)',
             }}
           />
 
-          {/* ---------------- 주인공 1: 서비스기획자 (세분화 서브프레임 20종 스왑) ---------------- */}
+          {/* ---------------- 주인공 1: 서비스기획자 (좌측 끝 0.5%에서부터 등장 · 236x268 확대) ---------------- */}
           <div
             style={{
               position: 'absolute',
               bottom: '16px',
               left: `${plannerLeft}%`,
-              width: '175px',
-              height: '205px',
+              width: '236px',
+              height: '268px',
               transition: 'left 0.055s linear',
               zIndex: 5,
             }}
@@ -1206,12 +1570,13 @@ export function SisunRenewalStoryStage() {
             <div
               style={{
                 position: 'absolute',
-                bottom: '10px',
+                bottom: '12px',
                 left: '50%',
-                width: '74px',
-                height: '12px',
+                width: '96px',
+                height: '15px',
                 borderRadius: '50%',
-                background: 'radial-gradient(ellipse at center, rgba(15,23,42,0.16) 0%, rgba(15,23,42,0) 75%)',
+                background:
+                  'radial-gradient(ellipse at center, rgba(15,23,42,0.18) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${plannerMotion.shadowScale})`,
                 transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
@@ -1288,30 +1653,30 @@ export function SisunRenewalStoryStage() {
                 style={{
                   background: '#1e3a8a',
                   color: '#ffffff',
-                  fontSize: '11px',
+                  fontSize: '12px',
                   fontWeight: 800,
-                  padding: '2px 10px',
+                  padding: '3px 12px',
                   borderRadius: '999px',
                   whiteSpace: 'nowrap',
-                  boxShadow: '0 2px 6px rgba(30,58,138,0.2)',
+                  boxShadow: '0 2px 6px rgba(30,58,138,0.22)',
                 }}
               >
                 1. 서비스기획자
               </div>
-              <span style={{ fontSize: '10px', fontWeight: 700, color: '#2563eb', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb', whiteSpace: 'nowrap' }}>
                 {plannerActionLabel}
               </span>
             </div>
           </div>
 
-          {/* ---------------- 주인공 2: UI/UX 디자이너 (세분화 서브프레임 20종 스왑) ---------------- */}
+          {/* ---------------- 주인공 2: UI/UX 디자이너 (중앙 칠판 아래 · 236x268 확대) ---------------- */}
           <div
             style={{
               position: 'absolute',
               bottom: '16px',
               left: `${designerLeft}%`,
-              width: '175px',
-              height: '205px',
+              width: '236px',
+              height: '268px',
               transition: 'left 0.055s linear',
               zIndex: 6,
             }}
@@ -1320,12 +1685,13 @@ export function SisunRenewalStoryStage() {
             <div
               style={{
                 position: 'absolute',
-                bottom: '10px',
+                bottom: '12px',
                 left: '50%',
-                width: '74px',
-                height: '12px',
+                width: '96px',
+                height: '15px',
                 borderRadius: '50%',
-                background: 'radial-gradient(ellipse at center, rgba(15,23,42,0.16) 0%, rgba(15,23,42,0) 75%)',
+                background:
+                  'radial-gradient(ellipse at center, rgba(15,23,42,0.18) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${designerMotion.shadowScale})`,
                 transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
@@ -1402,30 +1768,30 @@ export function SisunRenewalStoryStage() {
                 style={{
                   background: '#047857',
                   color: '#ffffff',
-                  fontSize: '11px',
+                  fontSize: '12px',
                   fontWeight: 800,
-                  padding: '2px 10px',
+                  padding: '3px 12px',
                   borderRadius: '999px',
                   whiteSpace: 'nowrap',
-                  boxShadow: '0 2px 6px rgba(4,120,87,0.2)',
+                  boxShadow: '0 2px 6px rgba(4,120,87,0.22)',
                 }}
               >
                 2. UI/UX 디자이너
               </div>
-              <span style={{ fontSize: '10px', fontWeight: 700, color: '#059669', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#059669', whiteSpace: 'nowrap' }}>
                 {designerActionLabel}
               </span>
             </div>
           </div>
 
-          {/* ---------------- 주인공 3: 웹 퍼블리셔 (여성 캐릭터 세분화 서브프레임 20종 스왑) ---------------- */}
+          {/* ---------------- 주인공 3: 웹 퍼블리셔 (우측 끝 81.5%에서부터 등장 · 236x268 확대) ---------------- */}
           <div
             style={{
               position: 'absolute',
               bottom: '16px',
               left: `${publisherLeft}%`,
-              width: '175px',
-              height: '205px',
+              width: '236px',
+              height: '268px',
               transition: 'left 0.055s linear',
               zIndex: 7,
             }}
@@ -1434,12 +1800,13 @@ export function SisunRenewalStoryStage() {
             <div
               style={{
                 position: 'absolute',
-                bottom: '10px',
+                bottom: '12px',
                 left: '50%',
-                width: '74px',
-                height: '12px',
+                width: '96px',
+                height: '15px',
                 borderRadius: '50%',
-                background: 'radial-gradient(ellipse at center, rgba(15,23,42,0.16) 0%, rgba(15,23,42,0) 75%)',
+                background:
+                  'radial-gradient(ellipse at center, rgba(15,23,42,0.18) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${publisherMotion.shadowScale})`,
                 transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
@@ -1516,17 +1883,17 @@ export function SisunRenewalStoryStage() {
                 style={{
                   background: '#6d28d9',
                   color: '#ffffff',
-                  fontSize: '11px',
+                  fontSize: '12px',
                   fontWeight: 800,
-                  padding: '2px 10px',
+                  padding: '3px 12px',
                   borderRadius: '999px',
                   whiteSpace: 'nowrap',
-                  boxShadow: '0 2px 6px rgba(109,40,217,0.2)',
+                  boxShadow: '0 2px 6px rgba(109,40,217,0.22)',
                 }}
               >
                 3. 웹 퍼블리셔
               </div>
-              <span style={{ fontSize: '10px', fontWeight: 700, color: '#7c3aed', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', whiteSpace: 'nowrap' }}>
                 {publisherActionLabel}
               </span>
             </div>
