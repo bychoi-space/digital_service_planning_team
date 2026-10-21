@@ -4,19 +4,19 @@ import { Play, Pause } from 'lucide-react';
 export function SisunRenewalStoryStage() {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
 
-  // 1서브틱 = 50ms (20fps 고주사율 애니메이션 타이머)
+  // 1서브틱 = 33ms (약 30fps 초고주사율 연속 애니메이션 타이머)
   const [subTick, setSubTick] = useState<number>(0);
 
   useEffect(() => {
     if (!isPlaying) return;
     const timer = window.setInterval(() => {
-      setSubTick((prev) => (prev + 1) % 2400);
-    }, 50);
+      setSubTick((prev) => (prev + 1) % 3600);
+    }, 33);
     return () => window.clearInterval(timer);
   }, [isPlaying]);
 
-  // 연속 타임라인 틱 (0.0, 0.5, 1.0, 1.5 ...)
-  const tick = subTick / 2;
+  // 연속 타임라인 틱 (30fps 서브틱 3개 = 1틱, 소수점 정밀 보간)
+  const tick = subTick / 3;
 
   // 부드러운 가감속(Ease-In-Out Sine) 보간 헬퍼
   const easeInOut = (progress: number): number => {
@@ -24,50 +24,37 @@ export function SisunRenewalStoryStage() {
     return -(Math.cos(Math.PI * clamped) - 1) / 2;
   };
 
-  // 8박자 세밀 보행 사이클 (6종의 세분화된 워킹 서브프레임 순환)
-  const walkSubCycle = [
-    'walk-s1',
-    'walk-s2',
-    'walk-s3',
-    'walk-s4',
-    'walk-s5',
-    'walk-s6',
-    'walk-s4',
-    'walk-s2',
-  ] as const;
-
+  // 12프레임 360° 연속 사인파 워킹 사이클 (walk-s1 ~ walk-s12 끊김 없는 순환)
   const getWalkSubSprite = (st: number, offset: number) =>
-    walkSubCycle[Math.floor((st + offset) / 2) % walkSubCycle.length];
+    `walk-s${((st + offset) % 12) + 1}`;
 
-  // 6프레임 연속 업무 사이클 (1->2->3->4->5->6->4->2)
-  const workLoopOrder = [1, 2, 3, 4, 5, 6, 4, 2] as const;
+  // 12프레임 360° 연속 사인파 메인 액션 사이클 (1 -> 2 -> ... -> 12 -> 1)
   const getWorkSubFrame = (st: number, offset: number) =>
-    workLoopOrder[Math.floor((st + offset) / 2) % workLoopOrder.length];
+    ((st + offset) % 12) + 1;
 
-  // 4프레임 연속 인터랙션(고민/수령/전달/완료) 사이클 (1->2->3->4->3->2)
-  const interactLoopOrder = [1, 2, 3, 4, 3, 2] as const;
+  // 8프레임 360° 연속 사인파 인터랙션 사이클 (1 -> 2 -> ... -> 8 -> 1)
   const getInteractSubFrame = (st: number, offset: number) =>
-    interactLoopOrder[Math.floor((st + offset) / 2) % interactLoopOrder.length];
+    ((st + offset) % 8) + 1;
 
   // 연속 사인파 기반 자연스러운 보행 바운스 & 스쿼시-스트레치(Squash & Stretch) 물리 계수
   const getCharacterMotion = (isWalking: boolean, st: number, phaseOffset: number) => {
     if (isWalking) {
-      const phase = (st + phaseOffset) * 0.55;
-      const bounceY = -Math.abs(Math.sin(phase)) * 7.5; // 0px ~ -7.5px 연속 아치형 발걸음
-      const squash = Math.sin(phase * 2) * 0.024;
+      const phase = ((st + phaseOffset) * Math.PI) / 6; // 12서브틱 주기와 정확히 동기화된 사인파
+      const bounceY = -Math.abs(Math.sin(phase)) * 7.2; // 0px ~ -7.2px 연속 아치형 발걸음
+      const squash = Math.sin(phase * 2) * 0.022;
       const scaleX = 1 - squash * 0.75;
       const scaleY = 1 + squash;
-      const rotateDeg = Math.cos(phase) * 1.7;
-      const shadowScale = 1 - Math.abs(Math.sin(phase)) * 0.2;
+      const rotateDeg = Math.cos(phase) * 1.6;
+      const shadowScale = 1 - Math.abs(Math.sin(phase)) * 0.18;
       return { bounceY, scaleX, scaleY, rotateDeg, shadowScale };
     } else {
-      const phase = (st + phaseOffset) * 0.28;
-      const bounceY = Math.sin(phase) * 2.2 - 1.5; // 업무 중 살아있는 미세 호흡 리듬
-      const squash = Math.sin(phase) * 0.013;
+      const phase = ((st + phaseOffset) * Math.PI) / 12;
+      const bounceY = Math.sin(phase) * 2.0 - 1.2; // 업무 중 살아있는 미세 호흡 리듬
+      const squash = Math.sin(phase) * 0.012;
       const scaleX = 1 - squash * 0.65;
       const scaleY = 1 + squash;
-      const rotateDeg = Math.sin(phase * 0.7) * 0.95;
-      const shadowScale = 1 + Math.sin(phase) * 0.05;
+      const rotateDeg = Math.sin(phase * 0.7) * 0.9;
+      const shadowScale = 1 + Math.sin(phase) * 0.04;
       return { bounceY, scaleX, scaleY, rotateDeg, shadowScale };
     }
   };
@@ -121,13 +108,26 @@ export function SisunRenewalStoryStage() {
           shadowScale: 1.15 + plopSquash * 0.8,
         };
       }
-      // 바닥에 앉아서 열정적으로 태블릿 스케치하는 리듬
-      const phase = subTick * 0.32;
+      // 63~66틱 구간: 바닥에서 폴짝 일어나는 예비 동작(Anticipation & Stand-up Hop)
+      if (pTick >= 63) {
+        const standT = (pTick - 63) / 3;
+        const hopY = standT < 0.4 ? 8 : -7 * Math.sin(((standT - 0.4) / 0.6) * Math.PI);
+        const stretch = standT < 0.4 ? -0.05 : 0.045 * Math.sin(((standT - 0.4) / 0.6) * Math.PI);
+        return {
+          bounceY: hopY,
+          scaleX: 1 - stretch,
+          scaleY: 1 + stretch,
+          rotateDeg: (1 - standT) * 2.0,
+          shadowScale: 1.0 - Math.max(0, -hopY) * 0.02,
+        };
+      }
+      // 바닥에 앉아서 열정적으로 태블릿 스케치하는 12프레임 연속 리듬
+      const phase = (subTick * Math.PI) / 6;
       return {
         bounceY: 6 + Math.sin(phase) * 1.6,
         scaleX: 1 - Math.sin(phase) * 0.012,
         scaleY: 1 + Math.sin(phase) * 0.012,
-        rotateDeg: Math.sin(phase * 0.7) * 1.1,
+        rotateDeg: Math.sin(phase * 0.5) * 1.1,
         shadowScale: 1.14,
       };
     }
@@ -1051,32 +1051,26 @@ export function SisunRenewalStoryStage() {
               }}
             >
               {[
-                { key: 'peek-1', file: 'planner-peek-1.png' },
-                { key: 'peek-2', file: 'planner-peek-2.png' },
-                { key: 'peek-3', file: 'planner-peek-3.png' },
-                { key: 'peek-4', file: 'planner-peek-4.png' },
-                { key: 'think-walk-1', file: 'planner-think-walk-1.png' },
-                { key: 'think-walk-2', file: 'planner-think-walk-2.png' },
-                { key: 'think-walk-3', file: 'planner-think-walk-3.png' },
-                { key: 'think-walk-4', file: 'planner-think-walk-4.png' },
-                { key: 'think-walk-5', file: 'planner-think-walk-5.png' },
-                { key: 'think-walk-6', file: 'planner-think-walk-6.png' },
-                { key: 'sit-sketch-1', file: 'planner-sit-sketch-1.png' },
-                { key: 'sit-sketch-2', file: 'planner-sit-sketch-2.png' },
-                { key: 'sit-sketch-3', file: 'planner-sit-sketch-3.png' },
-                { key: 'sit-sketch-4', file: 'planner-sit-sketch-4.png' },
-                { key: 'sit-sketch-5', file: 'planner-sit-sketch-5.png' },
-                { key: 'sit-sketch-6', file: 'planner-sit-sketch-6.png' },
-                { key: 'walk-s1', file: 'planner-walk-s1.png' },
-                { key: 'walk-s2', file: 'planner-walk-s2.png' },
-                { key: 'walk-s3', file: 'planner-walk-s3.png' },
-                { key: 'walk-s4', file: 'planner-walk-s4.png' },
-                { key: 'walk-s5', file: 'planner-walk-s5.png' },
-                { key: 'walk-s6', file: 'planner-walk-s6.png' },
-                { key: 'handoff-1', file: 'planner-handoff-1.png' },
-                { key: 'handoff-2', file: 'planner-handoff-2.png' },
-                { key: 'handoff-3', file: 'planner-handoff-3.png' },
-                { key: 'handoff-4', file: 'planner-handoff-4.png' },
+                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
+                  key: `peek-${n}`,
+                  file: `planner-peek-${n}.png`,
+                })),
+                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
+                  key: `think-walk-${n}`,
+                  file: `planner-think-walk-${n}.png`,
+                })),
+                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
+                  key: `sit-sketch-${n}`,
+                  file: `planner-sit-sketch-${n}.png`,
+                })),
+                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
+                  key: `walk-s${n}`,
+                  file: `planner-walk-s${n}.png`,
+                })),
+                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
+                  key: `handoff-${n}`,
+                  file: `planner-handoff-${n}.png`,
+                })),
               ].map((sprite) => {
                 const isCurrent = plannerSprite === sprite.key;
                 return (
@@ -1091,6 +1085,7 @@ export function SisunRenewalStoryStage() {
                       height: '100%',
                       objectFit: 'contain',
                       opacity: isCurrent ? 1 : 0,
+                      transition: 'opacity 0.055s ease-out',
                       transform: plannerFlipRight ? 'scaleX(-1)' : 'none',
                       pointerEvents: 'none',
                     }}
@@ -1135,7 +1130,7 @@ export function SisunRenewalStoryStage() {
               left: `${designerLeft}%`,
               width: '236px',
               height: '268px',
-              transition: 'left 0.055s linear',
+              transition: 'left 0.04s linear',
               zIndex: 6,
             }}
           >
@@ -1151,7 +1146,7 @@ export function SisunRenewalStoryStage() {
                 background:
                   'radial-gradient(ellipse at center, rgba(15,23,42,0.18) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${designerMotion.shadowScale})`,
-                transition: 'transform 0.055s linear',
+                transition: 'transform 0.04s linear',
                 pointerEvents: 'none',
               }}
             />
@@ -1163,37 +1158,31 @@ export function SisunRenewalStoryStage() {
                 inset: 0,
                 transformOrigin: '50% 92%',
                 transform: `translateY(${designerMotion.bounceY}px) scaleX(${designerMotion.scaleX}) scaleY(${designerMotion.scaleY}) rotate(${designerMotion.rotateDeg}deg)`,
-                transition: 'transform 0.055s linear',
+                transition: 'transform 0.04s linear',
                 pointerEvents: 'none',
               }}
             >
               {[
-                { key: 'climb-1', file: 'designer-climb-1.png' },
-                { key: 'climb-2', file: 'designer-climb-2.png' },
-                { key: 'climb-3', file: 'designer-climb-3.png' },
-                { key: 'climb-4', file: 'designer-climb-4.png' },
-                { key: 'climb-5', file: 'designer-climb-5.png' },
-                { key: 'climb-6', file: 'designer-climb-6.png' },
-                { key: 'walk-s1', file: 'designer-walk-s1.png' },
-                { key: 'walk-s2', file: 'designer-walk-s2.png' },
-                { key: 'walk-s3', file: 'designer-walk-s3.png' },
-                { key: 'walk-s4', file: 'designer-walk-s4.png' },
-                { key: 'walk-s5', file: 'designer-walk-s5.png' },
-                { key: 'walk-s6', file: 'designer-walk-s6.png' },
-                { key: 'receive-1', file: 'designer-receive-1.png' },
-                { key: 'receive-2', file: 'designer-receive-2.png' },
-                { key: 'receive-3', file: 'designer-receive-3.png' },
-                { key: 'receive-4', file: 'designer-receive-4.png' },
-                { key: 'paint-1', file: 'designer-paint-1.png' },
-                { key: 'paint-2', file: 'designer-paint-2.png' },
-                { key: 'paint-3', file: 'designer-paint-3.png' },
-                { key: 'paint-4', file: 'designer-paint-4.png' },
-                { key: 'paint-5', file: 'designer-paint-5.png' },
-                { key: 'paint-6', file: 'designer-paint-6.png' },
-                { key: 'handoff-1', file: 'designer-handoff-1.png' },
-                { key: 'handoff-2', file: 'designer-handoff-2.png' },
-                { key: 'handoff-3', file: 'designer-handoff-3.png' },
-                { key: 'handoff-4', file: 'designer-handoff-4.png' },
+                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
+                  key: `climb-${n}`,
+                  file: `designer-climb-${n}.png`,
+                })),
+                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
+                  key: `walk-s${n}`,
+                  file: `designer-walk-s${n}.png`,
+                })),
+                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
+                  key: `receive-${n}`,
+                  file: `designer-receive-${n}.png`,
+                })),
+                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
+                  key: `paint-${n}`,
+                  file: `designer-paint-${n}.png`,
+                })),
+                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
+                  key: `handoff-${n}`,
+                  file: `designer-handoff-${n}.png`,
+                })),
               ].map((sprite) => {
                 const isCurrent = designerSprite === sprite.key;
                 return (
@@ -1208,6 +1197,7 @@ export function SisunRenewalStoryStage() {
                       height: '100%',
                       objectFit: 'contain',
                       opacity: isCurrent ? 1 : 0,
+                      transition: 'opacity 0.055s ease-out',
                       transform: designerFlipRight ? 'scaleX(-1)' : 'none',
                       pointerEvents: 'none',
                     }}
@@ -1222,7 +1212,7 @@ export function SisunRenewalStoryStage() {
                 bottom: '0px',
                 left: '50%',
                 transform: `translateX(-50%) translateY(${Math.max(0, designerMotion.bounceY)}px)`,
-                transition: 'transform 0.055s linear',
+                transition: 'transform 0.04s linear',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -1245,7 +1235,7 @@ export function SisunRenewalStoryStage() {
             </div>
           </div>
 
-          {/* ---------------- 주인공 3: 퍼블리셔 (우측 끝 81.5%에서부터 등장 · 236x268 확대) ---------------- */}
+          {/* ---------------- 주인공 3: 퍼블리셔 (우측 끝 84.5%에서부터 등장 · 236x268 확대) ---------------- */}
           <div
             style={{
               position: 'absolute',
@@ -1253,7 +1243,7 @@ export function SisunRenewalStoryStage() {
               left: `${publisherLeft}%`,
               width: '236px',
               height: '268px',
-              transition: 'left 0.055s linear',
+              transition: 'left 0.04s linear',
               zIndex: 7,
             }}
           >
@@ -1269,7 +1259,7 @@ export function SisunRenewalStoryStage() {
                 background:
                   'radial-gradient(ellipse at center, rgba(15,23,42,0.18) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${publisherMotion.shadowScale})`,
-                transition: 'transform 0.055s linear',
+                transition: 'transform 0.04s linear',
                 pointerEvents: 'none',
               }}
             />
@@ -1281,41 +1271,35 @@ export function SisunRenewalStoryStage() {
                 inset: 0,
                 transformOrigin: '50% 92%',
                 transform: `translateY(${publisherMotion.bounceY}px) scaleX(${publisherMotion.scaleX}) scaleY(${publisherMotion.scaleY}) rotate(${publisherMotion.rotateDeg}deg)`,
-                transition: 'transform 0.055s linear',
+                transition: 'transform 0.04s linear',
                 pointerEvents: 'none',
               }}
             >
               {[
-                { key: 'hum-walk-1', file: 'publisher-hum-walk-1.png' },
-                { key: 'hum-walk-2', file: 'publisher-hum-walk-2.png' },
-                { key: 'hum-walk-3', file: 'publisher-hum-walk-3.png' },
-                { key: 'hum-walk-4', file: 'publisher-hum-walk-4.png' },
-                { key: 'hum-walk-5', file: 'publisher-hum-walk-5.png' },
-                { key: 'hum-walk-6', file: 'publisher-hum-walk-6.png' },
-                { key: 'walk-s1', file: 'publisher-walk-s1.png' },
-                { key: 'walk-s2', file: 'publisher-walk-s2.png' },
-                { key: 'walk-s3', file: 'publisher-walk-s3.png' },
-                { key: 'walk-s4', file: 'publisher-walk-s4.png' },
-                { key: 'walk-s5', file: 'publisher-walk-s5.png' },
-                { key: 'walk-s6', file: 'publisher-walk-s6.png' },
-                { key: 'receive-1', file: 'publisher-receive-1.png' },
-                { key: 'receive-2', file: 'publisher-receive-2.png' },
-                { key: 'receive-3', file: 'publisher-receive-3.png' },
-                { key: 'receive-4', file: 'publisher-receive-4.png' },
-                { key: 'headset-off-1', file: 'publisher-headset-off-1.png' },
-                { key: 'headset-off-2', file: 'publisher-headset-off-2.png' },
-                { key: 'headset-off-3', file: 'publisher-headset-off-3.png' },
-                { key: 'headset-off-4', file: 'publisher-headset-off-4.png' },
-                { key: 'code-focus-1', file: 'publisher-code-focus-1.png' },
-                { key: 'code-focus-2', file: 'publisher-code-focus-2.png' },
-                { key: 'code-focus-3', file: 'publisher-code-focus-3.png' },
-                { key: 'code-focus-4', file: 'publisher-code-focus-4.png' },
-                { key: 'code-focus-5', file: 'publisher-code-focus-5.png' },
-                { key: 'code-focus-6', file: 'publisher-code-focus-6.png' },
-                { key: 'complete-1', file: 'publisher-complete-1.png' },
-                { key: 'complete-2', file: 'publisher-complete-2.png' },
-                { key: 'complete-3', file: 'publisher-complete-3.png' },
-                { key: 'complete-4', file: 'publisher-complete-4.png' },
+                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
+                  key: `hum-walk-${n}`,
+                  file: `publisher-hum-walk-${n}.png`,
+                })),
+                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
+                  key: `walk-s${n}`,
+                  file: `publisher-walk-s${n}.png`,
+                })),
+                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
+                  key: `receive-${n}`,
+                  file: `publisher-receive-${n}.png`,
+                })),
+                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
+                  key: `headset-off-${n}`,
+                  file: `publisher-headset-off-${n}.png`,
+                })),
+                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
+                  key: `code-focus-${n}`,
+                  file: `publisher-code-focus-${n}.png`,
+                })),
+                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
+                  key: `complete-${n}`,
+                  file: `publisher-complete-${n}.png`,
+                })),
               ].map((sprite) => {
                 const isCurrent = publisherSprite === sprite.key;
                 return (
@@ -1330,6 +1314,7 @@ export function SisunRenewalStoryStage() {
                       height: '100%',
                       objectFit: 'contain',
                       opacity: isCurrent ? 1 : 0,
+                      transition: 'opacity 0.055s ease-out',
                       transform: publisherFlipRight ? 'scaleX(-1)' : 'none',
                       pointerEvents: 'none',
                     }}
