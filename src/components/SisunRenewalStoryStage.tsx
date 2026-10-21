@@ -265,46 +265,95 @@ export function SisunRenewalStoryStage() {
       : 100;
 
   // =========================================================================
-  // 3) 캐릭터 3 · 여성 웹 퍼블리셔 (하얀색 영역의 우측 끝(81.5%)에서부터 등장!)
-  //    - 0 ~ 14: 우측 끝(81.5%)에서 디자이너 쪽(64.5%)으로 노트북 들고 총총 걸어옴
-  //    - 14 ~ 26: 디자이너가 건넨 컬러 UI 디자인 시안 보드 수령 (✨)
-  //    - 26 ~ 60: 우측 칠판(Zone 3) 아래(72.5%)에서 HTML5/CSS3 반응형 마크업 코딩 타이핑 (</> { })
-  //    - 60 ~ 78: 시선닷컴(sisun.com) 반응형 웹 배포 완료 환호! (<HTML/> 🎉)
-  //    - 78 ~ 90: 다시 우측 끝(81.5%)으로 총총 걸어 이동
+  // 3) 캐릭터 3 · 퍼블리셔 (100틱 스토리 사이클)
+  //    - 0 ~ 22: 우측 끝(84.5%)에서 음표(♪ ♫)를 띄우며 신나게 흥얼거리면서 걸어 나타남 (hum-walk-1..6)
+  //    - 22 ~ 34: 디자이너가 건넨 컬러 UI 디자인 산출물 수령 (receive-1..4)
+  //    - 34 ~ 40: 우측 칠판(Zone 3) 아래 작업 위치(72.5%)로 이동 (walk-s1..s6)
+  //    - 40 ~ 52: 코딩에 집중하기 위해 양손으로 헤드셋을 머리에서 목으로 벗는 모션 (headset-off-1..4)
+  //    - 52 ~ 78: 헤드셋을 벗어 목에 걸친 채 노트북으로 열정적으로 코딩 진행 (code-focus-1..6)
+  //    - 78 ~ 89: 시선닷컴 반응형 웹 퍼블리싱 완료 환호! (complete-1..4)
+  //    - 89 ~ 100: 다시 우측 끝(84.5%)으로 총총 걸어 복귀 (walk-s1..s6)
   // =========================================================================
-  const pubTick = (tick + 48) % 90;
-  const isPublisherWalking = pubTick < 14 || (pubTick >= 26 && pubTick < 32) || pubTick >= 78;
-  const publisherMotion = getCharacterMotion(isPublisherWalking, subTick, 13);
+  const pubTick = (tick + 30) % 100;
+  const isPubHumWalk = pubTick < 22;
+  const isPubReceive = pubTick >= 22 && pubTick < 34;
+  const isPubWalkToDesk = pubTick >= 34 && pubTick < 40;
+  const isPubHeadsetOff = pubTick >= 40 && pubTick < 52;
+  const isPubCodingNoHeadset = pubTick >= 52 && pubTick < 78;
+  const isPubComplete = pubTick >= 78 && pubTick < 89;
+  const isPubWalkBack = pubTick >= 89;
+
+  const isPublisherWalking = isPubHumWalk || isPubWalkToDesk || isPubWalkBack;
+  const basePublisherMotion = getCharacterMotion(isPublisherWalking, subTick, 13);
+
+  // 퍼블리셔 특수 모션 (흥얼거리며 리듬 타기 & 헤드셋 벗을 때 상체 움직임)
+  const getPublisherSpecialMotion = () => {
+    if (isPubHumWalk) {
+      // 노래를 흥얼거리며 통통 튀는 경쾌한 걸음걸이 & 좌우 리듬 스웨이
+      const phase = (subTick + 13) * 0.58;
+      const bounceY = -Math.abs(Math.sin(phase)) * 8.5;
+      const swayDeg = Math.sin(phase) * 3.2;
+      const squash = Math.sin(phase * 2) * 0.026;
+      return {
+        bounceY,
+        scaleX: 1 - squash * 0.7,
+        scaleY: 1 + squash,
+        rotateDeg: swayDeg,
+        shadowScale: 1 - Math.abs(Math.sin(phase)) * 0.22,
+      };
+    }
+    if (isPubHeadsetOff) {
+      // 양손으로 헤드셋을 위로 들어 목으로 스르륵 내리는 리듬
+      const t = (pubTick - 40) / 12;
+      const liftY = t < 0.45 ? -5 * Math.sin((t / 0.45) * Math.PI) : 3 * Math.sin(((t - 0.45) / 0.55) * Math.PI);
+      return {
+        bounceY: liftY,
+        scaleX: 1 - liftY * 0.004,
+        scaleY: 1 + liftY * 0.004,
+        rotateDeg: Math.sin(t * Math.PI * 2) * 2.0,
+        shadowScale: 1,
+      };
+    }
+    return basePublisherMotion;
+  };
+
+  const publisherMotion = getPublisherSpecialMotion();
 
   const getPublisherLeft = (): number => {
-    if (pubTick < 14) return 81.5 - easeInOut(pubTick / 14) * 17.0; // 81.5%(우측 끝) -> 64.5%
-    if (pubTick < 26) return 64.5;
-    if (pubTick < 32) return 64.5 + easeInOut((pubTick - 26) / 6) * 8.0; // 64.5% -> 72.5%(Zone 3 중앙)
-    if (pubTick < 78) return 72.5;
-    return 72.5 + easeInOut((pubTick - 78) / 12) * 9.0; // 72.5% -> 81.5%(우측 끝)
+    if (isPubHumWalk) return 84.5 - easeInOut(pubTick / 22) * 20.0; // 84.5%(우측 끝) -> 64.5%(흥얼거리며 등장)
+    if (isPubReceive) return 64.5; // 64.5% 디자인 산출물 수령
+    if (isPubWalkToDesk) return 64.5 + easeInOut((pubTick - 34) / 6) * 8.0; // 64.5% -> 72.5%(Zone 3 중앙)
+    if (isPubHeadsetOff || isPubCodingNoHeadset || isPubComplete) return 72.5; // 헤드셋 벗고 코딩 & 완료
+    return 72.5 + easeInOut((pubTick - 89) / 11) * 12.0; // 72.5% -> 84.5%(우측 끝 복귀)
   };
 
   const publisherLeft = getPublisherLeft();
 
-  const publisherSprite: string = isPublisherWalking
-    ? getWalkSubSprite(subTick, 11)
-    : pubTick < 26
+  const publisherSprite: string = isPubHumWalk
+    ? `hum-walk-${getWorkSubFrame(subTick, 4)}`
+    : isPubReceive
     ? `receive-${getInteractSubFrame(subTick, 7)}`
-    : pubTick < 60
-    ? `code-${getWorkSubFrame(subTick, 7)}`
+    : isPubWalkToDesk || isPubWalkBack
+    ? getWalkSubSprite(subTick, 11)
+    : isPubHeadsetOff
+    ? `headset-off-${getInteractSubFrame(subTick, 5)}`
+    : isPubCodingNoHeadset
+    ? `code-focus-${getWorkSubFrame(subTick, 7)}`
     : `complete-${getInteractSubFrame(subTick, 7)}`;
 
-  // 우측으로 걸어 이동할 때(26~32, 78~90) 우측 방향으로 반전
-  const publisherFlipRight = (pubTick >= 26 && pubTick < 32) || pubTick >= 78;
+  // 우측으로 걸어 이동할 때(34~40, 89~100)만 우측 방향으로 반전
+  const publisherFlipRight = isPubWalkToDesk || isPubWalkBack;
 
   // 우측 칠판(Zone 3: 퍼블리셔 머리 위) 진행률 (0 ~ 100%)
   const publisherBoardProgress =
-    pubTick < 14
-      ? Math.round((pubTick / 14) * 15)
-      : pubTick < 26
-      ? Math.round(15 + ((pubTick - 14) / 12) * 15)
-      : pubTick < 60
-      ? Math.min(100, Math.round(30 + ((pubTick - 26) / 30) * 70))
+    pubTick < 22
+      ? Math.round((pubTick / 22) * 12)
+      : pubTick < 40
+      ? Math.round(12 + ((pubTick - 22) / 18) * 12)
+      : pubTick < 52
+      ? Math.round(24 + ((pubTick - 40) / 12) * 10)
+      : pubTick < 78
+      ? Math.min(100, Math.round(34 + ((pubTick - 52) / 24) * 66))
       : 100;
 
   // GitHub Pages 호환 투명 PNG 이미지 경로 헬퍼
@@ -1237,6 +1286,12 @@ export function SisunRenewalStoryStage() {
               }}
             >
               {[
+                { key: 'hum-walk-1', file: 'publisher-hum-walk-1.png' },
+                { key: 'hum-walk-2', file: 'publisher-hum-walk-2.png' },
+                { key: 'hum-walk-3', file: 'publisher-hum-walk-3.png' },
+                { key: 'hum-walk-4', file: 'publisher-hum-walk-4.png' },
+                { key: 'hum-walk-5', file: 'publisher-hum-walk-5.png' },
+                { key: 'hum-walk-6', file: 'publisher-hum-walk-6.png' },
                 { key: 'walk-s1', file: 'publisher-walk-s1.png' },
                 { key: 'walk-s2', file: 'publisher-walk-s2.png' },
                 { key: 'walk-s3', file: 'publisher-walk-s3.png' },
@@ -1247,12 +1302,16 @@ export function SisunRenewalStoryStage() {
                 { key: 'receive-2', file: 'publisher-receive-2.png' },
                 { key: 'receive-3', file: 'publisher-receive-3.png' },
                 { key: 'receive-4', file: 'publisher-receive-4.png' },
-                { key: 'code-1', file: 'publisher-code-1.png' },
-                { key: 'code-2', file: 'publisher-code-2.png' },
-                { key: 'code-3', file: 'publisher-code-3.png' },
-                { key: 'code-4', file: 'publisher-code-4.png' },
-                { key: 'code-5', file: 'publisher-code-5.png' },
-                { key: 'code-6', file: 'publisher-code-6.png' },
+                { key: 'headset-off-1', file: 'publisher-headset-off-1.png' },
+                { key: 'headset-off-2', file: 'publisher-headset-off-2.png' },
+                { key: 'headset-off-3', file: 'publisher-headset-off-3.png' },
+                { key: 'headset-off-4', file: 'publisher-headset-off-4.png' },
+                { key: 'code-focus-1', file: 'publisher-code-focus-1.png' },
+                { key: 'code-focus-2', file: 'publisher-code-focus-2.png' },
+                { key: 'code-focus-3', file: 'publisher-code-focus-3.png' },
+                { key: 'code-focus-4', file: 'publisher-code-focus-4.png' },
+                { key: 'code-focus-5', file: 'publisher-code-focus-5.png' },
+                { key: 'code-focus-6', file: 'publisher-code-focus-6.png' },
                 { key: 'complete-1', file: 'publisher-complete-1.png' },
                 { key: 'complete-2', file: 'publisher-complete-2.png' },
                 { key: 'complete-3', file: 'publisher-complete-3.png' },
