@@ -4,19 +4,19 @@ import { Play, Pause } from 'lucide-react';
 export function SisunRenewalStoryStage() {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
 
-  // 1서브틱 = 33ms (약 30fps 초고주사율 연속 애니메이션 타이머)
+  // 1서브틱 = 50ms (20fps 안정적인 모션 타이머, 스프라이트는 100ms(10fps) 주기로 깜빡임 없이 전환)
   const [subTick, setSubTick] = useState<number>(0);
 
   useEffect(() => {
     if (!isPlaying) return;
     const timer = window.setInterval(() => {
-      setSubTick((prev) => (prev + 1) % 3600);
-    }, 33);
+      setSubTick((prev) => (prev + 1) % 2400);
+    }, 50);
     return () => window.clearInterval(timer);
   }, [isPlaying]);
 
-  // 연속 타임라인 틱 (30fps 서브틱 3개 = 1틱, 소수점 정밀 보간)
-  const tick = subTick / 3;
+  // 연속 타임라인 틱 (0.0, 0.5, 1.0, 1.5 ...)
+  const tick = subTick / 2;
 
   // 부드러운 가감속(Ease-In-Out Sine) 보간 헬퍼
   const easeInOut = (progress: number): number => {
@@ -24,22 +24,22 @@ export function SisunRenewalStoryStage() {
     return -(Math.cos(Math.PI * clamped) - 1) / 2;
   };
 
-  // 12프레임 360° 연속 사인파 워킹 사이클 (walk-s1 ~ walk-s12 끊김 없는 순환)
+  // 12프레임 360° 연속 사인파 워킹 사이클 (100ms마다 한 프레임씩 부드럽게 순환)
   const getWalkSubSprite = (st: number, offset: number) =>
-    `walk-s${((st + offset) % 12) + 1}`;
+    `walk-s${(Math.floor((st + offset) / 2) % 12) + 1}`;
 
   // 12프레임 360° 연속 사인파 메인 액션 사이클 (1 -> 2 -> ... -> 12 -> 1)
   const getWorkSubFrame = (st: number, offset: number) =>
-    ((st + offset) % 12) + 1;
+    (Math.floor((st + offset) / 2) % 12) + 1;
 
   // 8프레임 360° 연속 사인파 인터랙션 사이클 (1 -> 2 -> ... -> 8 -> 1)
   const getInteractSubFrame = (st: number, offset: number) =>
-    ((st + offset) % 8) + 1;
+    (Math.floor((st + offset) / 2) % 8) + 1;
 
   // 연속 사인파 기반 자연스러운 보행 바운스 & 스쿼시-스트레치(Squash & Stretch) 물리 계수
   const getCharacterMotion = (isWalking: boolean, st: number, phaseOffset: number) => {
     if (isWalking) {
-      const phase = ((st + phaseOffset) * Math.PI) / 6; // 12서브틱 주기와 정확히 동기화된 사인파
+      const phase = (st + phaseOffset) * 0.45;
       const bounceY = -Math.abs(Math.sin(phase)) * 7.2; // 0px ~ -7.2px 연속 아치형 발걸음
       const squash = Math.sin(phase * 2) * 0.022;
       const scaleX = 1 - squash * 0.75;
@@ -48,7 +48,7 @@ export function SisunRenewalStoryStage() {
       const shadowScale = 1 - Math.abs(Math.sin(phase)) * 0.18;
       return { bounceY, scaleX, scaleY, rotateDeg, shadowScale };
     } else {
-      const phase = ((st + phaseOffset) * Math.PI) / 12;
+      const phase = (st + phaseOffset) * 0.25;
       const bounceY = Math.sin(phase) * 2.0 - 1.2; // 업무 중 살아있는 미세 호흡 리듬
       const squash = Math.sin(phase) * 0.012;
       const scaleX = 1 - squash * 0.65;
@@ -1078,6 +1078,8 @@ export function SisunRenewalStoryStage() {
                     key={sprite.key}
                     src={charImgUrl(sprite.file)}
                     alt={`기획자 ${sprite.key}`}
+                    loading="eager"
+                    decoding="sync"
                     style={{
                       position: 'absolute',
                       inset: 0,
@@ -1085,7 +1087,6 @@ export function SisunRenewalStoryStage() {
                       height: '100%',
                       objectFit: 'contain',
                       opacity: isCurrent ? 1 : 0,
-                      transition: 'opacity 0.055s ease-out',
                       transform: plannerFlipRight ? 'scaleX(-1)' : 'none',
                       pointerEvents: 'none',
                     }}
@@ -1130,7 +1131,7 @@ export function SisunRenewalStoryStage() {
               left: `${designerLeft}%`,
               width: '236px',
               height: '268px',
-              transition: 'left 0.04s linear',
+              transition: 'left 0.055s linear',
               zIndex: 6,
             }}
           >
@@ -1146,7 +1147,7 @@ export function SisunRenewalStoryStage() {
                 background:
                   'radial-gradient(ellipse at center, rgba(15,23,42,0.18) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${designerMotion.shadowScale})`,
-                transition: 'transform 0.04s linear',
+                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             />
@@ -1158,7 +1159,7 @@ export function SisunRenewalStoryStage() {
                 inset: 0,
                 transformOrigin: '50% 92%',
                 transform: `translateY(${designerMotion.bounceY}px) scaleX(${designerMotion.scaleX}) scaleY(${designerMotion.scaleY}) rotate(${designerMotion.rotateDeg}deg)`,
-                transition: 'transform 0.04s linear',
+                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             >
@@ -1190,6 +1191,8 @@ export function SisunRenewalStoryStage() {
                     key={sprite.key}
                     src={charImgUrl(sprite.file)}
                     alt={`디자이너 ${sprite.key}`}
+                    loading="eager"
+                    decoding="sync"
                     style={{
                       position: 'absolute',
                       inset: 0,
@@ -1197,7 +1200,6 @@ export function SisunRenewalStoryStage() {
                       height: '100%',
                       objectFit: 'contain',
                       opacity: isCurrent ? 1 : 0,
-                      transition: 'opacity 0.055s ease-out',
                       transform: designerFlipRight ? 'scaleX(-1)' : 'none',
                       pointerEvents: 'none',
                     }}
@@ -1212,7 +1214,7 @@ export function SisunRenewalStoryStage() {
                 bottom: '0px',
                 left: '50%',
                 transform: `translateX(-50%) translateY(${Math.max(0, designerMotion.bounceY)}px)`,
-                transition: 'transform 0.04s linear',
+                transition: 'transform 0.055s linear',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -1243,7 +1245,7 @@ export function SisunRenewalStoryStage() {
               left: `${publisherLeft}%`,
               width: '236px',
               height: '268px',
-              transition: 'left 0.04s linear',
+              transition: 'left 0.055s linear',
               zIndex: 7,
             }}
           >
@@ -1259,7 +1261,7 @@ export function SisunRenewalStoryStage() {
                 background:
                   'radial-gradient(ellipse at center, rgba(15,23,42,0.18) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${publisherMotion.shadowScale})`,
-                transition: 'transform 0.04s linear',
+                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             />
@@ -1271,7 +1273,7 @@ export function SisunRenewalStoryStage() {
                 inset: 0,
                 transformOrigin: '50% 92%',
                 transform: `translateY(${publisherMotion.bounceY}px) scaleX(${publisherMotion.scaleX}) scaleY(${publisherMotion.scaleY}) rotate(${publisherMotion.rotateDeg}deg)`,
-                transition: 'transform 0.04s linear',
+                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             >
@@ -1307,6 +1309,8 @@ export function SisunRenewalStoryStage() {
                     key={sprite.key}
                     src={charImgUrl(sprite.file)}
                     alt={`퍼블리셔 ${sprite.key}`}
+                    loading="eager"
+                    decoding="sync"
                     style={{
                       position: 'absolute',
                       inset: 0,
@@ -1314,7 +1318,6 @@ export function SisunRenewalStoryStage() {
                       height: '100%',
                       objectFit: 'contain',
                       opacity: isCurrent ? 1 : 0,
-                      transition: 'opacity 0.055s ease-out',
                       transform: publisherFlipRight ? 'scaleX(-1)' : 'none',
                       pointerEvents: 'none',
                     }}
