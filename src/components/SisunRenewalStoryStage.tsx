@@ -109,14 +109,12 @@ export function SisunRenewalStoryStage() {
   // 좌측 칠판(Zone 1: 기획자 머리 위) 진행률 (0 ~ 100%)
   const plannerBoardProgress =
     pTick < 16
-      ? Math.round((pTick / 16) * 25)
+      ? Math.round((pTick / 16) * 20)
       : pTick < 32
-      ? Math.round(25 + ((pTick - 16) / 16) * 25)
+      ? Math.round(20 + ((pTick - 16) / 16) * 25)
       : pTick < 58
-      ? Math.min(100, Math.round(50 + ((pTick - 32) / 22) * 50))
+      ? Math.min(100, Math.round(45 + ((pTick - 32) / 22) * 55))
       : 100;
-
-  const isPlannerHandoffActive = pTick >= 66 && pTick < 82;
 
   // =========================================================================
   // 2) 캐릭터 2 · UI/UX 디자이너 (중앙 칠판(Zone 2) 아래에서 독립 주기 90틱으로 상시 움직임)
@@ -158,14 +156,12 @@ export function SisunRenewalStoryStage() {
   // 중앙 칠판(Zone 2: 디자이너 머리 위) 진행률 (0 ~ 100%)
   const designerBoardProgress =
     dTick < 14
-      ? Math.round((dTick / 14) * 20)
+      ? Math.round((dTick / 14) * 15)
       : dTick < 26
-      ? Math.round(20 + ((dTick - 14) / 12) * 20)
+      ? Math.round(15 + ((dTick - 14) / 12) * 20)
       : dTick < 56
-      ? Math.min(100, Math.round(40 + ((dTick - 26) / 26) * 60))
+      ? Math.min(100, Math.round(35 + ((dTick - 26) / 26) * 65))
       : 100;
-
-  const isDesignerHandoffActive = dTick >= 66 && dTick < 82;
 
   // =========================================================================
   // 3) 캐릭터 3 · 여성 웹 퍼블리셔 (하얀색 영역의 우측 끝(81.5%)에서부터 등장!)
@@ -203,14 +199,12 @@ export function SisunRenewalStoryStage() {
   // 우측 칠판(Zone 3: 퍼블리셔 머리 위) 진행률 (0 ~ 100%)
   const publisherBoardProgress =
     pubTick < 14
-      ? Math.round((pubTick / 14) * 18)
+      ? Math.round((pubTick / 14) * 15)
       : pubTick < 26
-      ? Math.round(18 + ((pubTick - 14) / 12) * 17)
+      ? Math.round(15 + ((pubTick - 14) / 12) * 15)
       : pubTick < 60
-      ? Math.min(100, Math.round(35 + ((pubTick - 26) / 30) * 65))
+      ? Math.min(100, Math.round(30 + ((pubTick - 26) / 30) * 70))
       : 100;
-
-  const isPublisherLiveCelebration = pubTick >= 60 && pubTick < 80;
 
   // GitHub Pages 호환 투명 PNG 이미지 경로 헬퍼
   const baseUrl = import.meta.env.BASE_URL || './';
@@ -367,994 +361,486 @@ export function SisunRenewalStoryStage() {
             }}
           >
             {/* =================================================================
-                [칠판 ZONE 1 · 좌측] 서비스기획자 머리 위: Mobile & PC 와이어프레임 설계
+                [칠판 ZONE 1 · 좌측] 기획자 머리 위: 심플하고 깔끔하게 그려지는 와이어프레임
                ================================================================= */}
             <div
               style={{
                 position: 'relative',
                 height: '100%',
-                padding: '12px 14px',
+                padding: '14px 18px',
                 boxSizing: 'border-box',
-                borderRight: '1.5px dashed rgba(255, 255, 255, 0.16)',
+                borderRight: '1.5px dashed rgba(255, 255, 255, 0.14)',
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'space-between',
               }}
             >
-              {/* Zone 1 상단 고정 헤더 (높이 28px 고정) */}
+              {/* Zone 1 심플 헤더 */}
               <div
                 style={{
-                  height: '28px',
+                  height: '26px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
-                  paddingBottom: '6px',
+                  gap: '8px',
+                  marginBottom: '8px',
                   flexShrink: 0,
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                  {/* 입체 자석 (민트색) */}
-                  <span
-                    style={{
-                      width: '14px',
-                      height: '14px',
-                      borderRadius: '50%',
-                      background: 'radial-gradient(circle at 35% 35%, #5eead4, #0d9488)',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.45)',
-                      display: 'inline-block',
-                      flexShrink: 0,
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 800,
-                      color: '#e0f2fe',
-                      letterSpacing: '0.3px',
-                    }}
-                  >
-                    STEP 01 · 기획 와이어프레임 (SB)
-                  </span>
-                </div>
                 <span
                   style={{
-                    fontSize: '10.5px',
-                    fontWeight: 800,
-                    color: '#fde047',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    border: '1px solid rgba(253, 224, 71, 0.35)',
+                    width: '13px',
+                    height: '13px',
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle at 35% 35%, #5eead4, #0d9488)',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                    display: 'inline-block',
                   }}
-                >
-                  설계 {plannerBoardProgress}%
+                />
+                <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#e0f2fe', letterSpacing: '0.2px' }}>
+                  01. Wireframe
                 </span>
               </div>
 
-              {/* Zone 1 메인 칠판 스케치 캔버스 (SVG 고정 뷰박스) */}
-              <div style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: '6px' }}>
-                <svg viewBox="0 0 360 285" width="100%" height="100%" style={{ display: 'block' }}>
-                  {/* 좌측: Mobile 와이어프레임 분필 도면 */}
-                  <g>
-                    <text x="62" y="13" fontSize="9.5" fontWeight="bold" fill="#93c5fd" textAnchor="middle">
-                      📱 Mobile (390px)
-                    </text>
+              {/* Zone 1 미니멀 와이어프레임 도면 (블록이 순서대로 깔끔하게 그려짐) */}
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <svg viewBox="0 0 340 270" width="100%" height="100%" style={{ display: 'block' }}>
+                  {/* 외곽 브라우저 프레임 */}
+                  <rect
+                    x="4"
+                    y="4"
+                    width="332"
+                    height="258"
+                    rx="10"
+                    fill="rgba(255, 255, 255, 0.03)"
+                    stroke="rgba(224, 242, 254, 0.55)"
+                    strokeWidth="1.6"
+                  />
+
+                  {/* 1단계: 상단 GNB 와이어프레임 */}
+                  <g style={{ opacity: plannerBoardProgress >= 15 ? 1 : 0.12, transition: 'opacity 0.35s ease' }}>
                     <rect
-                      x="8"
-                      y="20"
-                      width="108"
-                      height="232"
-                      rx="12"
-                      fill="rgba(15, 23, 42, 0.38)"
+                      x="16"
+                      y="16"
+                      width="308"
+                      height="28"
+                      rx="5"
+                      fill="none"
                       stroke="#bae6fd"
-                      strokeWidth="1.8"
+                      strokeWidth="1.5"
                     />
-                    {/* 상단 GNB */}
-                    <g style={{ opacity: plannerBoardProgress >= 12 ? 1 : 0.2, transition: 'opacity 0.25s' }}>
-                      <rect
-                        x="15"
-                        y="30"
-                        width="94"
-                        height="18"
-                        rx="3"
-                        fill="none"
-                        stroke="#e0f2fe"
-                        strokeWidth="1.3"
-                      />
-                      <line x1="20" y1="36" x2="28" y2="36" stroke="#bae6fd" strokeWidth="1.4" />
-                      <line x1="20" y1="41" x2="28" y2="41" stroke="#bae6fd" strokeWidth="1.4" />
-                      <text x="62" y="42" fontSize="7.5" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                        SISUN.COM
-                      </text>
-                    </g>
-
-                    {/* 메인 풀스크린 룩북 배너 와이어프레임 */}
-                    <g style={{ opacity: plannerBoardProgress >= 30 ? 1 : 0.15, transition: 'opacity 0.25s' }}>
-                      <rect
-                        x="15"
-                        y="54"
-                        width="94"
-                        height="76"
-                        rx="4"
-                        fill="rgba(56, 189, 248, 0.1)"
-                        stroke="#7dd3fc"
-                        strokeWidth="1.4"
-                        strokeDasharray="4 2"
-                      />
-                      <line x1="15" y1="54" x2="109" y2="130" stroke="rgba(125, 211, 252, 0.45)" strokeWidth="1.1" />
-                      <line x1="109" y1="54" x2="15" y2="130" stroke="rgba(125, 211, 252, 0.45)" strokeWidth="1.1" />
-                      <rect
-                        x="25"
-                        y="81"
-                        width="74"
-                        height="20"
-                        rx="3"
-                        fill="#06462e"
-                        stroke="#fde047"
-                        strokeWidth="1.2"
-                      />
-                      <text x="62" y="94" fontSize="7.5" fontWeight="bold" fill="#fde047" textAnchor="middle">
-                        풀스크린 화보 배너
-                      </text>
-                    </g>
-
-                    {/* 2열 상품 그리드 와이어프레임 */}
-                    <g style={{ opacity: plannerBoardProgress >= 55 ? 1 : 0.15, transition: 'opacity 0.25s' }}>
-                      <rect
-                        x="15"
-                        y="137"
-                        width="44"
-                        height="64"
-                        rx="3"
-                        fill="none"
-                        stroke="#cbd5e1"
-                        strokeWidth="1.3"
-                      />
-                      <line x1="15" y1="137" x2="59" y2="180" stroke="rgba(203,213,225,0.4)" strokeWidth="1" />
-                      <text x="37" y="193" fontSize="6.8" fill="#e2e8f0" textAnchor="middle">
-                        상품 01
-                      </text>
-
-                      <rect
-                        x="65"
-                        y="137"
-                        width="44"
-                        height="64"
-                        rx="3"
-                        fill="none"
-                        stroke="#cbd5e1"
-                        strokeWidth="1.3"
-                      />
-                      <line x1="65" y1="137" x2="109" y2="180" stroke="rgba(203,213,225,0.4)" strokeWidth="1" />
-                      <text x="87" y="193" fontSize="6.8" fill="#e2e8f0" textAnchor="middle">
-                        상품 02
-                      </text>
-                    </g>
-
-                    {/* 하단 원클릭 구매 고정 바 */}
-                    <g style={{ opacity: plannerBoardProgress >= 80 ? 1 : 0.15, transition: 'opacity 0.25s' }}>
-                      <rect
-                        x="15"
-                        y="208"
-                        width="94"
-                        height="34"
-                        rx="5"
-                        fill="rgba(253, 224, 71, 0.14)"
-                        stroke="#fde047"
-                        strokeWidth="1.4"
-                      />
-                      <text x="62" y="223" fontSize="7.2" fontWeight="bold" fill="#fef08a" textAnchor="middle">
-                        ✓ 엄지 영역 Floating Bar
-                      </text>
-                      <text x="62" y="235" fontSize="6.8" fill="#bae6fd" textAnchor="middle">
-                        [AI 사이즈 추천 / 원클릭 구매]
-                      </text>
-                    </g>
+                    <rect x="26" y="25" width="46" height="10" rx="2" fill="rgba(186, 230, 253, 0.45)" />
+                    <line x1="96" y1="30" x2="132" y2="30" stroke="#bae6fd" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="146" y1="30" x2="182" y2="30" stroke="#bae6fd" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="196" y1="30" x2="232" y2="30" stroke="#bae6fd" strokeWidth="2" strokeLinecap="round" />
+                    <circle cx="308" cy="30" r="5" fill="none" stroke="#bae6fd" strokeWidth="1.5" />
                   </g>
 
-                  {/* 우측: PC 와이드 화면설계서 분필 도면 */}
-                  <g>
-                    <text x="242" y="13" fontSize="9.5" fontWeight="bold" fill="#93c5fd" textAnchor="middle">
-                      🖥️ PC Wide Wireframe (1440px)
-                    </text>
+                  {/* 2단계: 메인 히어로 배너 + 우측 서브 배너 와이어프레임 */}
+                  <g style={{ opacity: plannerBoardProgress >= 40 ? 1 : 0.12, transition: 'opacity 0.35s ease' }}>
                     <rect
-                      x="128"
-                      y="20"
-                      width="224"
-                      height="232"
-                      rx="8"
-                      fill="rgba(15, 23, 42, 0.38)"
-                      stroke="#bae6fd"
-                      strokeWidth="1.8"
+                      x="16"
+                      y="54"
+                      width="206"
+                      height="110"
+                      rx="6"
+                      fill="rgba(186, 230, 253, 0.06)"
+                      stroke="#7dd3fc"
+                      strokeWidth="1.5"
+                      strokeDasharray="5 3"
                     />
-                    {/* PC 상단 GNB */}
-                    <g style={{ opacity: plannerBoardProgress >= 20 ? 1 : 0.15, transition: 'opacity 0.25s' }}>
-                      <rect
-                        x="136"
-                        y="28"
-                        width="208"
-                        height="20"
-                        rx="3"
-                        fill="none"
-                        stroke="#e0f2fe"
-                        strokeWidth="1.2"
-                      />
-                      <text x="144" y="41" fontSize="7.5" fontWeight="bold" fill="#ffffff">
-                        SISUN
-                      </text>
-                      <text x="184" y="41" fontSize="6.8" fill="#bae6fd">
-                        MICHAA · it MICHAA · E.B.M · LOOKBOOK
-                      </text>
-                    </g>
-
-                    {/* PC 히어로 + AI 큐레이션 분할 레이아웃 */}
-                    <g style={{ opacity: plannerBoardProgress >= 45 ? 1 : 0.15, transition: 'opacity 0.25s' }}>
-                      <rect
-                        x="136"
-                        y="55"
-                        width="132"
-                        height="84"
-                        rx="4"
-                        fill="rgba(56, 189, 248, 0.1)"
-                        stroke="#7dd3fc"
-                        strokeWidth="1.4"
-                        strokeDasharray="4 2"
-                      />
-                      <line x1="136" y1="55" x2="268" y2="139" stroke="rgba(125, 211, 252, 0.4)" strokeWidth="1" />
-                      <line x1="268" y1="55" x2="136" y2="139" stroke="rgba(125, 211, 252, 0.4)" strokeWidth="1" />
-                      <rect
-                        x="156"
-                        y="85"
-                        width="92"
-                        height="22"
-                        rx="3"
-                        fill="#06462e"
-                        stroke="#bae6fd"
-                        strokeWidth="1.2"
-                      />
-                      <text x="202" y="99" fontSize="7.5" fontWeight="bold" fill="#e0f2fe" textAnchor="middle">
-                        26 FW 캠페인 와이드 배너
-                      </text>
-
-                      {/* 우측 AI 코디 추천 위젯 설계 */}
-                      <rect
-                        x="274"
-                        y="55"
-                        width="70"
-                        height="84"
-                        rx="4"
-                        fill="rgba(253, 224, 71, 0.1)"
-                        stroke="#fde047"
-                        strokeWidth="1.4"
-                      />
-                      <text x="309" y="70" fontSize="7.2" fontWeight="bold" fill="#fde047" textAnchor="middle">
-                        [AI 맞춤 코디]
-                      </text>
-                      <rect x="281" y="77" width="25" height="36" rx="2" fill="none" stroke="#fef08a" strokeWidth="1" />
-                      <rect x="312" y="77" width="25" height="36" rx="2" fill="none" stroke="#fef08a" strokeWidth="1" />
-                      <text x="309" y="128" fontSize="6.5" fill="#fef08a" textAnchor="middle">
-                        개인화 추천 알고리즘
-                      </text>
-                    </g>
-
-                    {/* PC 4열 상품 그리드 설계 */}
-                    <g style={{ opacity: plannerBoardProgress >= 70 ? 1 : 0.15, transition: 'opacity 0.25s' }}>
-                      {[0, 1, 2, 3].map((idx) => {
-                        const bx = 136 + idx * 53;
-                        return (
-                          <g key={idx}>
-                            <rect
-                              x={bx}
-                              y="148"
-                              width="49"
-                              height="62"
-                              rx="3"
-                              fill="none"
-                              stroke="#cbd5e1"
-                              strokeWidth="1.2"
-                            />
-                            <line
-                              x1={bx}
-                              y1="148"
-                              x2={bx + 49}
-                              y2="188"
-                              stroke="rgba(203,213,225,0.35)"
-                              strokeWidth="1"
-                            />
-                            <text x={bx + 24.5} y="201" fontSize="6.5" fill="#e2e8f0" textAnchor="middle">
-                              ITEM 0{idx + 1}
-                            </text>
-                          </g>
-                        );
-                      })}
-                    </g>
-
-                    {/* 기획 주석(Annotation) 콜아웃 */}
-                    <g style={{ opacity: plannerBoardProgress >= 88 ? 1 : 0.2, transition: 'opacity 0.25s' }}>
-                      <rect
-                        x="136"
-                        y="217"
-                        width="208"
-                        height="26"
-                        rx="4"
-                        fill="rgba(16, 185, 129, 0.18)"
-                        stroke="#6ee7b7"
-                        strokeWidth="1.2"
-                      />
-                      <text x="240" y="234" fontSize="7.8" fontWeight="bold" fill="#a7f3d0" textAnchor="middle">
-                        📐 기획 주석: 탐색➔구매 클릭 뎁스 4단계➔2단계 단축 (이탈률 -15%)
-                      </text>
-                    </g>
-                  </g>
-
-                  {/* 실시간 움직이는 분필 스케치 펜 커서 */}
-                  <g
-                    style={{
-                      transform: `translate(${40 + (plannerBoardProgress * 2.4) % 260}px, ${
-                        65 + Math.sin(subTick * 0.25) * 45
-                      }px)`,
-                      transition: 'transform 0.08s linear',
-                    }}
-                  >
-                    <circle cx="0" cy="0" r="11" fill="rgba(253, 224, 71, 0.22)" stroke="#fde047" strokeWidth="1.5" />
-                    <text x="0" y="4" fontSize="11" textAnchor="middle">
-                      ✏️
+                    <line x1="16" y1="54" x2="222" y2="164" stroke="rgba(125, 211, 252, 0.35)" strokeWidth="1.2" />
+                    <line x1="222" y1="54" x2="16" y2="164" stroke="rgba(125, 211, 252, 0.35)" strokeWidth="1.2" />
+                    <rect
+                      x="74"
+                      y="95"
+                      width="90"
+                      height="28"
+                      rx="4"
+                      fill="#06462e"
+                      stroke="#bae6fd"
+                      strokeWidth="1.4"
+                    />
+                    <text x="119" y="113" fontSize="9.5" fontWeight="bold" fill="#e0f2fe" textAnchor="middle">
+                      HERO BANNER
                     </text>
+
+                    {/* 우측 큐레이션 영역 박스 */}
+                    <rect
+                      x="232"
+                      y="54"
+                      width="92"
+                      height="110"
+                      rx="6"
+                      fill="rgba(253, 224, 71, 0.05)"
+                      stroke="#fde047"
+                      strokeWidth="1.5"
+                      strokeDasharray="5 3"
+                    />
+                    <line x1="246" y1="74" x2="310" y2="74" stroke="#fef08a" strokeWidth="2" strokeLinecap="round" />
+                    <rect
+                      x="244"
+                      y="86"
+                      width="68"
+                      height="48"
+                      rx="4"
+                      fill="none"
+                      stroke="rgba(254, 240, 138, 0.7)"
+                      strokeWidth="1.3"
+                    />
+                    <line x1="256" y1="146" x2="300" y2="146" stroke="rgba(254, 240, 138, 0.6)" strokeWidth="1.8" strokeLinecap="round" />
                   </g>
 
-                  {/* 하단 상태 바 */}
-                  <text x="10" y="274" fontSize="9" fontWeight="bold" fill="#bae6fd">
-                    {isPlannerHandoffActive
-                      ? '📋 화면설계서(SB v2.4) 작성 완료 ➔ 디자이너에게 인계 중!'
-                      : '💡 IA 메뉴 구조도 · 화면설계서(Wireframe) 실시간 드로잉'}
-                  </text>
+                  {/* 3단계: 하단 4열 상품 카드 그리드 와이어프레임 */}
+                  <g style={{ opacity: plannerBoardProgress >= 72 ? 1 : 0.12, transition: 'opacity 0.35s ease' }}>
+                    {[0, 1, 2, 3].map((idx) => {
+                      const bx = 16 + idx * 79;
+                      return (
+                        <g key={idx}>
+                          <rect
+                            x={bx}
+                            y="176"
+                            width="71"
+                            height="74"
+                            rx="5"
+                            fill="none"
+                            stroke="#cbd5e1"
+                            strokeWidth="1.4"
+                          />
+                          <rect
+                            x={bx + 7}
+                            y="183"
+                            width="57"
+                            height="40"
+                            rx="3"
+                            fill="rgba(255,255,255,0.04)"
+                            stroke="rgba(203, 213, 225, 0.5)"
+                            strokeWidth="1.1"
+                          />
+                          <line
+                            x1={bx + 10}
+                            y1="232"
+                            x2={bx + 54}
+                            y2="232"
+                            stroke="#cbd5e1"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                          <line
+                            x1={bx + 10}
+                            y1="241"
+                            x2={bx + 38}
+                            y2="241"
+                            stroke="rgba(203, 213, 225, 0.6)"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                          />
+                        </g>
+                      );
+                    })}
+                  </g>
                 </svg>
               </div>
             </div>
 
             {/* =================================================================
-                [칠판 ZONE 2 · 중앙] UI/UX 디자이너 머리 위: Figma 고해상도 UI 디자인
+                [칠판 ZONE 2 · 중앙] 디자이너 머리 위: 심플하고 세련되게 완성되는 UI 디자인
                ================================================================= */}
             <div
               style={{
                 position: 'relative',
                 height: '100%',
-                padding: '12px 14px',
+                padding: '14px 18px',
                 boxSizing: 'border-box',
-                borderRight: '1.5px dashed rgba(255, 255, 255, 0.16)',
+                borderRight: '1.5px dashed rgba(255, 255, 255, 0.14)',
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'space-between',
               }}
             >
-              {/* Zone 2 상단 고정 헤더 (높이 28px 고정) */}
+              {/* Zone 2 심플 헤더 */}
               <div
                 style={{
-                  height: '28px',
+                  height: '26px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
-                  paddingBottom: '6px',
+                  gap: '8px',
+                  marginBottom: '8px',
                   flexShrink: 0,
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                  {/* 입체 자석 (노란색) */}
-                  <span
-                    style={{
-                      width: '14px',
-                      height: '14px',
-                      borderRadius: '50%',
-                      background: 'radial-gradient(circle at 35% 35%, #fef08a, #eab308)',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.45)',
-                      display: 'inline-block',
-                      flexShrink: 0,
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 800,
-                      color: '#fce7f3',
-                      letterSpacing: '0.3px',
-                    }}
-                  >
-                    STEP 02 · Figma UI/UX 디자인
-                  </span>
-                </div>
-
-                {/* 컬러 토큰 칩 + 진행률 배지 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {['#0f172a', '#be185d', '#ec4899', '#10b981'].map((hex) => (
-                    <span
-                      key={hex}
-                      style={{
-                        width: '10px',
-                        height: '10px',
-                        borderRadius: '3px',
-                        background: hex,
-                        border: '1px solid rgba(255,255,255,0.6)',
-                      }}
-                    />
-                  ))}
-                  <span
-                    style={{
-                      marginLeft: '3px',
-                      fontSize: '10.5px',
-                      fontWeight: 800,
-                      color: '#fbcfe8',
-                      background: 'rgba(236, 72, 153, 0.22)',
-                      padding: '2px 8px',
-                      borderRadius: '999px',
-                      border: '1px solid rgba(244, 114, 182, 0.45)',
-                    }}
-                  >
-                    그래픽 {designerBoardProgress}%
-                  </span>
-                </div>
+                <span
+                  style={{
+                    width: '13px',
+                    height: '13px',
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle at 35% 35%, #fef08a, #eab308)',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                    display: 'inline-block',
+                  }}
+                />
+                <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#fce7f3', letterSpacing: '0.2px' }}>
+                  02. UI / UX Design
+                </span>
               </div>
 
-              {/* Zone 2 메인 Figma 고해상도 컬러 UI 아트보드 (SVG 고정 뷰박스) */}
-              <div style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: '6px' }}>
-                <svg viewBox="0 0 360 285" width="100%" height="100%" style={{ display: 'block' }}>
+              {/* Zone 2 미니멀 컬러 UI 디자인 보드 (와이어프레임과 동일한 구조에 컬러와 비주얼이 입혀짐) */}
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <svg viewBox="0 0 340 270" width="100%" height="100%" style={{ display: 'block' }}>
                   <defs>
-                    <linearGradient id="boardHeroGrad" x1="0" y1="0" x2="1" y2="1">
+                    <linearGradient id="cleanHeroGrad" x1="0" y1="0" x2="1" y2="1">
                       <stop offset="0%" stopColor="#1e1b4b" />
                       <stop offset="55%" stopColor="#831843" />
                       <stop offset="100%" stopColor="#db2777" />
                     </linearGradient>
-                    <linearGradient id="boardMobileGrad" x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor="#fdf2f8" />
+                    <linearGradient id="cleanSideGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#fdf4ff" />
                       <stop offset="100%" stopColor="#f3e8ff" />
                     </linearGradient>
                   </defs>
 
-                  {/* 좌측: Mobile Figma 고해상도 컬러 시안 */}
-                  <g>
-                    <text x="62" y="13" fontSize="9.5" fontWeight="bold" fill="#f9a8d4" textAnchor="middle">
-                      🎨 Mobile_UI_v2
-                    </text>
-                    <rect
-                      x="8"
-                      y="20"
-                      width="108"
-                      height="232"
-                      rx="12"
-                      fill="#ffffff"
-                      stroke="#f472b6"
-                      strokeWidth="2"
-                    />
-                    {/* 다크 럭셔리 헤더 */}
-                    <rect x="13" y="26" width="98" height="20" rx="5" fill="#0f172a" />
-                    <text x="21" y="39" fontSize="8" fontWeight="bold" fill="#ffffff" letterSpacing="1">
-                      SISUN
-                    </text>
-                    <rect x="76" y="30" width="28" height="12" rx="6" fill="#f43f5e" />
-                    <text x="90" y="38.5" fontSize="6.5" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                      26 FW
-                    </text>
+                  {/* 깔끔한 화이트 UI 캔버스 */}
+                  <rect
+                    x="4"
+                    y="4"
+                    width="332"
+                    height="258"
+                    rx="10"
+                    fill="#ffffff"
+                    stroke="rgba(244, 114, 182, 0.7)"
+                    strokeWidth="1.8"
+                  />
 
-                    {/* 모바일 컬러 룩북 배너 */}
-                    <g style={{ opacity: designerBoardProgress >= 25 ? 1 : 0.25, transition: 'opacity 0.3s' }}>
-                      <rect
-                        x="13"
-                        y="51"
-                        width="98"
-                        height="78"
-                        rx="6"
-                        fill="url(#boardMobileGrad)"
-                        stroke="#ec4899"
-                        strokeWidth="1.2"
-                      />
-                      <circle cx="88" cy="78" r="11" fill="#f9a8d4" />
-                      <path d="M74 124 C75 94, 101 94, 102 124 Z" fill="#be185d" />
-                      <text x="19" y="67" fontSize="6.5" fontWeight="bold" fill="#9d174d">
-                        MICHAA · it MICHAA
-                      </text>
-                      <text x="19" y="81" fontSize="9" fontWeight="bold" fill="#0f172a">
-                        TIMELESS
-                      </text>
-                      <text x="19" y="92" fontSize="9" fontWeight="bold" fill="#be185d">
-                        ELEGANCE
-                      </text>
-                      <rect x="19" y="101" width="52" height="15" rx="7.5" fill="#0f172a" />
-                      <text x="45" y="111" fontSize="6.2" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                        컬렉션 보기 →
-                      </text>
-                    </g>
-
-                    {/* 모바일 컬러 상품 카드 2종 */}
-                    <g style={{ opacity: designerBoardProgress >= 55 ? 1 : 0.25, transition: 'opacity 0.3s' }}>
-                      <rect x="13" y="135" width="46" height="68" rx="5" fill="#fffbeb" stroke="#fde68a" strokeWidth="1.2" />
-                      <text x="36" y="162" fontSize="15" textAnchor="middle">
-                        🧥
-                      </text>
-                      <text x="36" y="182" fontSize="6.5" fontWeight="bold" fill="#1e293b" textAnchor="middle">
-                        캐시미어 코트
-                      </text>
-                      <text x="36" y="194" fontSize="6.5" fontWeight="bold" fill="#e11d48" textAnchor="middle">
-                        ♥ 1.2k
-                      </text>
-
-                      <rect x="65" y="135" width="46" height="68" rx="5" fill="#eef2ff" stroke="#c7d2fe" strokeWidth="1.2" />
-                      <text x="88" y="162" fontSize="15" textAnchor="middle">
-                        👗
-                      </text>
-                      <text x="88" y="182" fontSize="6.5" fontWeight="bold" fill="#1e293b" textAnchor="middle">
-                        트위드 셋업
-                      </text>
-                      <text x="88" y="194" fontSize="6.5" fontWeight="bold" fill="#e11d48" textAnchor="middle">
-                        ♥ 980
-                      </text>
-                    </g>
-
-                    {/* 모바일 하단 컬러 CTA 바 */}
-                    <g style={{ opacity: designerBoardProgress >= 75 ? 1 : 0.25, transition: 'opacity 0.3s' }}>
-                      <rect x="13" y="210" width="98" height="34" rx="7" fill="#0f172a" />
-                      <rect x="17" y="216" width="46" height="22" rx="5" fill="#ec4899" />
-                      <text x="40" y="230" fontSize="6.5" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                        ⚡ AI 사이즈
-                      </text>
-                      <text x="86" y="230" fontSize="6.5" fontWeight="bold" fill="#f8fafc" textAnchor="middle">
-                        🛍️ 바로구매
-                      </text>
-                    </g>
-                  </g>
-
-                  {/* 우측: PC Figma 고해상도 와이드 아트보드 */}
-                  <g>
-                    <text x="242" y="13" fontSize="9.5" fontWeight="bold" fill="#f9a8d4" textAnchor="middle">
-                      ✨ PC_Desktop_Renewal (Design System v2.0)
-                    </text>
-                    <rect
-                      x="128"
-                      y="20"
-                      width="224"
-                      height="232"
-                      rx="8"
-                      fill="#ffffff"
-                      stroke="#f472b6"
-                      strokeWidth="2"
-                    />
-                    {/* PC 다크 GNB */}
-                    <rect x="134" y="26" width="212" height="22" rx="4" fill="#0f172a" />
-                    <text x="142" y="40" fontSize="8" fontWeight="bold" fill="#ffffff" letterSpacing="1.2">
+                  {/* 1단계: 상단 다크 럭셔리 GNB 디자인 */}
+                  <g style={{ opacity: designerBoardProgress >= 15 ? 1 : 0.18, transition: 'opacity 0.35s ease' }}>
+                    <rect x="16" y="16" width="308" height="28" rx="6" fill="#0f172a" />
+                    <text x="28" y="34" fontSize="10" fontWeight="bold" fill="#ffffff" letterSpacing="1.5">
                       SISUN.COM
                     </text>
-                    <text x="196" y="40" fontSize="6.5" fill="#cbd5e1">
-                      MICHAA · it MICHAA · E.B.M · S SOLEZIA
-                    </text>
-                    <rect x="306" y="30" width="34" height="14" rx="7" fill="#ec4899" />
-                    <text x="323" y="39.5" fontSize="6.2" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                      LOOKBOOK
-                    </text>
-
-                    {/* PC 메인 캠페인 화보 + AI 큐레이션 컬러 그래픽 */}
-                    <g style={{ opacity: designerBoardProgress >= 35 ? 1 : 0.25, transition: 'opacity 0.3s' }}>
-                      <rect
-                        x="134"
-                        y="53"
-                        width="138"
-                        height="86"
-                        rx="6"
-                        fill="url(#boardHeroGrad)"
-                      />
-                      <circle cx="242" cy="86" r="24" fill="rgba(244, 114, 182, 0.25)" />
-                      <text x="144" y="70" fontSize="6.8" fontWeight="bold" fill="#f9a8d4" letterSpacing="0.8">
-                        2026 FW CAMPAIGN
-                      </text>
-                      <text x="144" y="87" fontSize="11" fontWeight="bold" fill="#ffffff">
-                        THE NEW ARCHIVE
-                      </text>
-                      <text x="144" y="100" fontSize="7" fill="#fce7f3">
-                        시선닷컴 프리미엄 브랜드 화보
-                      </text>
-                      <rect x="144" y="110" width="72" height="17" rx="8.5" fill="#ffffff" />
-                      <text x="180" y="121" fontSize="6.8" fontWeight="bold" fill="#831843" textAnchor="middle">
-                        화보 감상하기 →
-                      </text>
-
-                      {/* 우측 AI 코디 카드 */}
-                      <rect
-                        x="277"
-                        y="53"
-                        width="69"
-                        height="86"
-                        rx="6"
-                        fill="#fdf4ff"
-                        stroke="#d8b4fe"
-                        strokeWidth="1.4"
-                      />
-                      <rect x="283" y="59" width="57" height="13" rx="6.5" fill="#9333ea" />
-                      <text x="311.5" y="68" fontSize="6.2" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                        ✨ AI 스타일링
-                      </text>
-                      <text x="311.5" y="96" fontSize="16" textAnchor="middle">
-                        🧥+👜
-                      </text>
-                      <text x="311.5" y="115" fontSize="6.8" fontWeight="bold" fill="#581c87" textAnchor="middle">
-                        #오피스_캐시미어
-                      </text>
-                      <text x="311.5" y="128" fontSize="6.5" fontWeight="bold" fill="#9333ea" textAnchor="middle">
-                        매칭 98%
-                      </text>
-                    </g>
-
-                    {/* PC 4열 컬러 상품 카드 */}
-                    <g style={{ opacity: designerBoardProgress >= 65 ? 1 : 0.25, transition: 'opacity 0.3s' }}>
-                      {[
-                        { brand: 'MICHAA', icon: '🧥', price: '1,290,000', bg: '#fef3c7' },
-                        { brand: 'it MICHAA', icon: '👚', price: '459,000', bg: '#fce7f3' },
-                        { brand: 'E.B.M', icon: '👖', price: '289,000', bg: '#e0e7ff' },
-                        { brand: 'SOLEZIA', icon: '👗', price: '529,000', bg: '#d1fae5' },
-                      ].map((item, idx) => {
-                        const bx = 134 + idx * 54;
-                        return (
-                          <g key={item.brand}>
-                            <rect
-                              x={bx}
-                              y="146"
-                              width="50"
-                              height="66"
-                              rx="4"
-                              fill="#ffffff"
-                              stroke="#cbd5e1"
-                              strokeWidth="1.1"
-                            />
-                            <rect x={bx + 3} y="149" width="44" height="34" rx="3" fill={item.bg} />
-                            <text x={bx + 25} y="171" fontSize="13" textAnchor="middle">
-                              {item.icon}
-                            </text>
-                            <text x={bx + 6} y="194" fontSize="6.2" fontWeight="bold" fill="#0f172a">
-                              {item.brand}
-                            </text>
-                            <text x={bx + 6} y="205" fontSize="6.2" fontWeight="bold" fill="#be185d">
-                              ₩{item.price}
-                            </text>
-                          </g>
-                        );
-                      })}
-                    </g>
-
-                    {/* Figma 컴포넌트 바운딩 박스 & 디자이너 마우스 커서 */}
-                    <rect
-                      x="133"
-                      y="52"
-                      width="140"
-                      height="88"
-                      rx="6"
-                      fill="none"
-                      stroke="#10b981"
-                      strokeWidth="1.5"
-                      strokeDasharray="3 2"
-                    />
-                    <g
-                      style={{
-                        transform: `translate(${150 + (designerBoardProgress * 1.6) % 160}px, ${
-                          85 + Math.cos(subTick * 0.22) * 40
-                        }px)`,
-                        transition: 'transform 0.08s linear',
-                      }}
-                    >
-                      <polygon
-                        points="0,0 0,12 4,9 8,14 10,12 6,7 12,7"
-                        fill="#10b981"
-                        stroke="#ffffff"
-                        strokeWidth="1"
-                      />
-                      <rect x="8" y="8" width="66" height="15" rx="7.5" fill="#10b981" />
-                      <text x="41" y="18" fontSize="7" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                        🎨 UI Designer
-                      </text>
-                    </g>
-
-                    {/* 하단 디자인 시스템 배지 */}
-                    <rect
-                      x="134"
-                      y="218"
-                      width="212"
-                      height="25"
-                      rx="4"
-                      fill="#fdf2f8"
-                      stroke="#f9a8d4"
-                      strokeWidth="1.2"
-                    />
-                    <text x="240" y="234" fontSize="7.8" fontWeight="bold" fill="#9d174d" textAnchor="middle">
-                      ✨ Auto-Layout · 컬러 토큰 · 반응형 브레이크포인트 에셋 완료
+                    <line x1="108" y1="30" x2="138" y2="30" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="152" y1="30" x2="182" y2="30" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="196" y1="30" x2="226" y2="30" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+                    <rect x="272" y="22" width="42" height="16" rx="8" fill="#ec4899" />
+                    <text x="293" y="32.5" fontSize="7.5" fontWeight="bold" fill="#ffffff" textAnchor="middle">
+                      26 FW
                     </text>
                   </g>
 
-                  {/* 하단 상태 바 */}
-                  <text x="10" y="274" fontSize="9" fontWeight="bold" fill="#fbcfe8">
-                    {isDesignerHandoffActive
-                      ? '🎨 Figma 고해상도 UI 시안 완성 ➔ 웹퍼블리셔에게 인계 중!'
-                      : '🎨 브랜드 화보 배너 · 컬러 토큰 · Figma UI 컴포넌트 스타일링'}
-                  </text>
+                  {/* 2단계: 메인 컬러 히어로 배너 + 우측 큐레이션 카드 디자인 */}
+                  <g style={{ opacity: designerBoardProgress >= 42 ? 1 : 0.15, transition: 'opacity 0.35s ease' }}>
+                    <rect x="16" y="54" width="206" height="110" rx="8" fill="url(#cleanHeroGrad)" />
+                    <circle cx="182" cy="98" r="32" fill="rgba(244, 114, 182, 0.25)" />
+                    <circle cx="160" cy="116" r="20" fill="rgba(253, 224, 71, 0.18)" />
+                    <text x="30" y="78" fontSize="8" fontWeight="bold" fill="#f9a8d4" letterSpacing="1">
+                      NEW COLLECTION
+                    </text>
+                    <text x="30" y="99" fontSize="14" fontWeight="bold" fill="#ffffff">
+                      THE NEW ARCHIVE
+                    </text>
+                    <rect x="30" y="116" width="76" height="22" rx="11" fill="#ffffff" />
+                    <text x="68" y="130" fontSize="8" fontWeight="bold" fill="#831843" textAnchor="middle">
+                      LOOKBOOK →
+                    </text>
+
+                    {/* 우측 큐레이션 컬러 카드 */}
+                    <rect
+                      x="232"
+                      y="54"
+                      width="92"
+                      height="110"
+                      rx="8"
+                      fill="url(#cleanSideGrad)"
+                      stroke="#e9d5ff"
+                      strokeWidth="1.4"
+                    />
+                    <rect x="246" y="66" width="64" height="16" rx="8" fill="#9333ea" />
+                    <text x="278" y="77" fontSize="7.5" fontWeight="bold" fill="#ffffff" textAnchor="middle">
+                      AI CURATION
+                    </text>
+                    <rect x="246" y="90" width="64" height="46" rx="6" fill="#ffffff" stroke="#e9d5ff" strokeWidth="1" />
+                    <text x="278" y="119" fontSize="18" textAnchor="middle">
+                      🧥
+                    </text>
+                    <line x1="258" y1="148" x2="298" y2="148" stroke="#9333ea" strokeWidth="2.5" strokeLinecap="round" />
+                  </g>
+
+                  {/* 3단계: 하단 4열 컬러 상품 카드 그리드 디자인 */}
+                  <g style={{ opacity: designerBoardProgress >= 72 ? 1 : 0.15, transition: 'opacity 0.35s ease' }}>
+                    {[
+                      { bg: '#fef3c7', accent: '#d97706', icon: '🧥' },
+                      { bg: '#fce7f3', accent: '#db2777', icon: '👚' },
+                      { bg: '#e0e7ff', accent: '#4f46e5', icon: '👖' },
+                      { bg: '#d1fae5', accent: '#059669', icon: '👗' },
+                    ].map((card, idx) => {
+                      const bx = 16 + idx * 79;
+                      return (
+                        <g key={idx}>
+                          <rect
+                            x={bx}
+                            y="176"
+                            width="71"
+                            height="74"
+                            rx="6"
+                            fill="#ffffff"
+                            stroke="#e2e8f0"
+                            strokeWidth="1.4"
+                          />
+                          <rect x={bx + 6} y="182" width="59" height="42" rx="4" fill={card.bg} />
+                          <text x={bx + 35.5} y="208" fontSize="15" textAnchor="middle">
+                            {card.icon}
+                          </text>
+                          <line
+                            x1={bx + 10}
+                            y1="233"
+                            x2={bx + 52}
+                            y2="233"
+                            stroke="#1e293b"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                          />
+                          <line
+                            x1={bx + 10}
+                            y1="242"
+                            x2={bx + 36}
+                            y2="242"
+                            stroke={card.accent}
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                          />
+                        </g>
+                      );
+                    })}
+                  </g>
                 </svg>
               </div>
             </div>
 
             {/* =================================================================
-                [칠판 ZONE 3 · 우측] 여성 웹 퍼블리셔 머리 위: HTML/CSS 코딩 & LIVE 배포
+                [칠판 ZONE 3 · 우측] 퍼블리셔 머리 위: 심플하고 깔끔하게 타이핑되는 코딩 화면
                ================================================================= */}
             <div
               style={{
                 position: 'relative',
                 height: '100%',
-                padding: '12px 14px',
+                padding: '14px 18px',
                 boxSizing: 'border-box',
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'space-between',
               }}
             >
-              {/* Zone 3 상단 고정 헤더 (높이 28px 고정 + 참고 이미지 우측 상단 3색 자석 재현) */}
+              {/* Zone 3 심플 헤더 (우측 상단 3색 자석 포함) */}
               <div
                 style={{
-                  height: '28px',
+                  height: '26px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.14)',
-                  paddingBottom: '6px',
+                  marginBottom: '8px',
                   flexShrink: 0,
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {/* 두 번째 참고 이미지 우측 상단의 초록/노랑/네이비 자석 3총사 */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    <span
-                      style={{
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '50%',
-                        background: 'radial-gradient(circle at 35% 35%, #6ee7b7, #059669)',
-                        boxShadow: '0 2px 3px rgba(0,0,0,0.45)',
-                      }}
-                    />
-                    <span
-                      style={{
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '50%',
-                        background: 'radial-gradient(circle at 35% 35%, #fef08a, #ca8a04)',
-                        boxShadow: '0 2px 3px rgba(0,0,0,0.45)',
-                      }}
-                    />
-                    <span
-                      style={{
-                        width: '12px',
-                        height: '12px',
-                        borderRadius: '50%',
-                        background: 'radial-gradient(circle at 35% 35%, #93c5fd, #1e3a8a)',
-                        boxShadow: '0 2px 3px rgba(0,0,0,0.45)',
-                      }}
-                    />
-                  </div>
+                <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#ede9fe', letterSpacing: '0.2px' }}>
+                  03. HTML / CSS Code
+                </span>
+
+                {/* 두 번째 참고 이미지 우측 상단의 초록/노랑/네이비 자석 3개 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span
                     style={{
-                      fontSize: '12px',
-                      fontWeight: 800,
-                      color: '#ede9fe',
-                      letterSpacing: '0.3px',
+                      width: '13px',
+                      height: '13px',
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle at 35% 35%, #6ee7b7, #059669)',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
                     }}
-                  >
-                    STEP 03 · HTML/CSS 반응형 퍼블리싱
-                  </span>
+                  />
+                  <span
+                    style={{
+                      width: '13px',
+                      height: '13px',
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle at 35% 35%, #fef08a, #ca8a04)',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                    }}
+                  />
+                  <span
+                    style={{
+                      width: '13px',
+                      height: '13px',
+                      borderRadius: '50%',
+                      background: 'radial-gradient(circle at 35% 35%, #93c5fd, #1e3a8a)',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
+                    }}
+                  />
                 </div>
-
-                <span
-                  style={{
-                    fontSize: '10.5px',
-                    fontWeight: 800,
-                    color: isPublisherLiveCelebration ? '#86efac' : '#ddd6fe',
-                    background: isPublisherLiveCelebration
-                      ? 'rgba(22, 163, 74, 0.35)'
-                      : 'rgba(139, 92, 246, 0.25)',
-                    padding: '2px 8px',
-                    borderRadius: '999px',
-                    border: `1px solid ${
-                      isPublisherLiveCelebration
-                        ? 'rgba(134, 239, 172, 0.6)'
-                        : 'rgba(196, 181, 253, 0.45)'
-                    }`,
-                  }}
-                >
-                  {isPublisherLiveCelebration ? '🟢 LIVE 배포완료' : `마크업 ${publisherBoardProgress}%`}
-                </span>
               </div>
 
-              {/* Zone 3 메인 VS Code 에디터 + 반응형 멀티 디바이스 LIVE 프리뷰 (SVG 고정 뷰박스) */}
-              <div style={{ flex: 1, minHeight: 0, position: 'relative', paddingTop: '6px' }}>
-                <svg viewBox="0 0 360 285" width="100%" height="100%" style={{ display: 'block' }}>
-                  {/* 상단: VS Code 다크 글래스 코드 에디터 창 */}
-                  <g>
-                    <rect
-                      x="6"
-                      y="6"
-                      width="348"
-                      height="142"
-                      rx="8"
-                      fill="rgba(15, 23, 42, 0.92)"
-                      stroke="#a78bfa"
-                      strokeWidth="1.6"
-                    />
-                    {/* 에디터 탭 바 */}
-                    <rect x="6" y="6" width="348" height="22" rx="8" fill="#1e293b" />
-                    <circle cx="18" cy="17" r="3.5" fill="#f87171" />
-                    <circle cx="29" cy="17" r="3.5" fill="#fbbf24" />
-                    <circle cx="40" cy="17" r="3.5" fill="#34d399" />
-                    <text x="54" y="20" fontSize="8" fontWeight="bold" fill="#c4b5fd" fontFamily="monospace">
-                      sisun_main_renewal.html &nbsp;|&nbsp; responsive_grid.css
-                    </text>
-
-                    {/* 실시간 타이핑 코드 라인들 */}
-                    <text x="16" y="42" fontSize="8.2" fill="#94a3b8" fontFamily="monospace">
-                      {'01 <!DOCTYPE html><html lang="ko">'}
-                    </text>
-                    {publisherBoardProgress >= 18 && (
-                      <text x="16" y="56" fontSize="8.2" fill="#38bdf8" fontFamily="monospace">
-                        {'02 <main class="sisun-2026-layout" data-theme="luxury">'}
-                      </text>
-                    )}
-                    {publisherBoardProgress >= 34 && (
-                      <text x="16" y="70" fontSize="8.2" fill="#f472b6" fontFamily="monospace">
-                        {'03   <LookbookHero src="26fw_michaa.webp" priority />'}
-                      </text>
-                    )}
-                    {publisherBoardProgress >= 50 && (
-                      <text x="16" y="84" fontSize="8.2" fill="#fde047" fontFamily="monospace">
-                        {'04   <AICurationWidget matchRate={98} responsive />'}
-                      </text>
-                    )}
-                    {publisherBoardProgress >= 66 && (
-                      <text x="16" y="98" fontSize="8.2" fill="#34d399" fontFamily="monospace">
-                        {'05   @media (max-width:768px){ .grid{grid-template:1fr 1fr} }'}
-                      </text>
-                    )}
-                    {publisherBoardProgress >= 82 && (
-                      <text x="16" y="112" fontSize="8.2" fill="#c084fc" fontFamily="monospace">
-                        {'06 </main> <!-- 웹표준·크로스브라우징·성능 최적화 100% -->'}
-                      </text>
-                    )}
-
-                    {/* 에디터 하단 컴파일 게이지 바 */}
-                    <rect x="16" y="122" width="328" height="16" rx="4" fill="#0f172a" stroke="#4c1d95" strokeWidth="1" />
-                    <rect
-                      x="18"
-                      y="124"
-                      width={Math.max(12, (324 * publisherBoardProgress) / 100)}
-                      height="12"
-                      rx="3"
-                      fill="rgba(168, 85, 247, 0.35)"
-                    />
-                    <text x="24" y="133" fontSize="7.8" fontWeight="bold" fill="#4ade80" fontFamily="monospace">
-                      {publisherBoardProgress < 100
-                        ? `⚡ Compiling Semantic HTML5 & CSS3 Grid... (${publisherBoardProgress}%)`
-                        : '✓ Build Success! Deployed to https://www.sisun.com'}
-                    </text>
-                  </g>
-
-                  {/* 하단: 반응형 웹 렌더링 결과물 (Mobile 390px + PC 1440px 동시 검증 프리뷰) */}
-                  <g>
-                    {/* 좌측 미니 모바일 LIVE 프리뷰 */}
-                    <rect
-                      x="6"
-                      y="156"
-                      width="102"
-                      height="96"
-                      rx="7"
-                      fill="#ffffff"
-                      stroke={isPublisherLiveCelebration ? '#4ade80' : '#a78bfa'}
-                      strokeWidth="1.8"
-                    />
-                    <rect x="11" y="161" width="92" height="13" rx="3" fill="#0f172a" />
-                    <text x="57" y="170" fontSize="6.5" fontWeight="bold" fill="#38bdf8" textAnchor="middle">
-                      m.sisun.com (390px)
-                    </text>
-                    <rect x="11" y="177" width="92" height="36" rx="4" fill="url(#boardMobileGrad)" />
-                    <text x="57" y="198" fontSize="7" fontWeight="bold" fill="#be185d" textAnchor="middle">
-                      📱 모바일 반응형 OK
-                    </text>
-                    <rect x="11" y="216" width="44" height="30" rx="3" fill="#fef3c7" />
-                    <rect x="59" y="216" width="44" height="30" rx="3" fill="#e0e7ff" />
-
-                    {/* 우측 PC 와이드 LIVE 프리뷰 + Lighthouse 성능 지표 */}
-                    <rect
-                      x="116"
-                      y="156"
-                      width="238"
-                      height="96"
-                      rx="7"
-                      fill="#ffffff"
-                      stroke={isPublisherLiveCelebration ? '#4ade80' : '#a78bfa'}
-                      strokeWidth="1.8"
-                    />
-                    <rect x="122" y="161" width="226" height="14" rx="3" fill="#0f172a" />
-                    <text x="130" y="170.5" fontSize="6.8" fontWeight="bold" fill="#4ade80">
-                      🟢 https://www.sisun.com — Responsive Web LIVE
-                    </text>
-
-                    <rect x="122" y="179" width="142" height="44" rx="4" fill="url(#boardHeroGrad)" />
-                    <text x="193" y="200" fontSize="8" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                      SISUN 2026 RENEWAL
-                    </text>
-                    <text x="193" y="213" fontSize="6.5" fill="#fbcfe8" textAnchor="middle">
-                      CSS Grid · Flex · WebP 최적화
-                    </text>
-
-                    {/* 우측 Lighthouse 100점 게이지 카드 */}
-                    <rect
-                      x="269"
-                      y="179"
-                      width="79"
-                      height="67"
-                      rx="5"
-                      fill="#f0fdf4"
-                      stroke="#86efac"
-                      strokeWidth="1.3"
-                    />
-                    <circle
-                      cx="308.5"
-                      cy="204"
-                      r="15"
-                      fill="none"
-                      stroke="#16a34a"
-                      strokeWidth="3"
-                    />
-                    <text x="308.5" y="207.5" fontSize="8.5" fontWeight="bold" fill="#15803d" textAnchor="middle">
-                      99점
-                    </text>
-                    <text x="308.5" y="232" fontSize="6.5" fontWeight="bold" fill="#166534" textAnchor="middle">
-                      웹표준·접근성
-                    </text>
-                    <text x="308.5" y="241" fontSize="6" fill="#15803d" textAnchor="middle">
-                      크로스브라우징 PASS
-                    </text>
-
-                    {/* 하단 미니 4열 그리드 */}
-                    {[0, 1, 2, 3].map((idx) => (
-                      <rect
-                        key={idx}
-                        x={122 + idx * 36}
-                        y="227"
-                        width="32"
-                        height="19"
-                        rx="2.5"
-                        fill="#f1f5f9"
-                        stroke="#cbd5e1"
-                        strokeWidth="1"
-                      />
-                    ))}
-
-                    {/* 퍼블리셔 배포 완료 시 뜨는 축하 뱃지 */}
-                    {isPublisherLiveCelebration && (
-                      <g>
-                        <rect
-                          x="126"
-                          y="188"
-                          width="218"
-                          height="28"
-                          rx="14"
-                          fill="#5b21b6"
-                          stroke="#ffffff"
-                          strokeWidth="1.8"
-                        />
-                        <text x="235" y="206" fontSize="9.2" fontWeight="bold" fill="#ffffff" textAnchor="middle">
-                          🎉 시선닷컴(sisun.com) 반응형 배포 완료!
-                        </text>
-                      </g>
-                    )}
-                  </g>
-
-                  {/* 하단 상태 바 */}
-                  <text x="10" y="274" fontSize="9" fontWeight="bold" fill="#ddd6fe">
-                    {isPublisherLiveCelebration
-                      ? '🎉 시선닷컴 Mobile & PC 반응형 웹 퍼블리싱 배포 완료!'
-                      : '💻 HTML5 시맨틱 마크업 · CSS3 반응형 미디어쿼리 실시간 코딩'}
+              {/* Zone 3 미니멀 코드 에디터 창 (코드가 한 줄씩 깔끔하게 타이핑됨) */}
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <svg viewBox="0 0 340 270" width="100%" height="100%" style={{ display: 'block' }}>
+                  <rect
+                    x="4"
+                    y="4"
+                    width="332"
+                    height="258"
+                    rx="10"
+                    fill="rgba(15, 23, 42, 0.9)"
+                    stroke="rgba(167, 139, 250, 0.65)"
+                    strokeWidth="1.6"
+                  />
+                  {/* 상단 윈도우 타이틀 바 */}
+                  <rect x="4" y="4" width="332" height="28" rx="10" fill="#1e293b" />
+                  <circle cx="20" cy="18" r="4" fill="#f87171" />
+                  <circle cx="33" cy="18" r="4" fill="#fbbf24" />
+                  <circle cx="46" cy="18" r="4" fill="#34d399" />
+                  <text x="64" y="21" fontSize="9.5" fontWeight="bold" fill="#cbd5e1" fontFamily="monospace">
+                    sisun_renewal.html
                   </text>
+
+                  {/* 순차적으로 타이핑되는 심플한 코드 라인 */}
+                  <text x="20" y="54" fontSize="9.5" fill="#64748b" fontFamily="monospace">
+                    {'<!DOCTYPE html>'}
+                  </text>
+
+                  {publisherBoardProgress >= 16 && (
+                    <text x="20" y="76" fontSize="9.5" fill="#38bdf8" fontFamily="monospace">
+                      {'<header class="sisun-gnb">'}
+                    </text>
+                  )}
+                  {publisherBoardProgress >= 28 && (
+                    <text x="34" y="96" fontSize="9.5" fill="#e2e8f0" fontFamily="monospace">
+                      {'<nav>SISUN · 26 FW</nav>'}
+                    </text>
+                  )}
+                  {publisherBoardProgress >= 40 && (
+                    <text x="20" y="116" fontSize="9.5" fill="#38bdf8" fontFamily="monospace">
+                      {'</header>'}
+                    </text>
+                  )}
+
+                  {publisherBoardProgress >= 52 && (
+                    <text x="20" y="142" fontSize="9.5" fill="#f472b6" fontFamily="monospace">
+                      {'<section class="hero-archive">'}
+                    </text>
+                  )}
+                  {publisherBoardProgress >= 64 && (
+                    <text x="34" y="162" fontSize="9.5" fill="#fde047" fontFamily="monospace">
+                      {'<LookbookBanner responsive />'}
+                    </text>
+                  )}
+                  {publisherBoardProgress >= 76 && (
+                    <text x="20" y="182" fontSize="9.5" fill="#f472b6" fontFamily="monospace">
+                      {'</section>'}
+                    </text>
+                  )}
+
+                  {publisherBoardProgress >= 86 && (
+                    <text x="20" y="208" fontSize="9.5" fill="#34d399" fontFamily="monospace">
+                      {'.product-grid { display: grid; }'}
+                    </text>
+                  )}
+                  {publisherBoardProgress >= 95 && (
+                    <text x="20" y="232" fontSize="9.5" fontWeight="bold" fill="#4ade80" fontFamily="monospace">
+                      {'✓ Responsive Web Build Complete'}
+                    </text>
+                  )}
                 </svg>
               </div>
             </div>
