@@ -33,19 +33,19 @@ export function SisunRenewalStoryStage() {
     return -(Math.cos(Math.PI * clamped) - 1) / 2;
   };
 
-  // 12프레임 360° 연속 하모닉 워킹 사이클 (단일 마스터 기반 흔들림 없는 보행 스프라이트)
+  // 12프레임 360° 스켈레탈 교차 보행 사이클 (15fps = 초당 15컷으로 왼발·오른발 교차와 팔/머리 움직임을 촘촘하게 표현)
   const getWalkSubSprite = (st: number, offset: number) =>
-    `walk-s${(Math.floor((st + offset) * 0.5) % 12) + 1}`;
+    `walk-s${(Math.floor(st * 0.75 + offset) % 12) + 1}`;
 
-  // 12프레임 360° 연속 하모닉 메인 액션 사이클 (1 -> 2 -> ... -> 12 -> 1)
+  // 12프레임 360° 스켈레탈 메인 액션 사이클 (1 -> 2 -> ... -> 12 -> 1)
   const getWorkSubFrame = (st: number, offset: number) =>
-    (Math.floor((st + offset) * 0.5) % 12) + 1;
+    (Math.floor(st * 0.75 + offset) % 12) + 1;
 
-  // 8프레임 360° 연속 하모닉 인터랙션 사이클 (1 -> 2 -> ... -> 8 -> 1)
+  // 8프레임 360° 스켈레탈 인터랙션 사이클 (1 -> 2 -> ... -> 8 -> 1)
   const getInteractSubFrame = (st: number, offset: number) =>
-    (Math.floor((st + offset) * 0.5) % 8) + 1;
+    (Math.floor(st * 0.65 + offset) % 8) + 1;
 
-  // 60fps 연속 사인파 모션 엔진 (머리 높이와 상하체 비율을 100% 안정적으로 유지하는 차분한 호흡·보행 물리)
+  // 60fps 연속 사인파 모션 엔진 (12프레임 왼발·오른발 교차 주기(F1·F7 착지, F4·F10 교차 정점)와 1:1 완전 동기화)
   const getCharacterMotion = (
     isWalking: boolean,
     st: number,
@@ -53,24 +53,25 @@ export function SisunRenewalStoryStage() {
     walkDir: -1 | 0 | 1 = 0
   ) => {
     if (isWalking) {
-      const stepPhase = (((st + phaseOffset) % 6) / 6) * Math.PI;
-      const arch = Math.sin(stepPhase); // 0 -> 1 -> 0 연속 곡선
-      const bounceY = -arch * 3.6;
-      const squash = Math.cos(stepPhase * 2) * 0.011;
+      const cyclePos = (st * 0.75 + phaseOffset) % 12;
+      const stepPhase = (cyclePos / 6) * Math.PI;
+      const arch = Math.abs(Math.sin(stepPhase)); // F1(0)·F7(6) 착지(0), F4(3)·F10(9) 다리 교차 정점(1)
+      const bounceY = -arch * 3.2;
+      const squash = Math.cos(stepPhase * 2) * 0.009;
       const scaleX = 1 - squash * 0.7;
       const scaleY = 1 + squash;
-      const velocityLean = walkDir * 1.1;
-      const stepSway = Math.cos(((st + phaseOffset) / 6) * Math.PI) * 0.9;
+      const velocityLean = walkDir * 1.0;
+      const stepSway = Math.cos(stepPhase) * 0.8;
       const rotateDeg = velocityLean + stepSway;
-      const shadowScale = 1 - arch * 0.08;
+      const shadowScale = 1 - arch * 0.07;
       return { bounceY, scaleX, scaleY, rotateDeg, shadowScale };
     } else {
       const phase = (st + phaseOffset) * 0.24;
-      const bounceY = Math.sin(phase) * 1.2 - 0.6;
-      const squash = Math.sin(phase) * 0.006;
+      const bounceY = Math.sin(phase) * 1.1 - 0.5;
+      const squash = Math.sin(phase) * 0.005;
       const scaleX = 1 - squash * 0.6;
       const scaleY = 1 + squash;
-      const rotateDeg = Math.sin(phase * 0.7) * 0.55;
+      const rotateDeg = Math.sin(phase * 0.7) * 0.5;
       const shadowScale = 1 + Math.sin(phase) * 0.02;
       return { bounceY, scaleX, scaleY, rotateDeg, shadowScale };
     }
@@ -1431,6 +1432,7 @@ export function SisunRenewalStoryStage() {
                       height: '100%',
                       objectFit: 'contain',
                       opacity: isCurrent ? 1 : 0,
+                      transition: 'opacity 0.085s ease-out',
                       transform: plannerFlipRight ? 'scaleX(-1)' : 'none',
                       pointerEvents: 'none',
                     }}
@@ -1606,6 +1608,7 @@ export function SisunRenewalStoryStage() {
                       height: '100%',
                       objectFit: 'contain',
                       opacity: isCurrent ? 1 : 0,
+                      transition: 'opacity 0.085s ease-out',
                       transform: designerFlipRight ? 'scaleX(-1)' : 'none',
                       pointerEvents: 'none',
                     }}
@@ -1758,6 +1761,7 @@ export function SisunRenewalStoryStage() {
                       height: '100%',
                       objectFit: 'contain',
                       opacity: isCurrent ? 1 : 0,
+                      transition: 'opacity 0.085s ease-out',
                       transform: publisherFlipRight ? 'scaleX(-1)' : 'none',
                       pointerEvents: 'none',
                     }}
