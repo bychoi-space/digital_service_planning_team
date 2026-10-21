@@ -10,13 +10,15 @@ export function SisunRenewalStoryStage() {
   useEffect(() => {
     if (!isPlaying) return;
     const timer = window.setInterval(() => {
-      setSubTick((prev) => (prev + 1) % 2400);
+      // 150틱(300서브틱)의 배수인 3000으로 순환시켜 루프 경계에서 끊김이 전혀 없도록 보장
+      setSubTick((prev) => (prev + 1) % 3000);
     }, 50);
     return () => window.clearInterval(timer);
   }, [isPlaying]);
 
-  // 연속 타임라인 틱 (0.0, 0.5, 1.0, 1.5 ...)
+  // 연속 타임라인 틱 (0.0, 0.5, 1.0, 1.5 ... / 150틱 = 15초 통합 협업 스토리 루프)
   const tick = subTick / 2;
+  const masterTick = tick % 150;
 
   // 부드러운 가감속(Ease-In-Out Sine) 보간 헬퍼
   const easeInOut = (progress: number): number => {
@@ -60,30 +62,34 @@ export function SisunRenewalStoryStage() {
   };
 
   // =========================================================================
-  // 1) 캐릭터 1 · 기획자 (100틱 스토리 사이클)
-  //    - 0 ~ 14: 좌측 끝(-4.5% -> 0.5%)에서 고개를 빼꼼 내밀며 등장 (peek-1..4)
-  //    - 14 ~ 34: 골똘히 고민하면서(턱에 손을 대고 ? 띄우며) 걸어오기 (think-walk-1..6)
-  //    - 34 ~ 66: 바닥에 털푸덕 주저앉아서 태블릿에 와이어프레임 설계하기 (sit-sketch-1..6)
-  //    - 66 ~ 76: 자리에서 일어나 디자이너 쪽(21.0%)으로 걸어가기 (walk-s1..s6)
-  //    - 76 ~ 88: 디자이너에게 설계 산출물(화면설계서) 가져다 주기 (handoff-1..4)
-  //    - 88 ~ 100: 다시 좌측 끝(-4.5%)으로 총총 걸어 복귀 (walk-s1..s6)
+  // ★ 3인 릴레이 협업 통합 타임라인 (masterTick: 0 ~ 150) ★
+  // -------------------------------------------------------------------------
+  // 1) 캐릭터 1 · 기획자 (0 ~ 78틱 활약)
+  //    - 0 ~ 10: 좌측 끝(-4.5% -> 0.5%)에서 고개를 빼꼼 내밀며 가장 먼저 등장 (peek-1..8)
+  //    - 10 ~ 24: 골똘히 고민하면서(턱에 손을 대고 ? 띄우며) 걸어오기 (think-walk-1..12)
+  //    - 24 ~ 50: 바닥에 털푸덕 주저앉아서 태블릿에 와이어프레임 설계 (sit-sketch-1..12)
+  //               (※ 바로 이 설계 중인 28틱에 디자이너가 밑에서부터 기어올라오기 시작!)
+  //    - 50 ~ 58: 자리에서 일어나 디자이너 쪽(21.5%)으로 다가가기 (walk-s1..s12)
+  //    - 58 ~ 68: [1차 핸드오프 일치!] 디자이너(33.5%)에게 설계 산출물 전달 (handoff-1..8)
+  //    - 68 ~ 78: 좌측 끝 화면 밖(-16%)으로 총총 걸어 퇴장 (walk-s1..s12)
+  //    - 78 ~ 150: 다음 루프(0틱)까지 좌측 화면 밖 대기
   // =========================================================================
-  const pTick = tick % 100;
-  const isPlannerPeek = pTick < 14;
-  const isPlannerThinkWalk = pTick >= 14 && pTick < 34;
-  const isPlannerSitSketch = pTick >= 34 && pTick < 66;
-  const isPlannerWalkToDesigner = pTick >= 66 && pTick < 76;
-  const isPlannerHandoff = pTick >= 76 && pTick < 88;
-  const isPlannerWalkBack = pTick >= 88;
+  const pTick = masterTick;
+  const plannerVisible = pTick < 78;
+  const isPlannerPeek = pTick < 10;
+  const isPlannerThinkWalk = pTick >= 10 && pTick < 24;
+  const isPlannerSitSketch = pTick >= 24 && pTick < 50;
+  const isPlannerWalkToDesigner = pTick >= 50 && pTick < 58;
+  const isPlannerHandoff = pTick >= 58 && pTick < 68;
+  const isPlannerWalkBack = pTick >= 68 && pTick < 78;
 
   const isPlannerWalking = isPlannerThinkWalk || isPlannerWalkToDesigner || isPlannerWalkBack;
   const basePlannerMotion = getCharacterMotion(isPlannerWalking, subTick, 0);
 
-  // 기획자 특수 모션 (빼꼼 기울기 & 털푸덕 주저앉기 물리 효과)
+  // 기획자 특수 모션 (빼꼼 기울기 & 털푸덕 주저앉기 & 폴짝 일어나기 물리 효과)
   const getPlannerSpecialMotion = () => {
     if (isPlannerPeek) {
-      // 좌측 벽 뒤에서 고개를 갸우뚱 빼꼼 내미는 모션
-      const peekProgress = easeInOut(Math.min(1, pTick / 10));
+      const peekProgress = easeInOut(Math.min(1, pTick / 8));
       const peekBob = Math.sin(subTick * 0.35) * 2.5;
       return {
         bounceY: peekBob,
@@ -94,8 +100,8 @@ export function SisunRenewalStoryStage() {
       };
     }
     if (isPlannerSitSketch) {
-      // 34~38틱 구간: "털푸덕!" 바닥에 주저앉는 탄성 스쿼시 모션
-      const sitElapsed = pTick - 34;
+      // 24~28틱 구간: "털푸덕!" 바닥에 주저앉는 탄성 스쿼시 모션
+      const sitElapsed = pTick - 24;
       if (sitElapsed < 4) {
         const t = sitElapsed / 4;
         const dropY = t < 0.45 ? -8 * (1 - t / 0.45) : 9 * Math.sin(((t - 0.45) / 0.55) * Math.PI);
@@ -108,9 +114,9 @@ export function SisunRenewalStoryStage() {
           shadowScale: 1.15 + plopSquash * 0.8,
         };
       }
-      // 63~66틱 구간: 바닥에서 폴짝 일어나는 예비 동작(Anticipation & Stand-up Hop)
-      if (pTick >= 63) {
-        const standT = (pTick - 63) / 3;
+      // 47~50틱 구간: 바닥에서 폴짝 일어나는 예비 동작(Anticipation & Stand-up Hop)
+      if (pTick >= 47) {
+        const standT = (pTick - 47) / 3;
         const hopY = standT < 0.4 ? 8 : -7 * Math.sin(((standT - 0.4) / 0.6) * Math.PI);
         const stretch = standT < 0.4 ? -0.05 : 0.045 * Math.sin(((standT - 0.4) / 0.6) * Math.PI);
         return {
@@ -137,12 +143,13 @@ export function SisunRenewalStoryStage() {
   const plannerMotion = getPlannerSpecialMotion();
 
   const getPlannerLeft = (): number => {
-    if (isPlannerPeek) return -4.5 + easeInOut(pTick / 14) * 5.0; // -4.5%(좌측 벽 뒤) -> 0.5%(빼꼼)
-    if (isPlannerThinkWalk) return 0.5 + easeInOut((pTick - 14) / 20) * 9.0; // 0.5% -> 9.5%(고민하며 걸어옴)
+    if (isPlannerPeek) return -4.5 + easeInOut(pTick / 10) * 5.0; // -4.5%(좌측 벽 뒤) -> 0.5%(빼꼼)
+    if (isPlannerThinkWalk) return 0.5 + easeInOut((pTick - 10) / 14) * 9.0; // 0.5% -> 9.5%(고민하며 걸어옴)
     if (isPlannerSitSketch) return 9.5; // 9.5% 바닥에 털푸덕 주저앉아 설계
-    if (isPlannerWalkToDesigner) return 9.5 + easeInOut((pTick - 66) / 10) * 11.5; // 9.5% -> 21.0%(디자이너에게 이동)
-    if (isPlannerHandoff) return 21.0; // 21.0% 산출물 전달
-    return 21.0 - easeInOut((pTick - 88) / 12) * 25.5; // 21.0% -> -4.5%(좌측 끝 복귀)
+    if (isPlannerWalkToDesigner) return 9.5 + easeInOut((pTick - 50) / 8) * 12.0; // 9.5% -> 21.5%(디자이너에게 다가가기)
+    if (isPlannerHandoff) return 21.5; // 21.5% 디자이너(33.5%)와 마주 보고 설계도 전달!
+    if (isPlannerWalkBack) return 21.5 - easeInOut((pTick - 68) / 10) * 37.5; // 21.5% -> -16.0%(좌측 화면 밖 퇴장)
+    return -16.0;
   };
 
   const plannerLeft = getPlannerLeft();
@@ -157,40 +164,46 @@ export function SisunRenewalStoryStage() {
     ? getWalkSubSprite(subTick, 0)
     : `handoff-${getInteractSubFrame(subTick, 0)}`;
 
-  // 빼꼼 내밀 때(0~14), 고민하며 우측으로 걸어올 때(14~34), 디자이너에게 걸어갈 때(66~76)는 우측을 바라보도록 반전
-  // (handoff-1..4는 원본 자체가 우측으로 서류를 건네는 방향이므로 반전하지 않음)
+  // 빼꼼 내밀 때(0~10), 고민하며 우측으로 걸어올 때(10~24), 디자이너에게 걸어갈 때(50~58)는 우측을 바라보도록 반전
   const plannerFlipRight = isPlannerPeek || isPlannerThinkWalk || isPlannerWalkToDesigner;
 
-  // 좌측 칠판(Zone 1: 기획자 머리 위) 진행률 (0 ~ 100%)
+  // 좌측 칠판(Zone 1: 기획자 머리 위) 진행률 (기획자가 설계하는 10~50틱 동안 100% 완성 후 사이클 내내 유지)
   const plannerBoardProgress =
-    pTick < 14
-      ? Math.round((pTick / 14) * 12)
-      : pTick < 34
-      ? Math.round(12 + ((pTick - 14) / 20) * 28)
-      : pTick < 66
-      ? Math.min(100, Math.round(40 + ((pTick - 34) / 28) * 60))
-      : 100;
+    pTick < 10
+      ? Math.round((pTick / 10) * 12)
+      : pTick < 24
+      ? Math.round(12 + ((pTick - 10) / 14) * 28)
+      : pTick < 50
+      ? Math.min(100, Math.round(40 + ((pTick - 24) / 22) * 60))
+      : pTick < 146
+      ? 100
+      : 0;
 
   // =========================================================================
-  // 2) 캐릭터 2 · 디자이너 (100틱 스토리 사이클)
-  //    - 0 ~ 20: 뒤돌은 상태에서 아래에서부터 기어올라오듯이 등장 (climb-1..6)
-  //    - 20 ~ 28: 좌측 기획자 쪽(33.5%)으로 총총 걸어 이동 (walk-s1..s6)
-  //    - 28 ~ 40: 기획자에게 산출물(화면설계서)을 두 손으로 받기 (receive-1..4)
-  //    - 40 ~ 46: 중앙 작업 위치(41.0%)로 걸어 이동 (walk-s1..s6)
-  //    - 46 ~ 74: 받은 산출물에 직접 알록달록 색칠하는 모션 (paint-1..6)
-  //    - 74 ~ 82: 완료되면 우측 퍼블리셔 쪽(48.5%)으로 걸어 이동 (walk-s1..s6)
-  //    - 82 ~ 94: 퍼블리셔에게 완성된 디자인 산출물 가져다 주기 (handoff-1..4)
-  //    - 94 ~ 100: 다시 중앙(41.0%)으로 돌아와 아래로 내려가며 다음 등장을 준비
+  // 2) 캐릭터 2 · 디자이너 (28 ~ 120틱 활약: 기획자가 설계하고 있는 타이밍에 등장!)
+  //    - 0 ~ 28: 무대 아래에서 대기 (기획자가 먼저 등장해 설계를 시작할 때까지 대기)
+  //    - 28 ~ 48: 기획자가 한창 설계 중인 타이밍에 뒤돌은 상태로 밑에서부터 기어올라오듯 등장 (climb-1..12)
+  //    - 48 ~ 58: 올라와서 좌측 기획자 쪽(33.5%)으로 다가가기 (walk-s1..s12)
+  //               (※ 기획자도 50~58틱에 21.5%로 다가와 58틱에 두 사람이 정확히 마주 섬!)
+  //    - 58 ~ 68: [1차 핸드오프 일치!] 기획자가 건네주는 설계도를 두 손으로 전달받음 (receive-1..8)
+  //    - 68 ~ 74: 전달받은 설계도를 들고 중앙 작업 위치(41.0%)로 이동 (walk-s1..s12)
+  //    - 74 ~ 96: 전달받은 설계 도면에 직접 알록달록 색칠(디자인) 진행 (paint-1..12)
+  //               (※ 바로 이 디자인 진행 중인 78틱에 퍼블리셔가 우측에서부터 등장 시작!)
+  //    - 96 ~ 102: 완료되면 우측 퍼블리셔 쪽(48.5%)으로 다가가기 (walk-s1..s12)
+  //    - 102 ~ 112: [2차 핸드오프 일치!] 퍼블리셔(63.5%)에게 완성된 디자인 산출물 전달 (handoff-1..8)
+  //    - 112 ~ 120: 중앙(41.0%)으로 돌아가 무대 아래로 내려가며 퇴장
+  //    - 120 ~ 150: 무대 아래 대기
   // =========================================================================
-  const dTick = (tick + 15) % 100;
-  const isDesignerClimbing = dTick < 20;
-  const isDesignerWalkToPlanner = dTick >= 20 && dTick < 28;
-  const isDesignerReceiving = dTick >= 28 && dTick < 40;
-  const isDesignerWalkToCenter = dTick >= 40 && dTick < 46;
-  const isDesignerPainting = dTick >= 46 && dTick < 74;
-  const isDesignerWalkToPublisher = dTick >= 74 && dTick < 82;
-  const isDesignerHandoff = dTick >= 82 && dTick < 94;
-  const isDesignerReturn = dTick >= 94;
+  const dTick = masterTick;
+  const designerVisible = dTick >= 28 && dTick < 120;
+  const isDesignerClimbing = dTick >= 28 && dTick < 48;
+  const isDesignerWalkToPlanner = dTick >= 48 && dTick < 58;
+  const isDesignerReceiving = dTick >= 58 && dTick < 68;
+  const isDesignerWalkToCenter = dTick >= 68 && dTick < 74;
+  const isDesignerPainting = dTick >= 74 && dTick < 96;
+  const isDesignerWalkToPublisher = dTick >= 96 && dTick < 102;
+  const isDesignerHandoff = dTick >= 102 && dTick < 112;
+  const isDesignerReturn = dTick >= 112 && dTick < 120;
 
   const isDesignerWalking =
     isDesignerWalkToPlanner || isDesignerWalkToCenter || isDesignerWalkToPublisher || isDesignerReturn;
@@ -198,29 +211,29 @@ export function SisunRenewalStoryStage() {
 
   // 디자이너 특수 모션: 뒤돌은 상태에서 아래에서부터 영차영차 기어올라오는 수직 오프셋 & 반동
   const getDesignerSpecialMotion = () => {
+    if (!designerVisible) {
+      return { bounceY: 220, scaleX: 1, scaleY: 1, rotateDeg: 0, shadowScale: 0 };
+    }
     if (isDesignerClimbing) {
-      const climbProgress = easeInOut(dTick / 20); // 0.0 -> 1.0
-      // 무대 아래(+155px)에서 바닥(0px)까지 영차영차 기어올라옴
-      const climbY = (1 - climbProgress) * 155;
-      // 기어올라올 때 양발/양손을 번갈아 짚는 계단식 반동 & 좌우 흔들림
-      const pullEffort = Math.abs(Math.sin(subTick * 0.65)) * -6.5;
-      const swayDeg = Math.sin(subTick * 0.65) * 3.2;
-      const stretchY = 1 + Math.sin(subTick * 0.65) * 0.03;
+      const climbProgress = easeInOut((dTick - 28) / 20); // 0.0 -> 1.0
+      const climbY = (1 - climbProgress) * 165;
+      const pullEffort = Math.abs(Math.sin(subTick * 0.55)) * -6.0;
+      const swayDeg = Math.sin(subTick * 0.55) * 3.0;
+      const stretchY = 1 + Math.sin(subTick * 0.55) * 0.028;
       return {
         bounceY: climbY + pullEffort,
         scaleX: 2 - stretchY,
         scaleY: stretchY,
         rotateDeg: swayDeg,
-        shadowScale: Math.max(0.2, climbProgress * 0.95),
+        shadowScale: Math.max(0.15, climbProgress * 0.95),
       };
     }
-    if (isDesignerReturn && dTick >= 97) {
-      // 다음 기어올라오기 루프를 위해 살짝 아래로 내려감
-      const dipProgress = easeInOut((dTick - 97) / 3);
+    if (isDesignerReturn && dTick >= 116) {
+      const dipProgress = easeInOut((dTick - 116) / 4);
       return {
         ...baseDesignerMotion,
-        bounceY: baseDesignerMotion.bounceY + dipProgress * 145,
-        shadowScale: Math.max(0.2, (1 - dipProgress) * 0.9),
+        bounceY: baseDesignerMotion.bounceY + dipProgress * 165,
+        shadowScale: Math.max(0.15, (1 - dipProgress) * 0.9),
       };
     }
     return baseDesignerMotion;
@@ -229,14 +242,15 @@ export function SisunRenewalStoryStage() {
   const designerMotion = getDesignerSpecialMotion();
 
   const getDesignerLeft = (): number => {
-    if (isDesignerClimbing) return 41.0; // 중앙 아래에서 기어올라옴
-    if (isDesignerWalkToPlanner) return 41.0 - easeInOut((dTick - 20) / 8) * 7.5; // 41.0% -> 33.5%
-    if (isDesignerReceiving) return 33.5; // 기획자에게 산출물 수령
-    if (isDesignerWalkToCenter) return 33.5 + easeInOut((dTick - 40) / 6) * 7.5; // 33.5% -> 41.0%
-    if (isDesignerPainting) return 41.0; // 받은 산출물에 색칠하기
-    if (isDesignerWalkToPublisher) return 41.0 + easeInOut((dTick - 74) / 8) * 7.5; // 41.0% -> 48.5%
-    if (isDesignerHandoff) return 48.5; // 퍼블리셔에게 산출물 전달
-    return 48.5 - easeInOut((dTick - 94) / 6) * 7.5; // 48.5% -> 41.0%
+    if (dTick < 48) return 41.0; // 중앙 아래에서 기어올라옴
+    if (isDesignerWalkToPlanner) return 41.0 - easeInOut((dTick - 48) / 10) * 7.5; // 41.0% -> 33.5%(기획자 마중)
+    if (isDesignerReceiving) return 33.5; // 33.5% 기획자(21.5%)에게 설계도 수령!
+    if (isDesignerWalkToCenter) return 33.5 + easeInOut((dTick - 68) / 6) * 7.5; // 33.5% -> 41.0%
+    if (isDesignerPainting) return 41.0; // 받은 설계도에 색칠하기
+    if (isDesignerWalkToPublisher) return 41.0 + easeInOut((dTick - 96) / 6) * 7.5; // 41.0% -> 48.5%(퍼블리셔에게 이동)
+    if (isDesignerHandoff) return 48.5; // 48.5% 퍼블리셔(63.5%)에게 완성된 디자인 전달!
+    if (isDesignerReturn) return 48.5 - easeInOut((dTick - 112) / 8) * 7.5; // 48.5% -> 41.0%
+    return 41.0;
   };
 
   const designerLeft = getDesignerLeft();
@@ -251,37 +265,43 @@ export function SisunRenewalStoryStage() {
     ? `paint-${getWorkSubFrame(subTick, 3)}`
     : `handoff-${getInteractSubFrame(subTick, 3)}`;
 
-  // 우측으로 이동할 때(40~46, 74~82) 또는 우측 퍼블리셔에게 완성된 디자인을 건넬 때(82~94) 좌우 반전
+  // 우측으로 이동할 때(68~74, 96~102) 또는 우측 퍼블리셔에게 완성된 디자인을 건넬 때(102~112) 좌우 반전
   const designerFlipRight = isDesignerWalkToCenter || isDesignerWalkToPublisher || isDesignerHandoff;
 
-  // 중앙 칠판(Zone 2: 디자이너 머리 위) 진행률 (0 ~ 100%)
+  // 중앙 칠판(Zone 2: 디자이너 머리 위) 진행률 (설계도 수령 후 색칠하는 68~96틱 동안 100% 완성)
   const designerBoardProgress =
-    dTick < 20
-      ? Math.round((dTick / 20) * 12)
-      : dTick < 40
-      ? Math.round(12 + ((dTick - 20) / 20) * 18)
-      : dTick < 74
-      ? Math.min(100, Math.round(30 + ((dTick - 40) / 30) * 70))
-      : 100;
+    dTick < 58
+      ? 0
+      : dTick < 68
+      ? Math.round(((dTick - 58) / 10) * 18)
+      : dTick < 96
+      ? Math.min(100, Math.round(18 + ((dTick - 68) / 25) * 82))
+      : dTick < 146
+      ? 100
+      : 0;
 
   // =========================================================================
-  // 3) 캐릭터 3 · 퍼블리셔 (100틱 스토리 사이클)
-  //    - 0 ~ 22: 우측 끝(84.5%)에서 음표(♪ ♫)를 띄우며 신나게 흥얼거리면서 걸어 나타남 (hum-walk-1..6)
-  //    - 22 ~ 34: 디자이너가 건넨 컬러 UI 디자인 산출물 수령 (receive-1..4)
-  //    - 34 ~ 40: 우측 칠판(Zone 3) 아래 작업 위치(72.5%)로 이동 (walk-s1..s6)
-  //    - 40 ~ 52: 코딩에 집중하기 위해 양손으로 헤드셋을 머리에서 목으로 벗는 모션 (headset-off-1..4)
-  //    - 52 ~ 78: 헤드셋을 벗어 목에 걸친 채 노트북으로 열정적으로 코딩 진행 (code-focus-1..6)
-  //    - 78 ~ 89: 시선닷컴 반응형 웹 퍼블리싱 완료 환호! (complete-1..4)
-  //    - 89 ~ 100: 다시 우측 끝(84.5%)으로 총총 걸어 복귀 (walk-s1..s6)
+  // 3) 캐릭터 3 · 퍼블리셔 (78 ~ 150틱 활약: 디자이너가 디자인을 진행하는 타이밍에 등장!)
+  //    - 0 ~ 78: 우측 끝 화면 밖에서 대기
+  //    - 78 ~ 102: 디자이너가 한창 색칠(디자인) 중인 타이밍에 우측 끝(92%)에서 음표(♪ ♫)를 띄우며
+  //                흥얼거리면서 걸어 나타남 (hum-walk-1..12, 92.0% -> 63.5%)
+  //                (※ 디자이너도 96~102틱에 48.5%로 다가와 102틱에 두 사람이 정확히 마주 섬!)
+  //    - 102 ~ 112: [2차 핸드오프 일치!] 디자이너가 건네주는 디자인 산출물을 두 손으로 전달받음 (receive-1..8)
+  //    - 112 ~ 117: 우측 칠판(Zone 3) 아래 작업 위치(72.5%)로 이동 (walk-s1..s12)
+  //    - 117 ~ 124: 코딩에 집중하기 위해 양손으로 헤드셋을 머리에서 목으로 벗는 모션 (headset-off-1..8)
+  //    - 124 ~ 140: 헤드셋을 벗어 목에 걸친 채 노트북으로 열정적으로 코딩 진행 (code-focus-1..12)
+  //    - 140 ~ 145: 시선닷컴 반응형 웹 퍼블리싱 완료 환호! (complete-1..8)
+  //    - 145 ~ 150: 우측 끝 화면 밖(92.0%)으로 총총 걸어 퇴장 (walk-s1..s12) -> 즉시 0틱 기획자 등장으로 이어짐!
   // =========================================================================
-  const pubTick = (tick + 30) % 100;
-  const isPubHumWalk = pubTick < 22;
-  const isPubReceive = pubTick >= 22 && pubTick < 34;
-  const isPubWalkToDesk = pubTick >= 34 && pubTick < 40;
-  const isPubHeadsetOff = pubTick >= 40 && pubTick < 52;
-  const isPubCodingNoHeadset = pubTick >= 52 && pubTick < 78;
-  const isPubComplete = pubTick >= 78 && pubTick < 89;
-  const isPubWalkBack = pubTick >= 89;
+  const pubTick = masterTick;
+  const publisherVisible = pubTick >= 78;
+  const isPubHumWalk = pubTick >= 78 && pubTick < 102;
+  const isPubReceive = pubTick >= 102 && pubTick < 112;
+  const isPubWalkToDesk = pubTick >= 112 && pubTick < 117;
+  const isPubHeadsetOff = pubTick >= 117 && pubTick < 124;
+  const isPubCodingNoHeadset = pubTick >= 124 && pubTick < 140;
+  const isPubComplete = pubTick >= 140 && pubTick < 145;
+  const isPubWalkBack = pubTick >= 145;
 
   const isPublisherWalking = isPubHumWalk || isPubWalkToDesk || isPubWalkBack;
   const basePublisherMotion = getCharacterMotion(isPublisherWalking, subTick, 13);
@@ -289,22 +309,20 @@ export function SisunRenewalStoryStage() {
   // 퍼블리셔 특수 모션 (흥얼거리며 리듬 타기 & 헤드셋 벗을 때 상체 움직임)
   const getPublisherSpecialMotion = () => {
     if (isPubHumWalk) {
-      // 노래를 흥얼거리며 통통 튀는 경쾌한 걸음걸이 & 좌우 리듬 스웨이
-      const phase = (subTick + 13) * 0.58;
-      const bounceY = -Math.abs(Math.sin(phase)) * 8.5;
-      const swayDeg = Math.sin(phase) * 3.2;
-      const squash = Math.sin(phase * 2) * 0.026;
+      const phase = (subTick + 13) * 0.48;
+      const bounceY = -Math.abs(Math.sin(phase)) * 8.0;
+      const swayDeg = Math.sin(phase) * 3.0;
+      const squash = Math.sin(phase * 2) * 0.024;
       return {
         bounceY,
         scaleX: 1 - squash * 0.7,
         scaleY: 1 + squash,
         rotateDeg: swayDeg,
-        shadowScale: 1 - Math.abs(Math.sin(phase)) * 0.22,
+        shadowScale: 1 - Math.abs(Math.sin(phase)) * 0.2,
       };
     }
     if (isPubHeadsetOff) {
-      // 양손으로 헤드셋을 위로 들어 목으로 스르륵 내리는 리듬
-      const t = (pubTick - 40) / 12;
+      const t = (pubTick - 117) / 7;
       const liftY = t < 0.45 ? -5 * Math.sin((t / 0.45) * Math.PI) : 3 * Math.sin(((t - 0.45) / 0.55) * Math.PI);
       return {
         bounceY: liftY,
@@ -320,11 +338,12 @@ export function SisunRenewalStoryStage() {
   const publisherMotion = getPublisherSpecialMotion();
 
   const getPublisherLeft = (): number => {
-    if (isPubHumWalk) return 84.5 - easeInOut(pubTick / 22) * 20.0; // 84.5%(우측 끝) -> 64.5%(흥얼거리며 등장)
-    if (isPubReceive) return 64.5; // 64.5% 디자인 산출물 수령
-    if (isPubWalkToDesk) return 64.5 + easeInOut((pubTick - 34) / 6) * 8.0; // 64.5% -> 72.5%(Zone 3 중앙)
+    if (pubTick < 78) return 92.0; // 우측 화면 밖 대기
+    if (isPubHumWalk) return 92.0 - easeInOut((pubTick - 78) / 24) * 28.5; // 92.0%(우측 끝) -> 63.5%(흥얼거리며 등장)
+    if (isPubReceive) return 63.5; // 63.5% 디자이너(48.5%)에게 디자인 산출물 수령!
+    if (isPubWalkToDesk) return 63.5 + easeInOut((pubTick - 112) / 5) * 9.0; // 63.5% -> 72.5%(Zone 3 중앙)
     if (isPubHeadsetOff || isPubCodingNoHeadset || isPubComplete) return 72.5; // 헤드셋 벗고 코딩 & 완료
-    return 72.5 + easeInOut((pubTick - 89) / 11) * 12.0; // 72.5% -> 84.5%(우측 끝 복귀)
+    return 72.5 + easeInOut((pubTick - 145) / 5) * 19.5; // 72.5% -> 92.0%(우측 화면 밖 퇴장)
   };
 
   const publisherLeft = getPublisherLeft();
@@ -341,20 +360,22 @@ export function SisunRenewalStoryStage() {
     ? `code-focus-${getWorkSubFrame(subTick, 7)}`
     : `complete-${getInteractSubFrame(subTick, 7)}`;
 
-  // 우측으로 걸어 이동할 때(34~40, 89~100)만 우측 방향으로 반전
+  // 우측으로 걸어 이동할 때(112~117, 145~150)만 우측 방향으로 반전
   const publisherFlipRight = isPubWalkToDesk || isPubWalkBack;
 
-  // 우측 칠판(Zone 3: 퍼블리셔 머리 위) 진행률 (0 ~ 100%)
+  // 우측 칠판(Zone 3: 퍼블리셔 머리 위) 진행률 (퍼블리셔가 산출물 수령 후 코딩하는 112~140틱 동안 100% 완성)
   const publisherBoardProgress =
-    pubTick < 22
-      ? Math.round((pubTick / 22) * 12)
-      : pubTick < 40
-      ? Math.round(12 + ((pubTick - 22) / 18) * 12)
-      : pubTick < 52
-      ? Math.round(24 + ((pubTick - 40) / 12) * 10)
-      : pubTick < 78
-      ? Math.min(100, Math.round(34 + ((pubTick - 52) / 24) * 66))
-      : 100;
+    pubTick < 102
+      ? 0
+      : pubTick < 117
+      ? Math.round(((pubTick - 102) / 15) * 20)
+      : pubTick < 124
+      ? Math.round(20 + ((pubTick - 117) / 7) * 12)
+      : pubTick < 140
+      ? Math.min(100, Math.round(32 + ((pubTick - 124) / 14) * 68))
+      : pubTick < 148
+      ? 100
+      : 0;
 
   // GitHub Pages 호환 투명 PNG 이미지 경로 헬퍼
   const baseUrl = import.meta.env.BASE_URL || './';
@@ -1010,7 +1031,7 @@ export function SisunRenewalStoryStage() {
             overflow: 'hidden',
           }}
         >
-          {/* ---------------- 주인공 1: 기획자 (좌측 끝 0.5%에서부터 등장 · 236x268 확대) ---------------- */}
+          {/* ---------------- 주인공 1: 기획자 (좌측 끝에서 가장 먼저 등장 · 236x268 확대) ---------------- */}
           <div
             style={{
               position: 'absolute',
@@ -1018,7 +1039,8 @@ export function SisunRenewalStoryStage() {
               left: `${plannerLeft}%`,
               width: '236px',
               height: '268px',
-              transition: 'left 0.055s linear',
+              opacity: plannerVisible ? 1 : 0,
+              transition: plannerVisible ? 'left 0.055s linear' : 'none',
               zIndex: 5,
             }}
           >
@@ -1123,7 +1145,7 @@ export function SisunRenewalStoryStage() {
             </div>
           </div>
 
-          {/* ---------------- 주인공 2: 디자이너 (중앙 칠판 아래 · 236x268 확대) ---------------- */}
+          {/* ---------------- 주인공 2: 디자이너 (기획자가 설계 중일 때 밑에서부터 기어올라와 등장 · 236x268 확대) ---------------- */}
           <div
             style={{
               position: 'absolute',
@@ -1131,7 +1153,8 @@ export function SisunRenewalStoryStage() {
               left: `${designerLeft}%`,
               width: '236px',
               height: '268px',
-              transition: 'left 0.055s linear',
+              opacity: designerVisible ? 1 : 0,
+              transition: designerVisible ? 'left 0.055s linear' : 'none',
               zIndex: 6,
             }}
           >
@@ -1237,7 +1260,7 @@ export function SisunRenewalStoryStage() {
             </div>
           </div>
 
-          {/* ---------------- 주인공 3: 퍼블리셔 (우측 끝 84.5%에서부터 등장 · 236x268 확대) ---------------- */}
+          {/* ---------------- 주인공 3: 퍼블리셔 (디자이너가 디자인 중일 때 우측 끝에서 흥얼거리며 등장 · 236x268 확대) ---------------- */}
           <div
             style={{
               position: 'absolute',
@@ -1245,7 +1268,8 @@ export function SisunRenewalStoryStage() {
               left: `${publisherLeft}%`,
               width: '236px',
               height: '268px',
-              transition: 'left 0.055s linear',
+              opacity: publisherVisible ? 1 : 0,
+              transition: publisherVisible ? 'left 0.055s linear' : 'none',
               zIndex: 7,
             }}
           >
