@@ -73,94 +73,195 @@ export function SisunRenewalStoryStage() {
   };
 
   // =========================================================================
-  // 1) 캐릭터 1 · 서비스기획자 (하얀색 영역의 좌측 끝(0.5%)에서부터 등장!)
-  //    - 0 ~ 16: 좌측 끝(0.5%)에서 좌측 칠판(Zone 1) 중앙 아래(9.5%)로 총총 걸어 등장
-  //    - 16 ~ 32: 좌측 칠판 아래에서 Mobile & PC 화면 구성 골똘히 고민 (?)
-  //    - 32 ~ 58: 유레카(💡)! 태블릿에 시선닷컴 와이어프레임 스케치
-  //    - 58 ~ 70: 중앙 디자이너 쪽(20.5%)으로 총총 걸어 이동
-  //    - 70 ~ 80: 두 손으로 화면설계서(산출물) 전달 포즈 (📋)
-  //    - 80 ~ 90: 다시 좌측 끝(0.5%)으로 총총 걸어 복귀
+  // 1) 캐릭터 1 · 기획자 (100틱 스토리 사이클)
+  //    - 0 ~ 14: 좌측 끝(-4.5% -> 0.5%)에서 고개를 빼꼼 내밀며 등장 (peek-1..4)
+  //    - 14 ~ 34: 골똘히 고민하면서(턱에 손을 대고 ? 띄우며) 걸어오기 (think-walk-1..6)
+  //    - 34 ~ 66: 바닥에 털푸덕 주저앉아서 태블릿에 와이어프레임 설계하기 (sit-sketch-1..6)
+  //    - 66 ~ 76: 자리에서 일어나 디자이너 쪽(21.0%)으로 걸어가기 (walk-s1..s6)
+  //    - 76 ~ 88: 디자이너에게 설계 산출물(화면설계서) 가져다 주기 (handoff-1..4)
+  //    - 88 ~ 100: 다시 좌측 끝(-4.5%)으로 총총 걸어 복귀 (walk-s1..s6)
   // =========================================================================
-  const pTick = tick % 90;
-  const isPlannerWalking = pTick < 16 || (pTick >= 58 && pTick < 70) || pTick >= 80;
-  const plannerMotion = getCharacterMotion(isPlannerWalking, subTick, 0);
+  const pTick = tick % 100;
+  const isPlannerPeek = pTick < 14;
+  const isPlannerThinkWalk = pTick >= 14 && pTick < 34;
+  const isPlannerSitSketch = pTick >= 34 && pTick < 66;
+  const isPlannerWalkToDesigner = pTick >= 66 && pTick < 76;
+  const isPlannerHandoff = pTick >= 76 && pTick < 88;
+  const isPlannerWalkBack = pTick >= 88;
+
+  const isPlannerWalking = isPlannerThinkWalk || isPlannerWalkToDesigner || isPlannerWalkBack;
+  const basePlannerMotion = getCharacterMotion(isPlannerWalking, subTick, 0);
+
+  // 기획자 특수 모션 (빼꼼 기울기 & 털푸덕 주저앉기 물리 효과)
+  const getPlannerSpecialMotion = () => {
+    if (isPlannerPeek) {
+      // 좌측 벽 뒤에서 고개를 갸우뚱 빼꼼 내미는 모션
+      const peekProgress = easeInOut(Math.min(1, pTick / 10));
+      const peekBob = Math.sin(subTick * 0.35) * 2.5;
+      return {
+        bounceY: peekBob,
+        scaleX: 1,
+        scaleY: 1,
+        rotateDeg: 13 * peekProgress + Math.sin(subTick * 0.3) * 2.2,
+        shadowScale: 0.85,
+      };
+    }
+    if (isPlannerSitSketch) {
+      // 34~38틱 구간: "털푸덕!" 바닥에 주저앉는 탄성 스쿼시 모션
+      const sitElapsed = pTick - 34;
+      if (sitElapsed < 4) {
+        const t = sitElapsed / 4;
+        const dropY = t < 0.45 ? -8 * (1 - t / 0.45) : 9 * Math.sin(((t - 0.45) / 0.55) * Math.PI);
+        const plopSquash = t >= 0.4 ? Math.sin(((t - 0.4) / 0.6) * Math.PI) * 0.085 : -0.04;
+        return {
+          bounceY: dropY + 6,
+          scaleX: 1 + plopSquash,
+          scaleY: 1 - plopSquash,
+          rotateDeg: Math.sin(t * Math.PI * 2) * 2.5,
+          shadowScale: 1.15 + plopSquash * 0.8,
+        };
+      }
+      // 바닥에 앉아서 열정적으로 태블릿 스케치하는 리듬
+      const phase = subTick * 0.32;
+      return {
+        bounceY: 6 + Math.sin(phase) * 1.6,
+        scaleX: 1 - Math.sin(phase) * 0.012,
+        scaleY: 1 + Math.sin(phase) * 0.012,
+        rotateDeg: Math.sin(phase * 0.7) * 1.1,
+        shadowScale: 1.14,
+      };
+    }
+    return basePlannerMotion;
+  };
+
+  const plannerMotion = getPlannerSpecialMotion();
 
   const getPlannerLeft = (): number => {
-    if (pTick < 16) return 0.5 + easeInOut(pTick / 16) * 9.0; // 0.5%(좌측 끝) -> 9.5%(Zone 1 중앙)
-    if (pTick < 58) return 9.5;
-    if (pTick < 70) return 9.5 + easeInOut((pTick - 58) / 12) * 11.0; // 9.5% -> 20.5%
-    if (pTick < 80) return 20.5;
-    return 20.5 - easeInOut((pTick - 80) / 10) * 20.0; // 20.5% -> 0.5%(좌측 끝)
+    if (isPlannerPeek) return -4.5 + easeInOut(pTick / 14) * 5.0; // -4.5%(좌측 벽 뒤) -> 0.5%(빼꼼)
+    if (isPlannerThinkWalk) return 0.5 + easeInOut((pTick - 14) / 20) * 9.0; // 0.5% -> 9.5%(고민하며 걸어옴)
+    if (isPlannerSitSketch) return 9.5; // 9.5% 바닥에 털푸덕 주저앉아 설계
+    if (isPlannerWalkToDesigner) return 9.5 + easeInOut((pTick - 66) / 10) * 11.5; // 9.5% -> 21.0%(디자이너에게 이동)
+    if (isPlannerHandoff) return 21.0; // 21.0% 산출물 전달
+    return 21.0 - easeInOut((pTick - 88) / 12) * 25.5; // 21.0% -> -4.5%(좌측 끝 복귀)
   };
 
   const plannerLeft = getPlannerLeft();
 
-  const plannerSprite: string = isPlannerWalking
+  const plannerSprite: string = isPlannerPeek
+    ? `peek-${getInteractSubFrame(subTick, 0)}`
+    : isPlannerThinkWalk
+    ? `think-walk-${getWorkSubFrame(subTick, 0)}`
+    : isPlannerSitSketch
+    ? `sit-sketch-${getWorkSubFrame(subTick, 0)}`
+    : isPlannerWalkToDesigner || isPlannerWalkBack
     ? getWalkSubSprite(subTick, 0)
-    : pTick < 32
-    ? `think-${getInteractSubFrame(subTick, 0)}`
-    : pTick < 58
-    ? `sketch-${getWorkSubFrame(subTick, 0)}`
     : `handoff-${getInteractSubFrame(subTick, 0)}`;
 
-  // 우측으로 걸어갈 때(0~16, 58~70)는 scaleX(-1)로 우측을 바라봄
-  const plannerFlipRight = isPlannerWalking && (pTick < 16 || (pTick >= 58 && pTick < 70));
+  // 빼꼼 내밀 때(0~14), 고민하며 우측으로 걸어올 때(14~34), 디자이너에게 걸어갈 때(66~76)는 우측을 바라보도록 반전
+  // (handoff-1..4는 원본 자체가 우측으로 서류를 건네는 방향이므로 반전하지 않음)
+  const plannerFlipRight = isPlannerPeek || isPlannerThinkWalk || isPlannerWalkToDesigner;
 
   // 좌측 칠판(Zone 1: 기획자 머리 위) 진행률 (0 ~ 100%)
   const plannerBoardProgress =
-    pTick < 16
-      ? Math.round((pTick / 16) * 20)
-      : pTick < 32
-      ? Math.round(20 + ((pTick - 16) / 16) * 25)
-      : pTick < 58
-      ? Math.min(100, Math.round(45 + ((pTick - 32) / 22) * 55))
+    pTick < 14
+      ? Math.round((pTick / 14) * 12)
+      : pTick < 34
+      ? Math.round(12 + ((pTick - 14) / 20) * 28)
+      : pTick < 66
+      ? Math.min(100, Math.round(40 + ((pTick - 34) / 28) * 60))
       : 100;
 
   // =========================================================================
-  // 2) 캐릭터 2 · UI/UX 디자이너 (중앙 칠판(Zone 2) 아래에서 독립 주기 90틱으로 상시 움직임)
-  //    - 0 ~ 14: 중앙(41%)에서 좌측 기획자 쪽(33.5%)으로 총총 걸어 이동
-  //    - 14 ~ 26: 좌측 기획자로부터 화면설계서 두 손으로 수령 (✨)
-  //    - 26 ~ 56: 중앙 칠판 아래(41%)에서 팔레트와 펜툴로 시선닷컴 Figma UI 디자인 작업 (🎨)
-  //    - 56 ~ 68: 우측 퍼블리셔 쪽(48.5%)으로 총총 걸어 이동
-  //    - 68 ~ 80: 완성된 컬러 UI 디자인 시안 보드 전달 포즈
-  //    - 80 ~ 90: 다시 중앙(41%)으로 총총 걸어 복귀
+  // 2) 캐릭터 2 · 디자이너 (100틱 스토리 사이클)
+  //    - 0 ~ 20: 뒤돌은 상태에서 아래에서부터 기어올라오듯이 등장 (climb-1..6)
+  //    - 20 ~ 28: 좌측 기획자 쪽(33.5%)으로 총총 걸어 이동 (walk-s1..s6)
+  //    - 28 ~ 40: 기획자에게 산출물(화면설계서)을 두 손으로 받기 (receive-1..4)
+  //    - 40 ~ 46: 중앙 작업 위치(41.0%)로 걸어 이동 (walk-s1..s6)
+  //    - 46 ~ 74: 받은 산출물에 직접 알록달록 색칠하는 모션 (paint-1..6)
+  //    - 74 ~ 82: 완료되면 우측 퍼블리셔 쪽(48.5%)으로 걸어 이동 (walk-s1..s6)
+  //    - 82 ~ 94: 퍼블리셔에게 완성된 디자인 산출물 가져다 주기 (handoff-1..4)
+  //    - 94 ~ 100: 다시 중앙(41.0%)으로 돌아와 아래로 내려가며 다음 등장을 준비
   // =========================================================================
-  const dTick = (tick + 22) % 90;
-  const isDesignerWalking = dTick < 14 || (dTick >= 56 && dTick < 68) || dTick >= 80;
-  const designerMotion = getCharacterMotion(isDesignerWalking, subTick, 7);
+  const dTick = (tick + 15) % 100;
+  const isDesignerClimbing = dTick < 20;
+  const isDesignerWalkToPlanner = dTick >= 20 && dTick < 28;
+  const isDesignerReceiving = dTick >= 28 && dTick < 40;
+  const isDesignerWalkToCenter = dTick >= 40 && dTick < 46;
+  const isDesignerPainting = dTick >= 46 && dTick < 74;
+  const isDesignerWalkToPublisher = dTick >= 74 && dTick < 82;
+  const isDesignerHandoff = dTick >= 82 && dTick < 94;
+  const isDesignerReturn = dTick >= 94;
+
+  const isDesignerWalking =
+    isDesignerWalkToPlanner || isDesignerWalkToCenter || isDesignerWalkToPublisher || isDesignerReturn;
+  const baseDesignerMotion = getCharacterMotion(isDesignerWalking, subTick, 7);
+
+  // 디자이너 특수 모션: 뒤돌은 상태에서 아래에서부터 영차영차 기어올라오는 수직 오프셋 & 반동
+  const getDesignerSpecialMotion = () => {
+    if (isDesignerClimbing) {
+      const climbProgress = easeInOut(dTick / 20); // 0.0 -> 1.0
+      // 무대 아래(+155px)에서 바닥(0px)까지 영차영차 기어올라옴
+      const climbY = (1 - climbProgress) * 155;
+      // 기어올라올 때 양발/양손을 번갈아 짚는 계단식 반동 & 좌우 흔들림
+      const pullEffort = Math.abs(Math.sin(subTick * 0.65)) * -6.5;
+      const swayDeg = Math.sin(subTick * 0.65) * 3.2;
+      const stretchY = 1 + Math.sin(subTick * 0.65) * 0.03;
+      return {
+        bounceY: climbY + pullEffort,
+        scaleX: 2 - stretchY,
+        scaleY: stretchY,
+        rotateDeg: swayDeg,
+        shadowScale: Math.max(0.2, climbProgress * 0.95),
+      };
+    }
+    if (isDesignerReturn && dTick >= 97) {
+      // 다음 기어올라오기 루프를 위해 살짝 아래로 내려감
+      const dipProgress = easeInOut((dTick - 97) / 3);
+      return {
+        ...baseDesignerMotion,
+        bounceY: baseDesignerMotion.bounceY + dipProgress * 145,
+        shadowScale: Math.max(0.2, (1 - dipProgress) * 0.9),
+      };
+    }
+    return baseDesignerMotion;
+  };
+
+  const designerMotion = getDesignerSpecialMotion();
 
   const getDesignerLeft = (): number => {
-    if (dTick < 14) return 41.0 - easeInOut(dTick / 14) * 7.5; // 41.0% -> 33.5%
-    if (dTick < 26) return 33.5;
-    if (dTick < 34) return 33.5 + easeInOut((dTick - 26) / 8) * 7.5; // 33.5% -> 41.0%
-    if (dTick < 56) return 41.0;
-    if (dTick < 68) return 41.0 + easeInOut((dTick - 56) / 12) * 7.5; // 41.0% -> 48.5%
-    if (dTick < 80) return 48.5;
-    return 48.5 - easeInOut((dTick - 80) / 10) * 7.5; // 48.5% -> 41.0%
+    if (isDesignerClimbing) return 41.0; // 중앙 아래에서 기어올라옴
+    if (isDesignerWalkToPlanner) return 41.0 - easeInOut((dTick - 20) / 8) * 7.5; // 41.0% -> 33.5%
+    if (isDesignerReceiving) return 33.5; // 기획자에게 산출물 수령
+    if (isDesignerWalkToCenter) return 33.5 + easeInOut((dTick - 40) / 6) * 7.5; // 33.5% -> 41.0%
+    if (isDesignerPainting) return 41.0; // 받은 산출물에 색칠하기
+    if (isDesignerWalkToPublisher) return 41.0 + easeInOut((dTick - 74) / 8) * 7.5; // 41.0% -> 48.5%
+    if (isDesignerHandoff) return 48.5; // 퍼블리셔에게 산출물 전달
+    return 48.5 - easeInOut((dTick - 94) / 6) * 7.5; // 48.5% -> 41.0%
   };
 
   const designerLeft = getDesignerLeft();
 
-  const designerSprite: string =
-    isDesignerWalking || (dTick >= 26 && dTick < 32)
-      ? getWalkSubSprite(subTick, 5)
-      : dTick < 26
-      ? `receive-${getInteractSubFrame(subTick, 3)}`
-      : dTick < 56
-      ? `work-${getWorkSubFrame(subTick, 3)}`
-      : `handoff-${getInteractSubFrame(subTick, 3)}`;
+  const designerSprite: string = isDesignerClimbing
+    ? `climb-${getWorkSubFrame(subTick, 2)}`
+    : isDesignerWalking
+    ? getWalkSubSprite(subTick, 5)
+    : isDesignerReceiving
+    ? `receive-${getInteractSubFrame(subTick, 3)}`
+    : isDesignerPainting
+    ? `paint-${getWorkSubFrame(subTick, 3)}`
+    : `handoff-${getInteractSubFrame(subTick, 3)}`;
 
-  // 우측으로 이동할 때(26~34, 56~68) 또는 우측 퍼블리셔에게 디자인 시안을 건넬 때(68~80) 좌우 반전
-  const designerFlipRight = (dTick >= 26 && dTick < 32) || (dTick >= 56 && dTick < 80);
+  // 우측으로 이동할 때(40~46, 74~82) 또는 우측 퍼블리셔에게 완성된 디자인을 건넬 때(82~94) 좌우 반전
+  const designerFlipRight = isDesignerWalkToCenter || isDesignerWalkToPublisher || isDesignerHandoff;
 
   // 중앙 칠판(Zone 2: 디자이너 머리 위) 진행률 (0 ~ 100%)
   const designerBoardProgress =
-    dTick < 14
-      ? Math.round((dTick / 14) * 15)
-      : dTick < 26
-      ? Math.round(15 + ((dTick - 14) / 12) * 20)
-      : dTick < 56
-      ? Math.min(100, Math.round(35 + ((dTick - 26) / 26) * 65))
+    dTick < 20
+      ? Math.round((dTick / 20) * 12)
+      : dTick < 40
+      ? Math.round(12 + ((dTick - 20) / 20) * 18)
+      : dTick < 74
+      ? Math.min(100, Math.round(30 + ((dTick - 40) / 30) * 70))
       : 100;
 
   // =========================================================================
@@ -901,22 +1002,28 @@ export function SisunRenewalStoryStage() {
               }}
             >
               {[
+                { key: 'peek-1', file: 'planner-peek-1.png' },
+                { key: 'peek-2', file: 'planner-peek-2.png' },
+                { key: 'peek-3', file: 'planner-peek-3.png' },
+                { key: 'peek-4', file: 'planner-peek-4.png' },
+                { key: 'think-walk-1', file: 'planner-think-walk-1.png' },
+                { key: 'think-walk-2', file: 'planner-think-walk-2.png' },
+                { key: 'think-walk-3', file: 'planner-think-walk-3.png' },
+                { key: 'think-walk-4', file: 'planner-think-walk-4.png' },
+                { key: 'think-walk-5', file: 'planner-think-walk-5.png' },
+                { key: 'think-walk-6', file: 'planner-think-walk-6.png' },
+                { key: 'sit-sketch-1', file: 'planner-sit-sketch-1.png' },
+                { key: 'sit-sketch-2', file: 'planner-sit-sketch-2.png' },
+                { key: 'sit-sketch-3', file: 'planner-sit-sketch-3.png' },
+                { key: 'sit-sketch-4', file: 'planner-sit-sketch-4.png' },
+                { key: 'sit-sketch-5', file: 'planner-sit-sketch-5.png' },
+                { key: 'sit-sketch-6', file: 'planner-sit-sketch-6.png' },
                 { key: 'walk-s1', file: 'planner-walk-s1.png' },
                 { key: 'walk-s2', file: 'planner-walk-s2.png' },
                 { key: 'walk-s3', file: 'planner-walk-s3.png' },
                 { key: 'walk-s4', file: 'planner-walk-s4.png' },
                 { key: 'walk-s5', file: 'planner-walk-s5.png' },
                 { key: 'walk-s6', file: 'planner-walk-s6.png' },
-                { key: 'think-1', file: 'planner-think-1.png' },
-                { key: 'think-2', file: 'planner-think-2.png' },
-                { key: 'think-3', file: 'planner-think-3.png' },
-                { key: 'think-4', file: 'planner-think-4.png' },
-                { key: 'sketch-1', file: 'planner-sketch-1.png' },
-                { key: 'sketch-2', file: 'planner-sketch-2.png' },
-                { key: 'sketch-3', file: 'planner-sketch-3.png' },
-                { key: 'sketch-4', file: 'planner-sketch-4.png' },
-                { key: 'sketch-5', file: 'planner-sketch-5.png' },
-                { key: 'sketch-6', file: 'planner-sketch-6.png' },
                 { key: 'handoff-1', file: 'planner-handoff-1.png' },
                 { key: 'handoff-2', file: 'planner-handoff-2.png' },
                 { key: 'handoff-3', file: 'planner-handoff-3.png' },
@@ -1012,6 +1119,12 @@ export function SisunRenewalStoryStage() {
               }}
             >
               {[
+                { key: 'climb-1', file: 'designer-climb-1.png' },
+                { key: 'climb-2', file: 'designer-climb-2.png' },
+                { key: 'climb-3', file: 'designer-climb-3.png' },
+                { key: 'climb-4', file: 'designer-climb-4.png' },
+                { key: 'climb-5', file: 'designer-climb-5.png' },
+                { key: 'climb-6', file: 'designer-climb-6.png' },
                 { key: 'walk-s1', file: 'designer-walk-s1.png' },
                 { key: 'walk-s2', file: 'designer-walk-s2.png' },
                 { key: 'walk-s3', file: 'designer-walk-s3.png' },
@@ -1022,12 +1135,12 @@ export function SisunRenewalStoryStage() {
                 { key: 'receive-2', file: 'designer-receive-2.png' },
                 { key: 'receive-3', file: 'designer-receive-3.png' },
                 { key: 'receive-4', file: 'designer-receive-4.png' },
-                { key: 'work-1', file: 'designer-work-1.png' },
-                { key: 'work-2', file: 'designer-work-2.png' },
-                { key: 'work-3', file: 'designer-work-3.png' },
-                { key: 'work-4', file: 'designer-work-4.png' },
-                { key: 'work-5', file: 'designer-work-5.png' },
-                { key: 'work-6', file: 'designer-work-6.png' },
+                { key: 'paint-1', file: 'designer-paint-1.png' },
+                { key: 'paint-2', file: 'designer-paint-2.png' },
+                { key: 'paint-3', file: 'designer-paint-3.png' },
+                { key: 'paint-4', file: 'designer-paint-4.png' },
+                { key: 'paint-5', file: 'designer-paint-5.png' },
+                { key: 'paint-6', file: 'designer-paint-6.png' },
                 { key: 'handoff-1', file: 'designer-handoff-1.png' },
                 { key: 'handoff-2', file: 'designer-handoff-2.png' },
                 { key: 'handoff-3', file: 'designer-handoff-3.png' },
@@ -1059,7 +1172,8 @@ export function SisunRenewalStoryStage() {
                 position: 'absolute',
                 bottom: '0px',
                 left: '50%',
-                transform: 'translateX(-50%)',
+                transform: `translateX(-50%) translateY(${Math.max(0, designerMotion.bounceY)}px)`,
+                transition: 'transform 0.055s linear',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
