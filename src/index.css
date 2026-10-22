@@ -320,6 +320,13 @@ button, input, select, textarea {
   gap: 16px;
 }
 
+.mobile-sidebar-backdrop,
+.mobile-drawer-close-btn,
+.sidebar-mobile-footer,
+.topbar-mobile-left {
+  display: none;
+}
+
 .page-title {
   font-size: 19px;
   font-weight: 700;
@@ -2151,64 +2158,179 @@ button, input, select, textarea {
     flex-direction: column;
   }
 
+  .mobile-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(2px);
+    z-index: 990;
+  }
+
   .app-sidebar {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 82vw;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: none;
+    box-shadow: 12px 0 32px rgba(15, 23, 42, 0.42);
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .app-sidebar.mobile-open {
+    transform: translateX(0);
   }
 
   .sidebar-header {
-    padding: 14px 20px;
+    padding: 18px 18px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .brand-sub {
-    margin-top: 0;
-  }
-
-  .sidebar-nav {
-    padding: 10px 16px;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: 6px;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .sidebar-divider {
-    display: none;
-  }
-
-  .nav-item {
-    width: auto;
-    flex-shrink: 0;
-    padding: 9px 14px;
-    white-space: nowrap;
-  }
-
-  .nav-item:hover {
-    transform: none;
-  }
-
-  .nav-badge {
-    margin-left: 6px;
-  }
-
-  .app-topbar {
-    height: auto;
-    min-height: 56px;
-    padding: 12px 20px;
-    flex-wrap: wrap;
     gap: 10px;
   }
 
-  .topbar-left,
+  .sidebar-brand-group {
+    min-width: 0;
+  }
+
+  .mobile-drawer-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    color: #cbd5e1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.18s ease;
+  }
+
+  .mobile-drawer-close-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+  }
+
+  .sidebar-nav {
+    padding: 14px 12px;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    gap: 6px;
+  }
+
+  .sidebar-divider {
+    display: block;
+    margin: 10px 6px;
+  }
+
+  .nav-item {
+    width: 100%;
+    padding: 11px 14px;
+    white-space: nowrap;
+  }
+
+  .nav-badge {
+    display: inline-block;
+    margin-left: auto;
+  }
+
+  .sidebar-mobile-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .sidebar-mobile-user {
+    font-size: 14px;
+    color: #cbd5e1;
+  }
+
+  .sidebar-mobile-user strong {
+    color: #ffffff;
+  }
+
+  .sidebar-mobile-viewer-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fcd34d;
+  }
+
+  /* 상단 헤더: 좌측 햄버거 / 중앙 페이지명 / 우측 로그아웃 3열 대칭 배치 */
+  .app-topbar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    height: 58px;
+    min-height: 58px;
+    padding: 0 18px;
+    gap: 8px;
+  }
+
+  .topbar-mobile-left {
+    display: flex;
+    align-items: center;
+    justify-self: start;
+  }
+
+  .mobile-hamburger-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    border: 1px solid var(--border-light);
+    background: #f8fafc;
+    color: var(--text-main);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.18s ease;
+  }
+
+  .mobile-hamburger-btn:hover,
+  .mobile-hamburger-btn:active {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: var(--primary-600);
+  }
+
+  .topbar-left {
+    justify-self: center;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .page-title {
+    font-size: 17.5px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .viewer-mode-alert,
+  .topbar-db-badge,
+  .topbar-user-info {
+    display: none;
+  }
+
   .topbar-right {
-    flex-wrap: wrap;
+    justify-self: end;
+    display: flex;
+    align-items: center;
     gap: 8px;
   }
 
@@ -2310,7 +2432,7 @@ button, input, select, textarea {
 /* 3) 모바일 디바이스 (767px 이하) */
 @media (max-width: 767px) {
   .sidebar-header {
-    padding: 12px 16px;
+    padding: 16px 16px 14px;
   }
 
   .brand-title {
@@ -2322,34 +2444,33 @@ button, input, select, textarea {
   }
 
   .sidebar-nav {
-    padding: 8px 12px;
+    padding: 12px 10px;
     gap: 6px;
   }
 
   .nav-item {
-    padding: 8px 12px;
-    gap: 8px;
-  }
-
-  .nav-badge {
-    display: none;
+    padding: 11px 12px;
+    gap: 10px;
   }
 
   .app-topbar {
-    padding: 10px 16px;
+    height: 54px;
+    min-height: 54px;
+    padding: 0 14px;
     gap: 8px;
   }
 
   .page-title {
-    font-size: 17px;
+    font-size: 16.5px;
   }
 
-  .topbar-db-badge {
-    display: none;
+  .topbar-logout-btn {
+    padding: 6px 10px;
+    font-size: 14px;
   }
 
   .content-body {
-    padding: 16px 14px;
+    padding: 14px 12px;
   }
 
   .overview-container {

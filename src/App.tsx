@@ -20,6 +20,8 @@ import {
   Info,
   Database,
   LogOut,
+  Menu,
+  X,
 } from 'lucide-react';
 
 type NavTab = 'overview' | 'tasks' | 'vacations' | 'kpi' | 'audit';
@@ -86,6 +88,7 @@ export function App() {
 
   const [activeTab, setActiveTabState] = useState<NavTab>(() => parseTabFromHash());
   const [authMode, setAuthMode] = useState<AuthMode>(() => parseAuthModeFromHash());
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // URL Hash 변경 함수 (브라우저 히스토리 및 타이틀 동기화)
   const navigateTo = (tab: NavTab) => {
@@ -94,6 +97,7 @@ export function App() {
       window.location.hash = targetHash;
     }
     setActiveTabState(tab);
+    setIsMobileMenuOpen(false);
     document.title = TAB_TITLES[tab] || '서비스기획팀 업무포털';
   };
 
@@ -180,6 +184,7 @@ export function App() {
   const handleLogout = () => {
     PlanningStorageService.logout();
     setIsAuthenticated(false);
+    setIsMobileMenuOpen(false);
     setActiveTabState('overview');
     setAuthMode('login');
     window.location.hash = '#/login';
@@ -223,15 +228,35 @@ export function App() {
   // 2. 인증 완료 시 메인 포털 대시보드 표시
   return (
     <div className="app-container">
-      {/* 1. 사이드바 내비게이션 */}
-      <aside className="app-sidebar">
+      {/* 모바일 드로어 오픈 시 배경 딤드 오버레이 */}
+      {isMobileMenuOpen && (
+        <div
+          className="mobile-sidebar-backdrop"
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* 1. 사이드바 내비게이션 (모바일에서는 좌측 슬라이드 드로어로 동작) */}
+      <aside className={`app-sidebar ${isMobileMenuOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header">
-          <div className="brand-title">
-            서비스기획팀 업무포털
+          <div className="sidebar-brand-group">
+            <div className="brand-title">
+              서비스기획팀 업무포털
+            </div>
+            <div className="brand-sub">
+              Digital Service Planning Team
+            </div>
           </div>
-          <div className="brand-sub">
-            Digital Service Planning Team
-          </div>
+          <button
+            type="button"
+            className="mobile-drawer-close-btn"
+            onClick={() => setIsMobileMenuOpen(false)}
+            aria-label="메뉴 닫기"
+            title="메뉴 닫기"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         <nav className="sidebar-nav">
@@ -300,12 +325,35 @@ export function App() {
             <span>{NAV_LABELS.audit}</span>
           </a>
         </nav>
+
+        <div className="sidebar-mobile-footer">
+          <div className="sidebar-mobile-user">
+            접속자: <strong>{currentUser.name}</strong> ({currentUser.department})
+          </div>
+          {isViewer && (
+            <div className="sidebar-mobile-viewer-badge">
+              <Eye size={14} /> 읽기 전용 모드
+            </div>
+          )}
+        </div>
       </aside>
 
       {/* 2. 메인 컨텐츠 영역 */}
       <main className="app-main">
-        {/* 상단 탑바 */}
+        {/* 상단 탑바 (모바일: 좌측 햄버거 / 중앙 페이지명 / 우측 로그아웃 3열 대칭 구조) */}
         <header className="app-topbar">
+          <div className="topbar-mobile-left">
+            <button
+              type="button"
+              className="mobile-hamburger-btn"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="메뉴 열기"
+              title="메뉴 열기"
+            >
+              <Menu size={20} />
+            </button>
+          </div>
+
           <div className="topbar-left">
             <h1 className="page-title">{NAV_LABELS[activeTab]}</h1>
             {isViewer && (
