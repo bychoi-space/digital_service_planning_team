@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { TEAM_GUIDE_DATA } from '../constants/teamGuide';
-import { COMPANY_DEPARTMENTS } from '../constants/departments';
 import { SisunRenewalStoryStage } from './SisunRenewalStoryStage';
 import {
   Compass,
@@ -8,13 +7,8 @@ import {
   Users,
   CheckCircle2,
   Sparkles,
-  Laptop,
   Layers,
-  ChevronRight,
-  Copy,
-  Check,
   ArrowUpRight,
-  HelpCircle,
 } from 'lucide-react';
 
 interface OverviewViewProps {
@@ -24,22 +18,6 @@ interface OverviewViewProps {
 export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
   // 3대 핵심 업무 탭 상태 (0: UI/UX개편, 1: 어드민효율화, 2: 이커머스정책)
   const [activePillar, setActivePillar] = useState<number>(0);
-
-  // 6대 부서별 협업 가이드 탭 상태
-  const [selectedDeptId, setSelectedDeptId] = useState<string>('dept-online-mn');
-
-  // 클립보드 복사 피드백 상태
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
-  // 부서별 FAQ 아코디언 토글
-  const [expandedFaqIndex, setExpandedFaqIndex] = useState<number | null>(null);
-
-  // 클립보드 복사 헬퍼
-  const handleCopyText = (text: string, key: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2500);
-  };
 
   // 3대 핵심 업무 상세 데이터 (중복 아이콘 제거, 핵심 내용 통합 및 텍스트 간결화)
   const PILLARS_DATA = [
@@ -218,154 +196,6 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
     },
   ];
 
-  // 6대 부서별 맞춤 협업 가이드 상세
-  const DEPT_COLLAB_INFO: Record<
-    string,
-    {
-      roleTitle: string;
-      cooperationPoints: string[];
-      mainContact: string;
-      guideTip: string;
-      requestTemplate: string;
-      faq: { q: string; a: string }[];
-    }
-  > = {
-    'dept-online-mn': {
-      roleTitle: 'MI/MO/EBM 온라인MN팀 협업 가이드',
-      cooperationPoints: [
-        '브랜드별(MICHAA, it MICHAA, E.B.M) 신규 룩북 및 시즌 메인 비주얼 배너 개편 협의',
-        '온라인 전용 프로모션 페이지 레이아웃 및 팝업 정책 기획 지원',
-        '모바일 앱 푸시 및 브랜드 스토리텔링 전용 콘텐츠 화면설계 지원',
-      ],
-      mainContact: '서비스기획팀 UI/UX 기획 파트 (사내 잔디/슬랙: #sisun-service-planning)',
-      guideTip: '신규 시즌 런칭 최소 3주 전 요구사항을 접수해 주시면 화면설계와 퍼블리싱이 원활히 진행됩니다.',
-      requestTemplate: `[온라인MN ➔ 서비스기획팀 업무 협조 요청]
-1. 브랜드명: (MICHAA / it MICHAA / E.B.M)
-2. 개편/기획 목적: (예: 2026 S/S 시즌 메인 룩북 배너 신규 제작)
-3. 희망 라이브 일시: 2026-00-00
-4. 주요 기획 요구사항:
-   - 레이아웃 형태: (슬라이드형 / 그리드형 / 풀스크린형)
-   - 링크 연결 페이지: (신규 기획전 URL)
-5. 비주얼 에셋 전달 예정일: 2026-00-00`,
-      faq: [
-        {
-          q: '신규 시즌 룩북 기획 및 퍼블리싱까지 소요 기간은 며칠인가요?',
-          a: '에셋(사진/영상) 전달 완료 기준, 화면설계 3~4일 ➔ 디자인 3일 ➔ 반응형 퍼블리싱 3일로 총 7~10영업일이 표준 소요됩니다.',
-        },
-        {
-          q: '모바일 전용 기획전 페이지도 별도로 퍼블리싱 지원을 받을 수 있나요?',
-          a: '네, 서비스기획팀에서는 반응형 웹을 기본 원칙으로 설계하므로 모바일/PC 모두 최적화된 상태로 제작 지원합니다.',
-        },
-      ],
-    },
-    'dept-it-md': {
-      roleTitle: 'IT 온라인MD팀 협업 가이드',
-      cooperationPoints: [
-        '시선닷컴 백오피스(어드민) 상품 등록/수정/카테고리 매핑 편의 기능 개선 건의',
-        '타임세일, 장바구니 쿠폰, 사은품 증정 등 신규 프로모션 룰 엔진 어드민 연동',
-        '재고 연동 오류 및 품절 상품 노출 정책 최적화 협의',
-      ],
-      mainContact: '서비스기획팀 어드민/백오피스 파트',
-      guideTip: '어드민 사용 시 불편하신 점은 언제든 백로그에 제안해 주시면 스프린트 단위로 개선 반영합니다.',
-      requestTemplate: `[온라인MD ➔ 서비스기획팀 어드민 기능 개선 제안]
-1. 제안 영역: (상품관리 / 프로모션세팅 / 주문관리 / 정산)
-2. 현재 문제점(AS-IS): (예: 엑셀 대량 업로드 시 옵션명 오타 발생 시 전체 실패됨)
-3. 희망 개선안(TO-BE): (예: 정상 행은 우선 등록되고 오류 행만 엑셀로 재다운로드)
-4. 기대 효과: 반복 수기 등록 공수 절감 및 대량 업로드 오류 방지`,
-      faq: [
-        {
-          q: '대량 상품 등록 어드민 UI 개선 일정은 언제 릴리즈되나요?',
-          a: '현재 2026 Q4 핵심 과제로 지정되어 파일럿 개발 중이며, 11월 중순 온라인MD팀 대상 1차 사용성 테스트를 진행할 예정입니다.',
-        },
-        {
-          q: '신규 프로모션(타임세일 룰) 세팅 지원을 받으려면 어떻게 하나요?',
-          a: '프로모션 시작 2주 전 서비스기획팀 어드민 파트로 요청 양식을 전달해 주시면 어드민 룰 세팅 가이드와 함께 사전 테스트를 지원합니다.',
-        },
-      ],
-    },
-    'dept-mgmt-plan': {
-      roleTitle: '경영기획 총괄 협업 가이드',
-      cooperationPoints: [
-        '시선닷컴 연간/분기별 핵심 KPI 지표(GMV, MAU, 전환율, 이탈률) 실시간 대시보드 공유',
-        '이커머스 중장기 로드맵 수립 및 전사 디지털 트랜스포메이션(DT) 방향성 정렬',
-        '온·오프라인 통합 옴니채널 성과 측정 및 리소스 배분 협의',
-      ],
-      mainContact: '서비스기획팀장 직통 협의체',
-      guideTip: '포털 내 [KPI 목표 및 평가] 탭에서 분기별 종합 달성도를 상시 열람하실 수 있습니다.',
-      requestTemplate: `[경영기획 ➔ 서비스기획팀 전략 보고 요청]
-1. 요청 안건: (예: 2026 시선닷컴 연간 DT 추진 로드맵 및 지표 공유)
-2. 필요 데이터 지표: (월간 활성 이용자 수 / 객단가 추이 / 모바일 비중)
-3. 회의 및 보고 희망일: 2026-00-00`,
-      faq: [
-        {
-          q: '시선닷컴의 분기별 성과 지표는 어디서 바로 확인할 수 있나요?',
-          a: '본 업무관리 포털의 좌측 네비게이션 [KPI 목표 및 평가] 화면에서 실시간 가중치 및 달성률 대시보드를 조회하실 수 있습니다.',
-        },
-      ],
-    },
-    'dept-digital-info': {
-      roleTitle: '디지털정보실 협업 가이드',
-      cooperationPoints: [
-        '시선닷컴 프론트엔드와 ERP/물류/PG사 API 연동 규격 사전 협의 및 스펙 정의',
-        '서버 부하 분산 및 대규모 트래픽 프로모션 사전 모니터링 체계 구축',
-        '어드민 권한 및 보안 컴플라이언스 준수 체계 공동 점검',
-      ],
-      mainContact: '서비스기획팀 기술 협의 파트',
-      guideTip: '주간 개발/기획 정기 싱크(매주 화요일)를 통해 기술 실현 가능성과 배포 일정을 조율합니다.',
-      requestTemplate: `[디지털정보실 ➔ 서비스기획팀 기술 협의]
-1. 연동 시스템: (ERP / WMS물류 / 결제PG / 회원DB)
-2. API 변경 사항: (파라미터 규격 변경 및 응답 속도 개선)
-3. 기획단 검토 필요 사항: (예외 에러 발생 시 사용자 화면 안내 문구 가이드)`,
-      faq: [
-        {
-          q: 'API 규격 변경 시 프론트엔드 반영 주기는 어떻게 되나요?',
-          a: '매주 화요일 정기 싱크 후 스테이징 환경에서 1차 검수 후, 목요일 새벽 정기 배포로 안정적으로 운영됩니다.',
-        },
-      ],
-    },
-    'dept-digital-mkt': {
-      roleTitle: '디지털마케팅실 협업 가이드',
-      cooperationPoints: [
-        '퍼포먼스 마케팅 랜딩페이지 및 광고 추적 태그(GA4, 메타 픽셀 등) 설치 기획',
-        '회원가입 퍼널 및 첫 구매 쿠폰 전환율 개선 A/B 테스트 기획',
-        '카카오 알림톡/개인화 푸시 발송 시나리오 및 고객 세그먼트 정책 설계',
-      ],
-      mainContact: '서비스기획팀 데이터/전환 파트',
-      guideTip: 'A/B 테스트 제안은 가설과 타겟 지표(CTR, CVR)를 함께 전달해 주시면 즉시 설계안을 도출합니다.',
-      requestTemplate: `[디지털마케팅 ➔ 서비스기획팀 A/B 테스트 제안]
-1. 테스트 대상 페이지: (메인 히어로 / 상품 상세 / 장바구니)
-2. 검증 가설: (예: 장바구니 첫 구매 혜택 안내 팝업 노출 시 결제 전환 경험 개선 여부 검증)
-3. 타겟 모수 및 기간: (예: 대조군 A / 실험군 B 균등 분할 테스트)`,
-      faq: [
-        {
-          q: '광고 추적 스크립트(GTM/픽셀) 삽입 요청은 어떻게 하나요?',
-          a: '태그 스크립트 코드와 발화 조건(트리거)을 정리하여 전달해 주시면 QA 후 2영업일 내 운영 반영됩니다.',
-        },
-      ],
-    },
-    'dept-plan': {
-      roleTitle: '서비스기획팀 내부 R&R 가이드',
-      cooperationPoints: [
-        '시선닷컴 UI/UX 화면설계서(SB) 및 정책서 표준 템플릿 준수',
-        '디자인/퍼블리싱 산출물 QA 검수 및 개발팀 인계(Handoff)',
-        '사내 유관부서 인입 요구사항 티켓팅 및 스프린트 우선순위 관리',
-      ],
-      mainContact: '서비스기획팀 전체',
-      guideTip: '모든 업무 변경과 휴가 일정은 포털에 등록하여 팀원 간 공백 없는 협업을 유지합니다.',
-      requestTemplate: `[서비스기획팀 내부 스프린트 티켓]
-1. 과제명: 
-2. 담당자:
-3. 마감 예정일: 
-4. 관련 산출물 링크: (화면설계서 SB 문서 링크)`,
-      faq: [
-        {
-          q: '화면설계서(SB) 버전 및 산출물 관리 원칙은 무엇인가요?',
-          a: '모든 화면설계서(SB)는 표준 문서 템플릿과 정책 코드(Policy Code) 체계를 준수하여 작성하며, 배포 전 팀 리뷰를 필수로 거칩니다.',
-        },
-      ],
-    },
-  };
-
   return (
     <div className="overview-container">
       {/* 1. 최상단 슬림 히어로 배너 (시선인터내셔널 비전 & 미션 1줄 요약) */}
@@ -467,125 +297,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
         </div>
       </div>
 
-      {/* 5. 사내 6대 유관부서 맞춤 협업 가이드 & 업무 요청 양식 복사기 */}
-      <div className="card overview-card-padded">
-        <div className="overview-section-header">
-          <Laptop size={22} className="overview-section-icon" />
-          <h2 className="overview-section-title">사내 6대 유관부서별 맞춤 협업 데스크</h2>
-        </div>
-        <p className="overview-section-desc">
-          소속 부서 탭을 클릭하시면, 서비스기획팀과의 맞춤형 협업 포인트 및 메신저/이메일용 업무 요청 양식을 1초 만에 복사하실 수 있습니다.
-        </p>
-
-        {/* 부서 선택 버튼 바 */}
-        <div className="collab-dept-bar">
-          {COMPANY_DEPARTMENTS.map((dept) => {
-            const isSelected = selectedDeptId === dept.id;
-            return (
-              <button
-                key={dept.id}
-                type="button"
-                onClick={() => {
-                  setSelectedDeptId(dept.id);
-                  setExpandedFaqIndex(null);
-                }}
-                className={`collab-dept-btn ${isSelected ? 'active' : ''}`}
-              >
-                {dept.name} {dept.isPlanningTeam && '⭐ (우리팀)'}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 선택된 부서의 협업 상세 카드 */}
-        {(() => {
-          const collab = DEPT_COLLAB_INFO[selectedDeptId] || DEPT_COLLAB_INFO['dept-online-mn'];
-          return (
-            <div className="collab-detail-box">
-              <div className="collab-detail-header">
-                <h3 className="collab-role-title">{collab.roleTitle}</h3>
-                <span className="collab-tip-badge">{collab.guideTip}</span>
-              </div>
-
-              {/* 중점 협업 포인트 */}
-              <div>
-                <div className="collab-sub-title">주요 협업 및 지원 업무 범위</div>
-                <div className="collab-points-list">
-                  {collab.cooperationPoints.map((pt, pIdx) => (
-                    <div key={pIdx} className="collab-point-item">
-                      <CheckCircle2 size={16} className="collab-point-icon" />
-                      <span>{pt}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* 업무 요청 양식 1클릭 복사기 */}
-              <div className="collab-template-card">
-                <div className="collab-template-header">
-                  <div className="collab-template-title">
-                    <MessageSquare size={16} className="overview-section-icon" /> 사내 메신저(잔디) / 이메일 공식 요청 템플릿
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyText(collab.requestTemplate, selectedDeptId)}
-                    className={`btn collab-copy-btn ${copiedKey === selectedDeptId ? 'copied' : ''}`}
-                  >
-                    {copiedKey === selectedDeptId ? (
-                      <>
-                        <Check size={15} /> 양식 복사 완료!
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={15} /> 양식 클립보드 복사
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <pre className="collab-template-pre">{collab.requestTemplate}</pre>
-              </div>
-
-              {/* 자주 묻는 질문(FAQ) 아코디언 */}
-              {collab.faq && collab.faq.length > 0 && (
-                <div>
-                  <div className="collab-sub-title">
-                    <HelpCircle size={16} color="#64748b" /> 자주 묻는 질문 (FAQ)
-                  </div>
-                  <div className="collab-faq-list">
-                    {collab.faq.map((item, fIdx) => {
-                      const isExpanded = expandedFaqIndex === fIdx;
-                      return (
-                        <div key={fIdx} className="collab-faq-item">
-                          <div
-                            onClick={() => setExpandedFaqIndex(isExpanded ? null : fIdx)}
-                            className="collab-faq-question"
-                          >
-                            <span>Q. {item.q}</span>
-                            <ChevronRight
-                              size={16}
-                              className={`collab-faq-chevron ${isExpanded ? 'expanded' : ''}`}
-                            />
-                          </div>
-                          {isExpanded && <div className="collab-faq-answer">A. {item.a}</div>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* 공식 소통 창구 바 */}
-              <div className="collab-contact-bar">
-                <span className="collab-contact-label">공식 소통 및 요청 담당:</span>
-                <strong className="collab-contact-value">{collab.mainContact}</strong>
-              </div>
-            </div>
-          );
-        })()}
-      </div>
-
-      {/* 6. 국내외 서비스기획 & 프로덕트 벤치마킹 허브 */}
+      {/* 5. 국내외 서비스기획 & 프로덕트 벤치마킹 허브 */}
       <div id="benchmark-hub" className="card overview-card-padded">
         <div className="overview-section-header-between">
           <div className="overview-section-title-group">
@@ -668,15 +380,11 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
             <div className="team-org-banner">
               <div className="team-org-avatar">기획</div>
               <div className="team-org-info">
-                <div className="team-org-name">시선인터내셔널 디지털서비스기획팀</div>
+                <div className="team-org-name">서비스기획팀</div>
                 <div className="team-org-roles">
                   시선닷컴 UI/UX 화면설계 · 비주얼 디자인 · 퍼블리싱 · 백오피스 어드민 효율화 · 이커머스 정책
                 </div>
               </div>
-            </div>
-
-            <div className="team-org-notice">
-              <strong>협업 안내:</strong> 담당 기획자별 개별 연락은 사내 메신저(잔디) 검색 또는 상단 <strong>#sisun-service-planning</strong> 채널을 이용해 주시면 가장 빠르고 체계적으로 소통하실 수 있습니다.
             </div>
 
             <div className="team-org-actions">

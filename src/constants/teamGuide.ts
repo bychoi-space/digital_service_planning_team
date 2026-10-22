@@ -73,22 +73,16 @@ export const TEAM_GUIDE_DATA: TeamGuideInfo = {
   ],
   collaborationChannels: [
     {
-      type: '사내 메신저',
-      name: '#sisun-service-planning (기획 문의 채널)',
-      purpose: '시선닷컴 UI 개편 제안, 어드민 기능 개선 요청 및 정책 문의',
-      linkOrContact: '사내 잔디/슬랙 검색: #sisun-service-planning',
+      type: '업무 협의',
+      name: '시선닷컴 UI/UX 및 어드민 개선 협의',
+      purpose: '시선닷컴 화면 개편 제안, 어드민 기능 개선 요청 및 이커머스 정책 협의',
+      linkOrContact: '서비스기획팀 담당 파트 사전 협의 및 요구사항 접수',
     },
     {
-      type: '정기 협의체',
-      name: '시선닷컴 프로덕트 싱크 (매주 화 14:00)',
-      purpose: '온라인MN, 온라인MD, 마케팅, 기획 간 주간 릴리즈 일정 조율',
-      linkOrContact: '시선인터내셔널 본사 대회의실 및 화상 회의',
-    },
-    {
-      type: '공식 문서',
+      type: '표준 문서',
       name: '시선닷컴 기획/정책 문서 아카이빙',
-      purpose: '시선닷컴 화면설계서, 어드민 매뉴얼, 이커머스 표준 정책서 열람',
-      linkOrContact: '사내 지식포털 / 공유 드라이브 링크',
+      purpose: '시선닷컴 화면설계서(SB), 어드민 매뉴얼, 이커머스 표준 정책서 열람',
+      linkOrContact: '서비스기획팀 표준 산출물 아카이브',
     },
   ],
 };
