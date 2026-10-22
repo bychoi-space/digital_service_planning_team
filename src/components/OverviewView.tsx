@@ -15,7 +15,6 @@ import {
   Check,
   ArrowUpRight,
   HelpCircle,
-  FolderGit2,
 } from 'lucide-react';
 
 interface OverviewViewProps {
@@ -25,9 +24,6 @@ interface OverviewViewProps {
 export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
   // 3대 핵심 업무 탭 상태 (0: UI/UX개편, 1: 어드민효율화, 2: 이커머스정책)
   const [activePillar, setActivePillar] = useState<number>(0);
-
-  // 5단계 스프린트 진행 단계 상태 (1~5)
-  const [activeStep, setActiveStep] = useState<number>(1);
 
   // 6대 부서별 협업 가이드 탭 상태
   const [selectedDeptId, setSelectedDeptId] = useState<string>('dept-online-mn');
@@ -451,101 +447,24 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
         })()}
       </div>
 
-      {/* 4. 시선닷컴 5단계 기획 & 릴리즈 스프린트 (인터랙티브 스텝퍼) */}
+      {/* 4. 시선닷컴 5단계 기획 & 릴리즈 스프린트 (중복 상세 박스 제거, 5단계 흐름만 직관적 표시) */}
       <div id="process-guide">
         <div className="overview-section-header">
-          <Compass size={22} className="overview-section-icon" />
+          <Compass size={20} className="overview-section-icon" />
           <h2 className="overview-section-title">시선닷컴 5단계 기획 & 릴리즈 스프린트</h2>
         </div>
-        <p className="overview-section-desc">
-          단계를 클릭하시면 해당 스프린트 단계의 핵심 산출물과 유관부서 협의 체크리스트를 확인하실 수 있습니다.
-        </p>
 
-        {/* 인터랙티브 스텝퍼 버튼 헤더 */}
         <div className="sprint-stepper-grid">
-          {TEAM_GUIDE_DATA.processSteps.map((step) => {
-            const isStepActive = activeStep === step.step;
-            return (
-              <button
-                key={step.step}
-                type="button"
-                onClick={() => setActiveStep(step.step)}
-                className={`sprint-step-btn ${isStepActive ? 'active' : ''}`}
-              >
-                <span className="sprint-step-circle">{step.step}</span>
-                <div className="sprint-step-text-wrap">
-                  <div className="sprint-step-code">STEP 0{step.step}</div>
-                  <div className="sprint-step-short-title">
-                    {step.title.split(' ')[0]} {step.title.split(' ')[1]}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 현재 활성화된 스텝 상세 카드 쇼케이스 */}
-        {(() => {
-          const currentStep = TEAM_GUIDE_DATA.processSteps[activeStep - 1];
-          return (
-            <div className="card sprint-detail-card">
-              <div className="sprint-detail-top">
-                <div>
-                  <div className="sprint-detail-badge-row">
-                    <span className="sprint-detail-badge">STEP {currentStep.step}</span>
-                    <span className="sprint-detail-subtitle">{currentStep.subtitle}</span>
-                  </div>
-                  <h3 className="sprint-detail-title">{currentStep.title}</h3>
-                </div>
-
-                <div className="sprint-nav-actions">
-                  {activeStep > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveStep(activeStep - 1)}
-                      className="btn btn-secondary sprint-nav-btn"
-                    >
-                      이전 단계
-                    </button>
-                  )}
-                  {activeStep < 5 && (
-                    <button
-                      type="button"
-                      onClick={() => setActiveStep(activeStep + 1)}
-                      className="btn btn-primary sprint-nav-btn"
-                    >
-                      다음 단계 보기 <ChevronRight size={15} />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <p className="sprint-detail-desc">{currentStep.description}</p>
-
-              <div className="sprint-meta-grid">
-                <div>
-                  <div className="sprint-meta-heading">
-                    <FolderGit2 size={16} className="overview-section-icon" /> 본 단계 핵심 산출물 (Deliverables):
-                  </div>
-                  <div className="sprint-deliverable-list">
-                    {currentStep.deliverables.map((deliv, dIdx) => (
-                      <div key={dIdx} className="sprint-deliverable-item">
-                        <CheckCircle2 size={15} color="#10b981" /> {deliv}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="sprint-meta-heading">
-                    <Users size={16} color="#7c3aed" /> 주요 협의 관계자 (Stakeholders):
-                  </div>
-                  <div className="sprint-stakeholder-box">{currentStep.stakeholders}</div>
-                </div>
+          {TEAM_GUIDE_DATA.processSteps.map((step) => (
+            <div key={step.step} className="sprint-step-card">
+              <span className="sprint-step-circle">{step.step}</span>
+              <div className="sprint-step-text-wrap">
+                <div className="sprint-step-code">STEP 0{step.step}</div>
+                <div className="sprint-step-short-title">{step.title}</div>
               </div>
             </div>
-          );
-        })()}
+          ))}
+        </div>
       </div>
 
       {/* 5. 사내 6대 유관부서 맞춤 협업 가이드 & 업무 요청 양식 복사기 */}

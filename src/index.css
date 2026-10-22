@@ -1555,52 +1555,38 @@ button, input, select, textarea {
   font-weight: 700;
 }
 
-/* 3. 시선닷컴 5단계 기획 & 릴리즈 스프린트 */
+/* 3. 시선닷컴 5단계 기획 & 릴리즈 스프린트 (단일 5단계 흐름 바) */
 .sprint-stepper-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 10px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
 }
 
-.sprint-step-btn {
-  padding: 12px 14px;
+.sprint-step-card {
+  padding: 14px 16px;
   border-radius: var(--radius-md);
   border: 1px solid #cbd5e1;
   background: #ffffff;
-  color: #475569;
-  text-align: left;
-  cursor: pointer;
+  color: var(--text-main);
   display: flex;
   align-items: center;
-  gap: 10px;
-  transition: all 0.15s ease;
-}
-
-.sprint-step-btn.active {
-  border: 2px solid #2563eb;
-  background: #eff6ff;
-  color: #1d4ed8;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
 }
 
 .sprint-step-circle {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: #e2e8f0;
-  color: #64748b;
+  background: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+  color: #1d4ed8;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-}
-
-.sprint-step-btn.active .sprint-step-circle {
-  background: #2563eb;
-  color: #ffffff;
 }
 
 .sprint-step-text-wrap {
@@ -1609,126 +1595,20 @@ button, input, select, textarea {
 
 .sprint-step-code {
   font-size: 14px;
-  font-weight: 700;
-  color: #64748b;
+  font-weight: 800;
+  color: #2563eb;
   text-transform: uppercase;
   line-height: 1.3;
 }
 
-.sprint-step-btn.active .sprint-step-code {
-  color: #2563eb;
-}
-
 .sprint-step-short-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
+  color: var(--text-main);
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
   line-height: 1.4;
-}
-
-.sprint-detail-card {
-  padding: 24px 28px;
-  border: 1.5px solid #bfdbfe;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: var(--shadow-md);
-  animation: fadeIn 0.2s ease-out;
-}
-
-.sprint-detail-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.sprint-detail-badge-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.sprint-detail-badge {
-  padding: 3px 10px;
-  background: #2563eb;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 800;
-  border-radius: 5px;
-}
-
-.sprint-detail-subtitle {
-  font-size: 14px;
-  color: #64748b;
-  font-weight: 600;
-}
-
-.sprint-detail-title {
-  font-size: 19px;
-  font-weight: 800;
-  color: var(--text-main);
-}
-
-.sprint-nav-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.sprint-nav-btn {
-  padding: 7px 14px;
-  font-size: 14px;
-}
-
-.sprint-detail-desc {
-  font-size: 15px;
-  color: #334155;
-  line-height: 1.6;
-  margin-bottom: 20px;
-}
-
-.sprint-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
-  padding-top: 16px;
-  border-top: 1px dashed #cbd5e1;
-}
-
-.sprint-meta-heading {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-main);
-  margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sprint-deliverable-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sprint-deliverable-item {
-  font-size: 14px;
-  color: #1e293b;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sprint-stakeholder-box {
-  font-size: 14px;
-  color: #475569;
-  background: #ffffff;
-  padding: 10px 14px;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
 }
 
 /* 4. 사내 6대 유관부서별 맞춤 협업 데스크 */
