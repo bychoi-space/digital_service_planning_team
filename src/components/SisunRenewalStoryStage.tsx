@@ -215,6 +215,9 @@ function CharacterSpriteCanvas({
 
 export function SisunRenewalStoryStage() {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [isMobileView, setIsMobileView] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
+  );
   const stageRef = useRef<HTMLDivElement | null>(null);
 
   // 60fps requestAnimationFrame 연속 모션 타이머 (1초 = 20 subTick = 10 tick)
@@ -222,6 +225,15 @@ export function SisunRenewalStoryStage() {
 
   useEffect(() => {
     startChronologicalPreload();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(max-width: 767px)');
+    const onChange = (e: MediaQueryListEvent) => setIsMobileView(e.matches);
+    setIsMobileView(mql.matches);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
   }, []);
 
   useEffect(() => {
@@ -286,6 +298,20 @@ export function SisunRenewalStoryStage() {
   const loopTick = tick % 120;
   const isFirstCycle = tick < 120;
 
+  // 모바일 원뷰 스포트라이트 활성 보드 단계 (0: 화면설계, 1: UI/UX 디자인, 2: 웹 퍼블리싱)
+  const activeStageIndex: 0 | 1 | 2 =
+    loopTick < 46 ? 0 : loopTick < 92 ? 1 : 2;
+
+  const handleSelectStage = (stageIdx: 0 | 1 | 2) => {
+    if (stageIdx === 0) {
+      setSubTick((isPlaying ? 6 : 30) * 2);
+    } else if (stageIdx === 1) {
+      setSubTick((isPlaying ? 52 : 76) * 2);
+    } else {
+      setSubTick((isPlaying ? 96 : 114) * 2);
+    }
+  };
+
   const plannerVisible = true;
   const designerVisible = true;
   const publisherVisible = true;
@@ -297,13 +323,17 @@ export function SisunRenewalStoryStage() {
   const isPlannerWalkBack = loopTick >= 46 && loopTick < 50;
   const isPlannerWalking = isPlannerWalkToDesigner || isPlannerWalkBack;
 
+  const plannerHomeLeft = isMobileView ? -1.5 : 10.5;
+  const plannerWalkDelta = isMobileView ? 7.5 : 13.0;
+  const plannerMeetLeft = plannerHomeLeft + plannerWalkDelta;
+
   const plannerLeft: number = isPlannerWalkToDesigner
-    ? 10.5 + easeInOut((loopTick - 32) / 6) * 13.0 // 10.5% -> 23.5%
+    ? plannerHomeLeft + easeInOut((loopTick - 32) / 6) * plannerWalkDelta
     : isPlannerGiveBlueprint || isPlannerAfterGiveWait
-    ? 23.5
+    ? plannerMeetLeft
     : isPlannerWalkBack
-    ? 23.5 - easeInOut((loopTick - 46) / 4) * 13.0 // 23.5% -> 10.5%
-    : 10.5;
+    ? plannerMeetLeft - easeInOut((loopTick - 46) / 4) * plannerWalkDelta
+    : plannerHomeLeft;
 
   const plannerSprite: string = isPlannerWalking
     ? getCleanWalkSprite(subTick, 0)
@@ -352,19 +382,25 @@ export function SisunRenewalStoryStage() {
     isDesignerWalkToPublisher ||
     isDesignerWalkBackCenter;
 
+  const designerHomeLeft = isMobileView ? 30.0 : 41.5;
+  const designerWalkLeftDelta = isMobileView ? 6.5 : 9.0;
+  const designerWalkRightDelta = isMobileView ? 6.5 : 10.0;
+  const designerMeetPlannerLeft = designerHomeLeft - designerWalkLeftDelta;
+  const designerMeetPubLeft = designerHomeLeft + designerWalkRightDelta;
+
   const designerLeft: number = isDesignerWalkToPlanner
-    ? 41.5 - easeInOut((loopTick - 32) / 6) * 9.0 // 41.5% -> 32.5%
+    ? designerHomeLeft - easeInOut((loopTick - 32) / 6) * designerWalkLeftDelta
     : isDesignerWaitBlueprint || isDesignerReceiveBlueprint
-    ? 32.5
+    ? designerMeetPlannerLeft
     : isDesignerWalkToCenter
-    ? 32.5 + easeInOut((loopTick - 46) / 4) * 9.0 // 32.5% -> 41.5%
+    ? designerMeetPlannerLeft + easeInOut((loopTick - 46) / 4) * designerWalkLeftDelta
     : isDesignerWalkToPublisher
-    ? 41.5 + easeInOut((loopTick - 78) / 6) * 10.0 // 41.5% -> 51.5%
+    ? designerHomeLeft + easeInOut((loopTick - 78) / 6) * designerWalkRightDelta
     : isDesignerGiveDesign || isDesignerAfterGiveWait
-    ? 51.5
+    ? designerMeetPubLeft
     : isDesignerWalkBackCenter
-    ? 51.5 - easeInOut((loopTick - 92) / 4) * 10.0 // 51.5% -> 41.5%
-    : 41.5;
+    ? designerMeetPubLeft - easeInOut((loopTick - 92) / 4) * designerWalkRightDelta
+    : designerHomeLeft;
 
   const designerSprite: string = isDesignerWalking
     ? getCleanWalkSprite(subTick, 4)
@@ -415,13 +451,17 @@ export function SisunRenewalStoryStage() {
 
   const isPublisherWalking = isPubWalkToDesigner || isPubWalkToDesk;
 
+  const publisherHomeLeft = isMobileView ? 61.5 : 73.0;
+  const publisherWalkDelta = isMobileView ? 7.5 : 12.5;
+  const publisherMeetLeft = publisherHomeLeft - publisherWalkDelta;
+
   const publisherLeft: number = isPubWalkToDesigner
-    ? 73.0 - easeInOut((loopTick - 78) / 6) * 12.5 // 73.0% -> 60.5%
+    ? publisherHomeLeft - easeInOut((loopTick - 78) / 6) * publisherWalkDelta
     : isPubWaitDesign || isPubReceiveDesign
-    ? 60.5
+    ? publisherMeetLeft
     : isPubWalkToDesk
-    ? 60.5 + easeInOut((loopTick - 92) / 4) * 12.5 // 60.5% -> 73.0%
-    : 73.0;
+    ? publisherMeetLeft + easeInOut((loopTick - 92) / 4) * publisherWalkDelta
+    : publisherHomeLeft;
 
   const publisherSprite: string = isPublisherWalking
     ? getCleanWalkSprite(subTick, 8)
@@ -520,6 +560,42 @@ export function SisunRenewalStoryStage() {
 
           {/* 보드 내부 다크 네이비/슬레이트 모눈(Grid) 3분할 영역 */}
           <div className="story-board-grid">
+            {/* 모바일 전용: 타임라인 자동 연동 & 터치 전환 단계 탭 바 */}
+            <div className="story-mobile-stage-bar" role="tablist" aria-label="협업 단계 선택">
+              <div className="story-mobile-stage-tabs">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeStageIndex === 0}
+                  onClick={() => handleSelectStage(0)}
+                  className={`story-mobile-stage-tab tab-blue ${activeStageIndex === 0 ? 'active' : ''}`}
+                >
+                  <span className="story-zone-dot story-zone-dot-blue" />
+                  <span>01. 화면설계</span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeStageIndex === 1}
+                  onClick={() => handleSelectStage(1)}
+                  className={`story-mobile-stage-tab tab-emerald ${activeStageIndex === 1 ? 'active' : ''}`}
+                >
+                  <span className="story-zone-dot story-zone-dot-emerald" />
+                  <span>02. 디자인</span>
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeStageIndex === 2}
+                  onClick={() => handleSelectStage(2)}
+                  className={`story-mobile-stage-tab tab-purple ${activeStageIndex === 2 ? 'active' : ''}`}
+                >
+                  <span className="story-zone-dot story-zone-dot-purple" />
+                  <span>03. 퍼블리싱</span>
+                </button>
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={() => setIsPlaying((p) => !p)}
@@ -531,7 +607,11 @@ export function SisunRenewalStoryStage() {
             </button>
 
             {/* [ZONE 1 · 좌측] 화면설계 (SB) */}
-            <div className="story-board-zone story-board-zone-divider">
+            <div
+              className={`story-board-zone story-board-zone-divider ${
+                activeStageIndex === 0 ? 'mobile-active' : ''
+              }`}
+            >
               <div className="story-zone-header">
                 <span className="story-zone-dot story-zone-dot-blue" />
                 <span className="story-zone-title story-zone-title-blue">01. 화면설계 (SB)</span>
@@ -678,7 +758,11 @@ export function SisunRenewalStoryStage() {
             </div>
 
             {/* [ZONE 2 · 중앙] UI/UX 디자인 (의류 이모지 제거 & 모던 에디토리얼 룩북 시안) */}
-            <div className="story-board-zone story-board-zone-divider">
+            <div
+              className={`story-board-zone story-board-zone-divider ${
+                activeStageIndex === 1 ? 'mobile-active' : ''
+              }`}
+            >
               <div className="story-zone-header">
                 <span className="story-zone-dot story-zone-dot-emerald" />
                 <span className="story-zone-title story-zone-title-emerald">02. UI/UX 디자인</span>
@@ -813,7 +897,11 @@ export function SisunRenewalStoryStage() {
             </div>
 
             {/* [ZONE 3 · 우측] 웹 퍼블리싱 */}
-            <div className="story-board-zone">
+            <div
+              className={`story-board-zone ${
+                activeStageIndex === 2 ? 'mobile-active' : ''
+              }`}
+            >
               <div className="story-zone-header">
                 <span className="story-zone-dot story-zone-dot-purple" />
                 <span className="story-zone-title story-zone-title-purple">03. 웹 퍼블리싱</span>
@@ -1045,7 +1133,11 @@ export function SisunRenewalStoryStage() {
           <div className="story-sunlight" />
 
           {/* ---------------- 주인공 1: 기획자 ---------------- */}
-          <div className="story-char-slot story-char-planner">
+          <div
+            className={`story-char-slot story-char-planner ${
+              activeStageIndex === 0 ? 'mobile-char-active' : ''
+            }`}
+          >
             <div className="story-char-shadow story-shadow-planner" />
 
             <div className="story-char-body story-body-planner">
@@ -1063,7 +1155,11 @@ export function SisunRenewalStoryStage() {
           </div>
 
           {/* ---------------- 주인공 2: 디자이너 ---------------- */}
-          <div className="story-char-slot story-char-designer">
+          <div
+            className={`story-char-slot story-char-designer ${
+              activeStageIndex === 1 ? 'mobile-char-active' : ''
+            }`}
+          >
             <div className="story-char-shadow story-shadow-designer" />
 
             <div className="story-char-body story-body-designer">
@@ -1081,7 +1177,11 @@ export function SisunRenewalStoryStage() {
           </div>
 
           {/* ---------------- 주인공 3: 퍼블리셔 ---------------- */}
-          <div className="story-char-slot story-char-publisher">
+          <div
+            className={`story-char-slot story-char-publisher ${
+              activeStageIndex === 2 ? 'mobile-char-active' : ''
+            }`}
+          >
             <div className="story-char-shadow story-shadow-publisher" />
 
             <div className="story-char-body story-body-publisher">

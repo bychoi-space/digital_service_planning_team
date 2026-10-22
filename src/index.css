@@ -1435,6 +1435,10 @@ button, input, select, textarea {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.story-mobile-stage-bar {
+  display: none;
+}
+
 .story-board-zone {
   position: relative;
   height: 100%;
@@ -2372,7 +2376,7 @@ button, input, select, textarea {
     font-size: 18px;
   }
 
-  /* 모바일: 상단 3분할 디스플레이 보드를 1열 수직 스택으로 전환하여 도면·디자인·코드 가독성 100% 확보 */
+  /* 모바일: 상단 보드는 타임라인 연동 1단 풀와이드 스포트라이트(자동+탭 전환) + 하단 대형 3인 캐릭터 무대 동시 노출 */
   .story-stage-card {
     padding: 10px 10px 12px;
     border-radius: 14px;
@@ -2385,60 +2389,152 @@ button, input, select, textarea {
   }
 
   .story-board-grid {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
     height: auto;
   }
 
+  .story-mobile-stage-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 44px 8px 8px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(15, 23, 42, 0.65);
+  }
+
+  .story-mobile-stage-tabs {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+  }
+
+  .story-mobile-stage-tab {
+    flex: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 4px;
+    border-radius: 7px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    background: rgba(30, 41, 59, 0.65);
+    color: #94a3b8;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .story-mobile-stage-tab .story-zone-dot {
+    width: 8px;
+    height: 8px;
+  }
+
+  .story-mobile-stage-tab.active.tab-blue {
+    background: rgba(37, 99, 235, 0.32);
+    border-color: #60a5fa;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.32);
+  }
+
+  .story-mobile-stage-tab.active.tab-emerald {
+    background: rgba(5, 150, 105, 0.32);
+    border-color: #34d399;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.32);
+  }
+
+  .story-mobile-stage-tab.active.tab-purple {
+    background: rgba(124, 58, 237, 0.32);
+    border-color: #a78bfa;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.32);
+  }
+
   .story-stage-play-btn {
-    top: 10px;
-    right: 12px;
+    top: 9px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
   }
 
   .story-board-zone {
-    height: 182px;
-    padding: 10px 12px;
+    display: none;
+  }
+
+  .story-board-zone.mobile-active {
+    display: flex;
+    height: auto;
+    padding: 10px;
+    border: none;
   }
 
   .story-board-zone-divider {
     border-right: none;
-    border-bottom: 1.5px dashed rgba(148, 163, 184, 0.22);
+    border-bottom: none;
   }
 
-  /* 모바일: 하단 캐릭터 협업 무대를 모바일 가로폭(100%)에 맞춰 실측 비율로 정밀 배치 */
+  .story-zone-header {
+    display: none;
+  }
+
+  .story-zone-canvas {
+    width: 100%;
+    aspect-ratio: 340 / 270;
+    height: auto;
+  }
+
+  .story-zone-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* 모바일: 하단 캐릭터 협업 무대를 대형 스케일(높이 196px, 캐릭터 슬롯 40% × 184px)로 확대하여 한 화면 동시 노출 */
   .story-floor-stage {
-    height: 148px;
+    height: 196px;
     margin-top: -6px;
     border-radius: 0 0 12px 12px;
   }
 
   .story-wall-svg {
-    height: 112px;
+    height: 148px;
   }
 
   .story-baseboard {
-    bottom: 36px;
-    height: 5px;
+    bottom: 46px;
+    height: 6px;
   }
 
   .story-floor-surface {
-    height: 36px;
+    height: 46px;
   }
 
   .story-char-slot {
-    width: 24.5%;
-    height: 118px;
-    bottom: 2px;
+    width: 40%;
+    max-width: none;
+    height: 184px;
+    bottom: 4px;
   }
 
   .story-char-shadow {
-    width: 48px;
-    height: 8px;
-    bottom: 8px;
+    width: 68px;
+    height: 11px;
+    bottom: 10px;
   }
 
   .story-char-badge {
     font-size: 14px;
-    padding: 1px 8px;
+    padding: 2px 10px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .story-char-slot.mobile-char-active .story-char-badge {
+    transform: translateY(-1px);
+    box-shadow: 0 0 0 2px #ffffff, 0 4px 12px rgba(15, 23, 42, 0.32);
   }
 
   /* 모바일: 주요 업무 범위 탭 & 카드 */
