@@ -4,17 +4,18 @@ import { SisunRenewalStoryStage } from './SisunRenewalStoryStage';
 import {
   Compass,
   Layers,
+  ChevronRight,
 } from 'lucide-react';
 
 export function OverviewView() {
   // 3대 핵심 업무 탭 상태 (0: UI/UX개편, 1: 어드민효율화, 2: 이커머스정책)
   const [activePillar, setActivePillar] = useState<number>(0);
 
-  // 3대 핵심 업무 상세 데이터 (중복 아이콘 제거, 핵심 내용 통합 및 텍스트 간결화)
+  // 3대 핵심 업무 상세 데이터
   const PILLARS_DATA = [
     {
       id: 0,
-      badge: 'PILLAR 01',
+      badge: '01',
       title: '시선닷컴 (sisun.com) UI/UX 전면 개편',
       subtitle: '화면설계(SB) · 비주얼 UI 디자인 · 반응형 퍼블리싱',
       themeClass: 'pillar-theme-blue',
@@ -53,7 +54,7 @@ export function OverviewView() {
     },
     {
       id: 1,
-      badge: 'PILLAR 02',
+      badge: '02',
       title: '시선닷컴 어드민(백오피스) 운영 효율화',
       subtitle: '상품·프로모션 세팅 자동화 · 운영 공수 절감',
       themeClass: 'pillar-theme-emerald',
@@ -92,7 +93,7 @@ export function OverviewView() {
     },
     {
       id: 2,
-      badge: 'PILLAR 03',
+      badge: '03',
       title: '시선인터내셔널 이커머스 정책 & 프로세스 정의',
       subtitle: '온·오프라인 통합 정책 · 부서별 협업 R&R 표준화',
       themeClass: 'pillar-theme-purple',
@@ -119,9 +120,9 @@ export function OverviewView() {
         },
         {
           name: '3. 사내 유관부서 협업 R&R 정의',
-          desc: '요구사항 접수부터 릴리즈까지 6대 부서별 역할 매트릭스',
+          desc: '요구사항 접수부터 릴리즈까지 유관부서 간 협업 기준 및 역할 정의',
           points: [
-            '표준 인입 창구: 부서별 요청 양식 및 사전 검토 절차',
+            '표준 인입 창구: 부서별 요청 기준 및 사전 검토 절차',
             '책임 매트릭스: 기획·MD·MN·정보실·마케팅 역할 정의',
             '배포 거버넌스: 정기 싱크 및 QA 검수 후 운영 반영',
           ],
@@ -145,7 +146,7 @@ export function OverviewView() {
       {/* 2. 3인 캐릭터 [시선닷컴 UI/UX 개편] 릴레이 애니메이션 쇼케이스 */}
       <SisunRenewalStoryStage />
 
-      {/* 3. 서비스기획 주요 업무 범위 (연결형 폴더 탭 UI & 통합 상세 뷰) */}
+      {/* 3. 서비스기획 주요 업무 범위 (슬림 연결형 폴더 탭 UI & 통합 상세 뷰) */}
       <div id="pillars-section">
         <div className="overview-section-header">
           <Layers size={20} className="overview-section-icon" />
@@ -153,7 +154,7 @@ export function OverviewView() {
         </div>
 
         <div className="pillars-tabs-wrapper">
-          {/* 상단 3대 영역 연결형 TAB 바 */}
+          {/* 상단 3대 영역 슬림 1줄 연결형 TAB 바 */}
           <div
             role="tablist"
             aria-label="서비스기획 주요 업무 범위 탭"
@@ -170,12 +171,11 @@ export function OverviewView() {
                   onClick={() => setActivePillar(pillar.id)}
                   className={`pillar-tab ${pillar.themeClass} ${isSelected ? 'active' : ''}`}
                 >
-                  <div className="pillar-tab-top">
+                  <div className="pillar-tab-main">
                     <span className="pillar-tab-badge">{pillar.badge}</span>
-                    <span className="pillar-tab-radio" aria-hidden="true" />
+                    <span className="pillar-tab-title">{pillar.title}</span>
                   </div>
-                  <div className="pillar-tab-title">{pillar.title}</div>
-                  <div className="pillar-tab-subtitle">{pillar.subtitle}</div>
+                  <span className="pillar-tab-radio" aria-hidden="true" />
                 </button>
               );
             })}
@@ -186,7 +186,10 @@ export function OverviewView() {
             const selected = PILLARS_DATA[activePillar];
             return (
               <div role="tabpanel" className={`pillar-panel ${selected.themeClass}`}>
-                <p className="pillar-panel-desc">{selected.description}</p>
+                <div className="pillar-panel-header">
+                  <span className="pillar-panel-Scope-badge">{selected.subtitle}</span>
+                  <p className="pillar-panel-desc">{selected.description}</p>
+                </div>
 
                 {/* 통합 3단계 핵심 과업 카드 그리드 */}
                 <div className="pillar-steps-grid">
@@ -217,21 +220,23 @@ export function OverviewView() {
         </div>
       </div>
 
-      {/* 4. 시선닷컴 5단계 기획 & 릴리즈 스프린트 (중복 상세 박스 제거, 5단계 흐름만 직관적 표시) */}
+      {/* 4. 서비스기획 5단계 표준 프로세스 (중복 표기 제거 & 화살표 플로우 연결) */}
       <div id="process-guide">
         <div className="overview-section-header">
           <Compass size={20} className="overview-section-icon" />
-          <h2 className="overview-section-title">시선닷컴 5단계 기획 & 릴리즈 스프린트</h2>
+          <h2 className="overview-section-title">서비스기획 5단계 표준 프로세스</h2>
         </div>
 
-        <div className="sprint-stepper-grid">
-          {TEAM_GUIDE_DATA.processSteps.map((step) => (
-            <div key={step.step} className="sprint-step-card">
-              <span className="sprint-step-circle">{step.step}</span>
-              <div className="sprint-step-text-wrap">
-                <div className="sprint-step-code">STEP 0{step.step}</div>
-                <div className="sprint-step-short-title">{step.title}</div>
+        <div className="sprint-stepper-flow">
+          {TEAM_GUIDE_DATA.processSteps.map((step, idx) => (
+            <div key={step.step} className="sprint-step-item">
+              <div className="sprint-step-card">
+                <span className="sprint-step-circle">0{step.step}</span>
+                <span className="sprint-step-short-title">{step.title}</span>
               </div>
+              {idx < TEAM_GUIDE_DATA.processSteps.length - 1 && (
+                <ChevronRight size={18} className="sprint-step-arrow" aria-hidden="true" />
+              )}
             </div>
           ))}
         </div>
