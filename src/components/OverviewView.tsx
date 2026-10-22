@@ -4,7 +4,6 @@ import { COMPANY_DEPARTMENTS } from '../constants/departments';
 import { SisunRenewalStoryStage } from './SisunRenewalStoryStage';
 import {
   Compass,
-  ArrowRight,
   MessageSquare,
   Users,
   CheckCircle2,
@@ -14,8 +13,6 @@ import {
   BookOpen,
   Laptop,
   Layers,
-  ShoppingBag,
-  ExternalLink,
   ChevronRight,
   TrendingUp,
   Copy,
@@ -24,7 +21,6 @@ import {
   Clock,
   ArrowUpRight,
   HelpCircle,
-  Eye,
   FolderGit2,
   FileText,
   Smartphone,
@@ -359,12 +355,12 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
-      {/* 1. 최상단 히어로 비주얼 배너 (시선인터내셔널 프리미엄 비전 + 글로벌 벤치마킹 모션) */}
+      {/* 1. 최상단 슬림 히어로 배너 (시선인터내셔널 비전 & 미션 1줄 요약) */}
       <div
         style={{
           background: 'linear-gradient(135deg, #090d16 0%, #0f1f3d 40%, #1e3a8a 100%)',
           borderRadius: 'var(--radius-xl)',
-          padding: '40px 38px',
+          padding: '22px 32px',
           color: '#ffffff',
           boxShadow: 'var(--shadow-xl)',
           position: 'relative',
@@ -378,132 +374,40 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
             position: 'absolute',
             top: '-60px',
             right: '-60px',
-            width: '280px',
-            height: '280px',
+            width: '240px',
+            height: '240px',
             background: 'radial-gradient(circle, rgba(59, 130, 246, 0.35) 0%, rgba(37, 99, 235, 0) 70%)',
             borderRadius: '50%',
             pointerEvents: 'none',
           }}
         />
 
-        <div style={{ maxWidth: '880px', position: 'relative', zIndex: 2 }}>
-          {/* 배지 태그 라인 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '6px 14px',
-                background: 'rgba(255, 255, 255, 0.12)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: '9999px',
-                fontSize: '12px',
-                fontWeight: 700,
-                color: '#93c5fd',
-                border: '1px solid rgba(147, 197, 253, 0.3)',
-              }}
-            >
-              <Sparkles size={14} color="#60a5fa" /> SISUN INTERNATIONAL · SERVICE PLANNING TEAM
-            </div>
-
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '5px 12px',
-                background: 'rgba(16, 185, 129, 0.15)',
-                border: '1px solid rgba(52, 211, 153, 0.3)',
-                borderRadius: '9999px',
-                fontSize: '11.5px',
-                fontWeight: 600,
-                color: '#6ee7b7',
-              }}
-            >
-              <Zap size={13} /> Toss × Shopify × Linear 글로벌 벤치마크 철학 탑재
-            </div>
-          </div>
-
+        <div style={{ width: '100%', position: 'relative', zIndex: 2 }}>
           <h1
             style={{
-              fontSize: '32px',
+              fontSize: 'clamp(17px, 1.85vw, 24px)',
               fontWeight: 800,
-              letterSpacing: '-0.8px',
+              letterSpacing: '-0.6px',
               lineHeight: 1.35,
-              marginBottom: '14px',
+              marginBottom: '6px',
+              whiteSpace: 'nowrap',
               textShadow: '0 2px 10px rgba(0,0,0,0.3)',
             }}
           >
             {TEAM_GUIDE_DATA.vision}
           </h1>
 
-          <p style={{ fontSize: '15.5px', color: '#cbd5e1', lineHeight: 1.65, marginBottom: '28px', maxWidth: '820px' }}>
+          <p
+            style={{
+              fontSize: 'clamp(12px, 1.05vw, 14.5px)',
+              color: '#cbd5e1',
+              lineHeight: 1.5,
+              marginBottom: 0,
+              whiteSpace: 'nowrap',
+            }}
+          >
             {TEAM_GUIDE_DATA.mission}
           </p>
-
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <button
-              onClick={onNavigateToTasks}
-              className="btn interactive-card"
-              style={{
-                background: '#ffffff',
-                color: '#1d4ed8',
-                fontWeight: 700,
-                padding: '12px 22px',
-                fontSize: '14px',
-                borderRadius: 'var(--radius-md)',
-                boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              현재 진행 업무(Tasks) 현황 보기 <ArrowRight size={16} />
-            </button>
-
-            <a
-              href="https://sisun.com"
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-secondary interactive-card"
-              style={{
-                background: 'rgba(255, 255, 255, 0.12)',
-                color: '#ffffff',
-                border: '1px solid rgba(255, 255, 255, 0.25)',
-                padding: '12px 20px',
-                fontSize: '14px',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <ShoppingBag size={16} /> 시선닷컴 (sisun.com) 공식몰 방문 <ExternalLink size={14} />
-            </a>
-
-            <a
-              href="#benchmark-hub"
-              onClick={(e) => {
-                e.preventDefault();
-                document.getElementById('benchmark-hub')?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="btn btn-secondary"
-              style={{
-                background: 'transparent',
-                color: '#93c5fd',
-                border: '1px dashed rgba(147, 197, 253, 0.4)',
-                padding: '11px 18px',
-                fontSize: '13.5px',
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <Eye size={15} /> 벤치마킹 레퍼런스 가이드 <ChevronRight size={14} />
-            </a>
-          </div>
         </div>
       </div>
 
