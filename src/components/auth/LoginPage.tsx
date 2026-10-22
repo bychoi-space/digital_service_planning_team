@@ -50,12 +50,8 @@ const LOGIN_STAGE_SPRITES = [
   'character-2-designer.png',
   'character-3-publisher.png',
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `planner-sit-sketch-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `planner-peek-${n}.png`),
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `designer-climb-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `designer-paint-${n}.png`),
   ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `publisher-code-focus-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `publisher-hum-walk-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `publisher-complete-${n}.png`),
 ];
 
 interface SpriteCanvasProps {
@@ -65,7 +61,7 @@ interface SpriteCanvasProps {
   style?: React.CSSProperties;
 }
 
-function LoginSpriteCanvas({ fileName, fallbackFileName, size = 140, style }: SpriteCanvasProps) {
+function LoginSpriteCanvas({ fileName, fallbackFileName, size = 152, style }: SpriteCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastDrawnRef = useRef<string>('');
 
@@ -142,23 +138,14 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
   // 에러 및 안내 메시지
   const [errorMessage, setErrorMessage] = useState('');
 
-  // 폼 포커스 상태 (캐릭터 3종이 실시간으로 반응)
-  const [focusedField, setFocusedField] = useState<'none' | 'name' | 'password' | 'department'>('none');
-
-  // 애니메이션 프레임 틱 (10fps 부드러운 루프)
+  // 애니메이션 프레임 틱 (부드러운 12프레임 루프)
   const [frameTick, setFrameTick] = useState(0);
-  // 디자이너 상단 매달려 올라오기 연출 타이머 (초기 진입 시 또는 클릭 시 재생)
-  const [designerClimbTicks, setDesignerClimbTicks] = useState(22);
-  // 기획자 클릭 시 빼꼼 인사 리액션 타이머
-  const [plannerWaveTicks, setPlannerWaveTicks] = useState(0);
 
   useEffect(() => {
     LOGIN_STAGE_SPRITES.forEach(preloadLoginSprite);
     const interval = window.setInterval(() => {
       setFrameTick((prev) => prev + 1);
-      setDesignerClimbTicks((prev) => (prev > 0 ? prev - 1 : 0));
-      setPlannerWaveTicks((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 110);
+    }, 115);
     return () => window.clearInterval(interval);
   }, []);
 
@@ -175,7 +162,6 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
     setRegPassword('');
     setRegPasswordConfirm('');
     setErrorMessage('');
-    setDesignerClimbTicks(16); // 탭 전환 시 디자이너가 위에서 다시 매달려 확인하는 모션
     onModeChange?.(nextMode);
   };
 
@@ -240,66 +226,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
     }
   };
 
-  // ============================================================================
-  // 캐릭터 3종 프레임 & 대사 상태 계산
-  // ============================================================================
   const frame12 = (frameTick % 12) + 1;
-  const frame8 = (frameTick % 8) + 1;
-
-  const isReadyToLogin =
-    mode === 'login'
-      ? Boolean(loginName.trim() && loginPassword)
-      : Boolean(regName.trim() && regPassword && regPassword === regPasswordConfirm);
-
-  // ① 좌측 하단 구석: 기획자 (구석 바닥에 편하게 다리 뻗고 앉아 태블릿 스케치)
-  const plannerSprite =
-    plannerWaveTicks > 0 ? `planner-peek-${frame8}.png` : `planner-sit-sketch-${frame12}.png`;
-
-  const plannerBubble =
-    plannerWaveTicks > 0
-      ? '반갑습니다! 오늘도 기분 좋은 하루 되세요 👋'
-      : focusedField === 'name'
-      ? '성명 입력 감지! 등록된 멤버인지 확인 중 📋'
-      : focusedField === 'password'
-      ? '보안 정책상 비밀번호는 평문 노출 제로! 🔐'
-      : isReadyToLogin
-      ? '검증 준비 끝! 파란색 접속 버튼을 눌러주세요 👍'
-      : mode === 'register'
-      ? '구석에 앉아서 신규 멤버 온보딩 시나리오 점검 중 📝'
-      : '구석 자리가 제일 편하네요... 로그인 정책 검수 중 ☕';
-
-  // ② 상단 루프탑 엣지: 디자이너 (카드 위쪽 테두리에 매달려 올라오거나 지붕 위에서 내려다보기)
-  const isDesignerClimbing = designerClimbTicks > 0;
-  const designerSprite = isDesignerClimbing
-    ? `designer-climb-${frame12}.png`
-    : `designer-paint-${frame12}.png`;
-
-  const designerBubble = isDesignerClimbing
-    ? '영차영차... 로그인 창 지붕 위로 올라가는 중! 🧗‍♀️'
-    : focusedField === 'password'
-    ? '쉿! 비밀번호 치실 땐 시안 보드로 눈 가릴게요 🙈'
-    : focusedField === 'department'
-    ? '소속 부서 셀렉트박스 정렬 비율 완벽해요! 🎨'
-    : mode === 'register'
-    ? '위에서 내려다보니 회원가입 폼 여백 딱 좋네요 ✨'
-    : '카드 위에서 폼 간격 16px 맞는지 감수 중 🎨';
-
-  // ③ 우측 외벽: 퍼블리셔 (로그인 영역 오른쪽 벽면에 등을 기대듯 서서 노트북/헤드셋)
-  const publisherSprite = isReadyToLogin
-    ? `publisher-complete-${frame8}.png`
-    : focusedField === 'password' || focusedField === 'name'
-    ? `publisher-code-focus-${frame12}.png`
-    : `publisher-hum-walk-${frame12}.png`;
-
-  const publisherBubble = isReadyToLogin
-    ? '준비 완료! 포털 문 활짝 열어둘게요 🚀'
-    : focusedField === 'password'
-    ? '패스워드 마스킹 작동 중... 아무도 못 봐요 🔒'
-    : focusedField === 'name'
-    ? '실시간 입력 바인딩 중... 타이핑 빠르신데요? ⌨️'
-    : mode === 'register'
-    ? '벽에 기대서 #/register 라우트 대기 중 ♪'
-    : '벽에 기대서 #/login 라우트 연결 확인 완료 🎧';
 
   return (
     <div
@@ -309,9 +236,9 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
         alignItems: 'center',
         justifyContent: 'center',
         background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
-        padding: '92px 110px 56px 36px',
+        padding: '120px 240px 80px',
         position: 'relative',
-        overflowX: 'hidden',
+        overflow: 'hidden',
       }}
     >
       {/* 배경 장식 원형 블러 */}
@@ -341,7 +268,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
       />
 
       {/* =====================================================================
-          중앙 스테이지 래퍼 (캐릭터 3종 삼각 균형 배치 + 메인 로그인 카드)
+          중앙 스테이지 래퍼 (메인 로그인 카드 + 카드 바깥 여백 캐릭터 3종 배치)
           ===================================================================== */}
       <div
         style={{
@@ -352,198 +279,152 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
         }}
       >
         {/* -----------------------------------------------------------------
-            [캐릭터 2 · 디자이너] 우측 상단 지붕 테두리에 매달려 올라오거나 걸터앉아 감수
+            1. [퍼블리셔] 로그인 카드 좌측 바깥 벽면 여백에 기대듯 서 있는 포즈
+               - 카드 바깥 왼쪽 여백(left: -136px)에 배치, zIndex: 20으로 가려짐 원천 차단
+               - transformOrigin: 'center bottom' + rotate(6deg)로 카드 왼쪽 외벽에 자연스럽게 기댐
             ----------------------------------------------------------------- */}
         <div
-          onClick={() => setDesignerClimbTicks(22)}
-          title="클릭하면 디자이너가 다시 지붕 위로 매달려 올라옵니다!"
           style={{
             position: 'absolute',
-            top: isDesignerClimbing ? '-62px' : '-96px',
-            right: '54px',
-            zIndex: isDesignerClimbing ? 25 : 6,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            cursor: 'pointer',
-            transition: 'top 0.45s cubic-bezier(0.22, 1, 0.36, 1)',
-          }}
-        >
-          {/* 디자이너 말풍선 */}
-          <div
-            style={{
-              marginBottom: '-6px',
-              padding: '6px 12px',
-              background: 'rgba(15, 23, 42, 0.92)',
-              border: '1px solid rgba(251, 146, 60, 0.5)',
-              borderRadius: '9999px',
-              color: '#ffedd5',
-              fontSize: '11.5px',
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-              boxShadow: '0 8px 20px rgba(0, 0, 0, 0.35)',
-              backdropFilter: 'blur(8px)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              zIndex: 30,
-            }}
-          >
-            <span
-              style={{
-                padding: '1px 6px',
-                borderRadius: '999px',
-                background: 'rgba(249, 115, 22, 0.25)',
-                color: '#fdba74',
-                fontSize: '10px',
-                fontWeight: 800,
-              }}
-            >
-              UI 디자이너
-            </span>
-            <span>{designerBubble}</span>
-          </div>
-
-          <div
-            style={{
-              transform: isDesignerClimbing
-                ? `translateY(${Math.sin(frameTick * 0.8) * 3}px)`
-                : `translateY(${Math.sin(frameTick * 0.35) * 2}px) rotate(-2deg)`,
-              filter: 'drop-shadow(0 10px 16px rgba(15, 23, 42, 0.4))',
-              transition: 'transform 0.2s ease',
-            }}
-          >
-            <LoginSpriteCanvas
-              fileName={designerSprite}
-              fallbackFileName="character-2-designer.png"
-              size={132}
-            />
-          </div>
-        </div>
-
-        {/* 디자이너가 카드 상단 모서리를 짚고 있는 루프탑 그립/줄자 배지 (카드 테두리 위) */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '-11px',
-            right: '82px',
-            zIndex: 26,
-            padding: '2px 10px',
-            background: 'linear-gradient(90deg, #fff7ed 0%, #ffedd5 100%)',
-            border: '1.5px solid #fdba74',
-            borderRadius: '999px',
-            fontSize: '10px',
-            fontWeight: 800,
-            color: '#c2410c',
-            boxShadow: '0 3px 8px rgba(0,0,0,0.12)',
+            left: '-136px',
+            bottom: '12px',
+            width: '156px',
+            height: '156px',
+            zIndex: 20,
             pointerEvents: 'none',
           }}
         >
-          📐 ROOFTOP CHECK · 960px
+          <div
+            style={{
+              transform: `rotate(6deg) translateY(${Math.sin(frameTick * 0.35) * 1.5}px)`,
+              transformOrigin: 'center bottom',
+              filter: 'drop-shadow(-8px 10px 16px rgba(0, 0, 0, 0.45))',
+            }}
+          >
+            <LoginSpriteCanvas
+              fileName={`publisher-code-focus-${frame12}.png`}
+              fallbackFileName="character-3-publisher.png"
+              size={156}
+            />
+          </div>
+          {/* 바닥 접지 그림자 */}
+          <div
+            style={{
+              width: '92px',
+              height: '14px',
+              margin: '-12px auto 0',
+              borderRadius: '50%',
+              background: 'radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 75%)',
+            }}
+          />
         </div>
 
         {/* -----------------------------------------------------------------
-            [캐릭터 3 · 퍼블리셔] 로그인 카드 우측 외벽에 등을 기대듯 서서 코딩/모니터링
+            2. [디자이너] 상단 배경 여백에서 위쪽 가로바에 두 손으로 매달려 있는 포즈
+               - 카드 우측 상단 바깥 여백(top: -150px, right: -48px)에 배치, zIndex: 20
+               - 천장에서 내려온 와이어 가로바(손 높이 top: 48px)에 정확히 양손을 걸고 매달림
             ----------------------------------------------------------------- */}
         <div
           style={{
             position: 'absolute',
-            right: '-98px',
-            bottom: '18px',
-            zIndex: 8,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            pointerEvents: 'auto',
+            top: '-150px',
+            right: '-48px',
+            width: '152px',
+            height: '152px',
+            zIndex: 20,
+            pointerEvents: 'none',
           }}
         >
-          {/* 퍼블리셔 말풍선 */}
+          {/* 화면 상단에서 내려오는 2줄 와이어 & 가로 철봉 바 (양손 위치 top: 48px 정렬) */}
           <div
             style={{
               position: 'absolute',
-              top: '-34px',
-              right: '4px',
-              padding: '6px 12px',
-              background: 'rgba(15, 23, 42, 0.92)',
-              border: '1px solid rgba(167, 139, 250, 0.5)',
-              borderRadius: '9999px',
-              color: '#f3e8ff',
-              fontSize: '11.5px',
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-              boxShadow: '0 8px 20px rgba(0, 0, 0, 0.35)',
-              backdropFilter: 'blur(8px)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              zIndex: 30,
+              top: '-220px',
+              left: '34px',
+              width: '2px',
+              height: '268px',
+              background: 'linear-gradient(180deg, rgba(148,163,184,0.05) 0%, rgba(148,163,184,0.45) 100%)',
             }}
-          >
-            <span
-              style={{
-                padding: '1px 6px',
-                borderRadius: '999px',
-                background: 'rgba(139, 92, 246, 0.28)',
-                color: '#d8b4fe',
-                fontSize: '10px',
-                fontWeight: 800,
-              }}
-            >
-              웹 퍼블리셔
-            </span>
-            <span>{publisherBubble}</span>
-          </div>
-
-          {/* 둥실 떠오르는 음표 이펙트 */}
+          />
           <div
             style={{
               position: 'absolute',
-              top: '2px',
-              right: '14px',
-              fontSize: '13px',
-              color: '#6ee7b7',
-              fontWeight: 800,
-              transform: `translateY(${Math.sin(frameTick * 0.45) * 4}px)`,
-              opacity: 0.85,
-              pointerEvents: 'none',
+              top: '-220px',
+              right: '34px',
+              width: '2px',
+              height: '268px',
+              background: 'linear-gradient(180deg, rgba(148,163,184,0.05) 0%, rgba(148,163,184,0.45) 100%)',
             }}
-          >
-            ♪ ♫
-          </div>
-
-          {/* 벽면에 등을 살짝 기댄 각도(scaleX(-1) + rotate(-5deg)) */}
+          />
           <div
             style={{
-              transform: `translateX(-10px) rotate(-5deg) scaleX(-1) translateY(${
-                Math.sin(frameTick * 0.35) * 1.5
-              }px)`,
-              transformOrigin: 'left bottom',
-              filter: 'drop-shadow(6px 10px 18px rgba(0, 0, 0, 0.45))',
+              position: 'absolute',
+              top: '46px',
+              left: '22px',
+              right: '22px',
+              height: '5px',
+              borderRadius: '999px',
+              background: 'linear-gradient(90deg, #64748b 0%, #cbd5e1 50%, #64748b 100%)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+            }}
+          />
+
+          <div
+            style={{
+              position: 'relative',
+              transform: `translateY(${Math.sin(frameTick * 0.5) * 2}px)`,
+              transformOrigin: 'center 48px',
+              filter: 'drop-shadow(0 12px 18px rgba(0, 0, 0, 0.45))',
             }}
           >
             <LoginSpriteCanvas
-              fileName={publisherSprite}
-              fallbackFileName="character-3-publisher.png"
-              size={146}
+              fileName={`designer-climb-${frame12}.png`}
+              fallbackFileName="character-2-designer.png"
+              size={152}
             />
           </div>
+        </div>
 
-          {/* 바닥 접지 그림자 */}
+        {/* -----------------------------------------------------------------
+            3. [기획자] 우측 하단 구석 배경 여백 바닥에 편하게 앉아 있는 포즈
+               - 카드 바깥 우측 하단 구석 여백(right: -200px, bottom: -32px)에 배치, zIndex: 20
+            ----------------------------------------------------------------- */}
+        <div
+          style={{
+            position: 'absolute',
+            right: '-200px',
+            bottom: '-32px',
+            width: '156px',
+            height: '156px',
+            zIndex: 20,
+            pointerEvents: 'none',
+          }}
+        >
           <div
             style={{
-              width: '86px',
-              height: '12px',
+              filter: 'drop-shadow(0 10px 18px rgba(0, 0, 0, 0.45))',
+            }}
+          >
+            <LoginSpriteCanvas
+              fileName={`planner-sit-sketch-${frame12}.png`}
+              fallbackFileName="character-1-planner.png"
+              size={156}
+            />
+          </div>
+          {/* 구석 바닥 그림자 */}
+          <div
+            style={{
+              width: '116px',
+              height: '16px',
+              margin: '-14px auto 0',
               borderRadius: '50%',
-              background: 'radial-gradient(ellipse, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 75%)',
-              marginTop: '-12px',
-              marginLeft: '14px',
-              pointerEvents: 'none',
+              background: 'radial-gradient(ellipse, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0) 75%)',
             }}
           />
         </div>
 
         {/* =================================================================
-            메인 2단 로그인 카드 본체
+            메인 2단 로그인 카드 본체 (zIndex: 10, 불필요한 장식/문구 제거)
             ================================================================= */}
         <div
           style={{
@@ -558,17 +439,15 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
             zIndex: 10,
           }}
         >
-          {/* 좌측: 서비스기획팀 브랜딩 & 구석에 편하게 앉은 기획자 라운지 */}
+          {/* 좌측: 서비스기획팀 브랜딩 영역 */}
           <div
             style={{
-              background: 'linear-gradient(180deg, #1e3a8a 0%, #1e40af 52%, #172554 100%)',
-              padding: '44px 36px 28px',
+              background: 'linear-gradient(180deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%)',
+              padding: '44px 36px',
               color: '#ffffff',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
-              position: 'relative',
-              overflow: 'hidden',
             }}
           >
             <div>
@@ -596,117 +475,27 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                   fontWeight: 800,
                   lineHeight: 1.35,
                   letterSpacing: '-0.5px',
-                  marginBottom: '14px',
+                  marginBottom: '16px',
                 }}
               >
                 서비스 기획과 협업의 모든 것,<br />하나의 포털에서
               </h2>
 
-              <p style={{ fontSize: '14px', color: '#e0e7ff', lineHeight: 1.6, marginBottom: '18px' }}>
+              <p style={{ fontSize: '14px', color: '#e0e7ff', lineHeight: 1.6, marginBottom: 0 }}>
                 일상 기획 업무(Task), 팀원 휴가 일정, 분기/연간 KPI 목표 및 달성 평가를 투명하게 공유하고 관리합니다.
               </p>
             </div>
 
-            {/* ---------------------------------------------------------------
-                [캐릭터 1 · 기획자] 좌측 패널 하단 구석에 다리 뻗고 앉아 있는 라운지 코너
-                --------------------------------------------------------------- */}
-            <div
-              onClick={() => setPlannerWaveTicks(16)}
-              title="클릭하면 기획자가 인사합니다!"
-              style={{
-                position: 'relative',
-                marginTop: '8px',
-                marginBottom: '6px',
-                padding: '14px 16px 10px',
-                background: 'rgba(15, 23, 42, 0.28)',
-                border: '1px solid rgba(147, 197, 253, 0.2)',
-                borderRadius: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                cursor: 'pointer',
-              }}
-            >
-              {/* 구석에 앉아 있는 기획자 스프라이트 */}
-              <div
-                style={{
-                  position: 'relative',
-                  flexShrink: 0,
-                  marginLeft: '-6px',
-                  marginBottom: '-6px',
-                  filter: 'drop-shadow(0 8px 12px rgba(0, 0, 0, 0.35))',
-                }}
-              >
-                <LoginSpriteCanvas
-                  fileName={plannerSprite}
-                  fallbackFileName="character-1-planner.png"
-                  size={112}
-                />
-                {/* 바닥 방석/그림자 */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: '6px',
-                    left: '14px',
-                    width: '84px',
-                    height: '12px',
-                    borderRadius: '50%',
-                    background: 'radial-gradient(ellipse, rgba(15,23,42,0.55) 0%, rgba(15,23,42,0) 75%)',
-                    zIndex: -1,
-                  }}
-                />
-              </div>
-
-              {/* 기획자 구석 라운지 말풍선 & 소품 */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: '999px',
-                      background: 'rgba(59, 130, 246, 0.35)',
-                      border: '1px solid rgba(147, 197, 253, 0.35)',
-                      color: '#dbeafe',
-                      fontSize: '10.5px',
-                      fontWeight: 800,
-                    }}
-                  >
-                    서비스기획자 · 구석 라운지
-                  </span>
-                  <span style={{ fontSize: '11px', color: '#93c5fd' }}>☕ 아이스 아메리카노 충전 중</span>
-                </div>
-
-                <div
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.95)',
-                    color: '#1e293b',
-                    padding: '9px 12px',
-                    borderRadius: '12px 12px 12px 2px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    lineHeight: 1.45,
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.18)',
-                  }}
-                >
-                  {plannerBubble}
-                </div>
-              </div>
-            </div>
-
             <div
               style={{
-                marginTop: '12px',
-                paddingTop: '14px',
+                marginTop: '36px',
+                paddingTop: '20px',
                 borderTop: '1px solid rgba(255, 255, 255, 0.15)',
                 fontSize: '12px',
                 color: '#bfdbfe',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
               }}
             >
-              <span>서비스기획팀 업무 포털 v1.0</span>
-              <span style={{ fontSize: '11px', color: '#93c5fd' }}>Planning · Design · Publishing</span>
+              서비스기획팀 업무 포털 v1.0
             </div>
           </div>
 
@@ -800,8 +589,6 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                     autoComplete="off"
                     placeholder="등록된 성명 입력"
                     value={loginName}
-                    onFocus={() => setFocusedField('name')}
-                    onBlur={() => setFocusedField('none')}
                     onChange={(e) => setLoginName(e.target.value)}
                     className="form-input"
                     style={{ padding: '11px 14px' }}
@@ -816,11 +603,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                     type="password"
                     required
                     readOnly
-                    onFocus={(e) => {
-                      e.currentTarget.removeAttribute('readonly');
-                      setFocusedField('password');
-                    }}
-                    onBlur={() => setFocusedField('none')}
+                    onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
                     autoComplete="new-password"
                     placeholder="비밀번호를 입력해 주세요"
                     value={loginPassword}
@@ -861,8 +644,6 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                     autoComplete="off"
                     placeholder="예: 홍길동"
                     value={regName}
-                    onFocus={() => setFocusedField('name')}
-                    onBlur={() => setFocusedField('none')}
                     onChange={(e) => setRegName(e.target.value)}
                     className="form-input"
                   />
@@ -875,8 +656,6 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                   </label>
                   <select
                     value={regDepartment}
-                    onFocus={() => setFocusedField('department')}
-                    onBlur={() => setFocusedField('none')}
                     onChange={(e) => setRegDepartment(e.target.value)}
                     className="form-select"
                   >
@@ -900,11 +679,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                       type="password"
                       required
                       readOnly
-                      onFocus={(e) => {
-                        e.currentTarget.removeAttribute('readonly');
-                        setFocusedField('password');
-                      }}
-                      onBlur={() => setFocusedField('none')}
+                      onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
                       autoComplete="new-password"
                       placeholder="비밀번호 설정"
                       value={regPassword}
@@ -921,11 +696,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                       type="password"
                       required
                       readOnly
-                      onFocus={(e) => {
-                        e.currentTarget.removeAttribute('readonly');
-                        setFocusedField('password');
-                      }}
-                      onBlur={() => setFocusedField('none')}
+                      onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
                       autoComplete="new-password"
                       placeholder="비밀번호 재입력"
                       value={regPasswordConfirm}
