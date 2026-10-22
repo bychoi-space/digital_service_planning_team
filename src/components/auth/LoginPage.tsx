@@ -141,6 +141,15 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
   const [frameTick, setFrameTick] = useState(0);
 
   useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (meta) {
+      meta.setAttribute(
+        'content',
+        'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
+      );
+    }
+    window.scrollTo(0, 0);
+
     LOGIN_EXCLUSIVE_SPRITES.forEach(preloadLoginSprite);
     const interval = window.setInterval(() => {
       setFrameTick((prev) => prev + 1);
@@ -230,7 +239,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
 
   return (
     <div className="login-page-shell">
-      {/* 배경 전용 클리핑 래퍼 (blur 및 scale(1.03)로 인한 가로/세로 스크롤 오버플로우 원천 차단) */}
+      {/* 배경 전용 클리핑 래퍼 (가로/세로 스크롤 오버플로우 원천 차단) */}
       <div className="login-bg-clip">
         {/* 1. 서비스기획팀 크리에이티브 스튜디오 & 라운지 아웃포커싱(Depth-of-Field) 배경 레이어 */}
         <div
@@ -242,7 +251,6 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
             backgroundPosition: 'center center',
             backgroundRepeat: 'no-repeat',
             filter: 'blur(5px) brightness(0.76) saturate(1.08)',
-            transform: 'scale(1.03)',
           }}
         />
 
@@ -300,23 +308,15 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
         <div className="login-char-designer">
           {/* 화면 천장에서 가로바 양손 위치(좌/우 30.5%, 상단 8.6% 지점)로 내려오는 2줄 와이어 */}
           <div
+            className="login-designer-wire"
             style={{
-              position: 'absolute',
-              bottom: '91.4%',
               left: '30.5%',
-              width: '2px',
-              height: '220px',
-              background: 'linear-gradient(180deg, rgba(148,163,184,0.05) 0%, rgba(203,213,225,0.45) 100%)',
             }}
           />
           <div
+            className="login-designer-wire"
             style={{
-              position: 'absolute',
-              bottom: '91.4%',
               right: '30.5%',
-              width: '2px',
-              height: '220px',
-              background: 'linear-gradient(180deg, rgba(148,163,184,0.05) 0%, rgba(203,213,225,0.45) 100%)',
             }}
           />
 
