@@ -1,21 +1,252 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Play, Pause } from 'lucide-react';
+
+// ============================================================================
+// ★ [Zero-Flicker 하드웨어 가속 Canvas 스프라이트 캐시 & 프리로더 엔진] ★
+// - 164개 개별 <img> DOM 노드의 opacity 전환 시 발생하는 브라우저 GPU 텍스처 Eviction 및
+//   네트워크/디코딩 지연 구간의 투명 깜빡임(Blank Frame)을 원천 차단합니다.
+// - 모든 프레임은 백그라운드 우선순위 큐에서 img.decode()까지 완료한 뒤 Ready 상태로 등록되며,
+//   Canvas는 새 프레임이 100% 디코딩 완료된 경우에만 단일 동기 작업(clearRect + drawImage)으로
+//   교체하고, 미완료 시 직전 유효 프레임을 그대로 유지하여 단 1ms의 깜빡임도 허용하지 않습니다.
+// ============================================================================
+const SPRITE_IMAGE_CACHE = new Map<string, HTMLImageElement>();
+const SPRITE_READY_SET = new Set<string>();
+const SPRITE_LOADING_SET = new Set<string>();
+const SPRITE_LISTENERS = new Set<() => void>();
+
+// GitHub Pages 호환 투명 PNG 이미지 경로 헬퍼 (모듈 레벨 고정)
+const BASE_URL = import.meta.env.BASE_URL || './';
+function charImgUrl(fileName: string): string {
+  return `${BASE_URL.endsWith('/') ? BASE_URL : `${BASE_URL}/`}images/characters/${fileName}`;
+}
+
+function notifySpriteListeners() {
+  SPRITE_LISTENERS.forEach((listener) => listener());
+}
+
+function loadAndDecodeSprite(url: string): Promise<void> {
+  if (SPRITE_READY_SET.has(url)) {
+    return Promise.resolve();
+  }
+  const existing = SPRITE_IMAGE_CACHE.get(url);
+  if (existing && SPRITE_LOADING_SET.has(url)) {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve) => {
+    const img = existing ?? new Image();
+    img.decoding = 'async';
+    if (!existing) {
+      SPRITE_IMAGE_CACHE.set(url, img);
+    }
+    SPRITE_LOADING_SET.add(url);
+
+    let settled = false;
+    const finalize = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      SPRITE_LOADING_SET.delete(url);
+      if (ok && img.naturalWidth > 0) {
+        SPRITE_READY_SET.add(url);
+        notifySpriteListeners();
+      }
+      resolve();
+    };
+
+    const onLoaded = () => {
+      if (typeof img.decode === 'function') {
+        img
+          .decode()
+          .then(() => finalize(true))
+          .catch(() => finalize(img.complete && img.naturalWidth > 0));
+      } else {
+        finalize(true);
+      }
+    };
+
+    img.onload = onLoaded;
+    img.onerror = () => finalize(false);
+
+    if (!img.src) {
+      img.src = url;
+    } else if (img.complete && img.naturalWidth > 0) {
+      onLoaded();
+    }
+  });
+}
+
+function getReadySpriteImage(url: string): HTMLImageElement | null {
+  const img = SPRITE_IMAGE_CACHE.get(url);
+  if (img && (SPRITE_READY_SET.has(url) || (img.complete && img.naturalWidth > 0))) {
+    SPRITE_READY_SET.add(url);
+    return img;
+  }
+  // 아직 로드되지 않은 프레임이 요청되면 즉시 최우선 로드 트리거
+  void loadAndDecodeSprite(url);
+  return null;
+}
+
+// 타임라인 등장 순서에 맞춘 순차 프리로드 목록
+const CHRONOLOGICAL_SPRITE_FILES: string[] = [
+  // 0. 마스터 기본 폴백 스프라이트 (최우선)
+  'character-1-planner.png',
+  'character-2-designer.png',
+  'character-3-publisher.png',
+  // 1. 기획자 초반 등장 (0~26틱: peek -> think-walk)
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `planner-peek-${n}.png`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `planner-think-walk-${n}.png`),
+  // 2. 기획자 착석 설계 & 디자이너 등반 등장 (26~50틱)
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `planner-sit-sketch-${n}.png`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `designer-climb-${n}.png`),
+  // 3. 기획자·디자이너 보행 및 1차 핸드오프 (48~72틱)
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `designer-walk-s${n}.png`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `planner-walk-s${n}.png`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `planner-handoff-${n}.png`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `designer-receive-${n}.png`),
+  // 4. 디자이너 채색 작업 & 퍼블리셔 콧노래 등장 (72~126틱)
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `designer-paint-${n}.png`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `publisher-hum-walk-${n}.png`),
+  // 5. 2차 핸드오프 & 퍼블리셔 코딩/완료 (126틱 이후)
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `designer-handoff-${n}.png`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `publisher-receive-${n}.png`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `publisher-walk-s${n}.png`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `publisher-headset-off-${n}.png`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `publisher-code-focus-${n}.png`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `publisher-complete-${n}.png`),
+];
+
+let preloadStarted = false;
+function startChronologicalPreload() {
+  if (preloadStarted) return;
+  preloadStarted = true;
+
+  const queue = CHRONOLOGICAL_SPRITE_FILES.map((file) => charImgUrl(file));
+  let cursor = 0;
+  const concurrency = 8;
+
+  const worker = async () => {
+    while (cursor < queue.length) {
+      const nextUrl = queue[cursor++];
+      await loadAndDecodeSprite(nextUrl);
+    }
+  };
+
+  for (let i = 0; i < concurrency; i++) {
+    void worker();
+  }
+}
+
+interface CharacterSpriteCanvasProps {
+  spriteUrl: string;
+  fallbackUrl: string;
+  flipRight: boolean;
+  alt: string;
+}
+
+function CharacterSpriteCanvas({
+  spriteUrl,
+  fallbackUrl,
+  flipRight,
+  alt,
+}: CharacterSpriteCanvasProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lastValidImgRef = useRef<HTMLImageElement | null>(null);
+  const lastDrawnRef = useRef<{ img: HTMLImageElement | null; flipRight: boolean }>({
+    img: null,
+    flipRight: false,
+  });
+  const [readyTick, setReadyTick] = useState<number>(0);
+
+  useEffect(() => {
+    const onReady = () => {
+      setReadyTick((v) => v + 1);
+    };
+    SPRITE_LISTENERS.add(onReady);
+    return () => {
+      SPRITE_LISTENERS.delete(onReady);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const primaryImg = getReadySpriteImage(spriteUrl);
+    const fallbackImg = primaryImg ? null : getReadySpriteImage(fallbackUrl);
+    const targetImg = primaryImg ?? lastValidImgRef.current ?? fallbackImg;
+
+    if (!targetImg) return;
+    lastValidImgRef.current = targetImg;
+
+    // 동일한 비트맵과 동일한 방향이면 불필요한 캔버스 재드로잉 생략 (GPU 텍스처 100% 보존)
+    if (
+      lastDrawnRef.current.img === targetImg &&
+      lastDrawnRef.current.flipRight === flipRight
+    ) {
+      return;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.save();
+    ctx.clearRect(0, 0, 440, 440);
+    if (flipRight) {
+      ctx.translate(440, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(targetImg, 0, 0, 440, 440);
+    ctx.restore();
+
+    lastDrawnRef.current = { img: targetImg, flipRight };
+  }, [spriteUrl, fallbackUrl, flipRight, readyTick]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={440}
+      height={440}
+      aria-label={alt}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        objectFit: 'contain',
+        pointerEvents: 'none',
+        display: 'block',
+      }}
+    />
+  );
+}
 
 export function SisunRenewalStoryStage() {
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
 
-  // 1서브틱 = 50ms (20fps 안정적인 모션 타이머, 스프라이트는 100ms(10fps) 주기로 깜빡임 없이 100% 불투명 전환)
+  // 60fps requestAnimationFrame 연속 모션 타이머 (1초 = 20 subTick = 10 tick)
   const [subTick, setSubTick] = useState<number>(0);
 
   useEffect(() => {
+    startChronologicalPreload();
+  }, []);
+
+  useEffect(() => {
     if (!isPlaying) return;
-    const timer = window.setInterval(() => {
-      setSubTick((prev) => prev + 1);
-    }, 50);
-    return () => window.clearInterval(timer);
+    let rafId = 0;
+    let lastTime = performance.now();
+
+    const step = (now: number) => {
+      const dt = Math.min(64, Math.max(0, now - lastTime));
+      lastTime = now;
+      setSubTick((prev) => prev + dt / 50);
+      rafId = window.requestAnimationFrame(step);
+    };
+
+    rafId = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(rafId);
   }, [isPlaying]);
 
-  // 연속 타임라인 틱 (0.0, 0.5, 1.0, 1.5 ...)
+  // 연속 타임라인 틱 (1초 = 10 tick)
   const tick = subTick / 2;
 
   // 부드러운 가감속(Ease-In-Out Sine) 보간 헬퍼
@@ -299,7 +530,9 @@ export function SisunRenewalStoryStage() {
 
   const designerLeft = getDesignerLeft();
 
-  const designerSprite: string = isDesignerClimbing
+  const designerSprite: string = !designerVisible
+    ? 'climb-1'
+    : isDesignerClimbing
     ? `climb-${getWorkSubFrame(subTick, 2)}`
     : isDesignerWalking
     ? getWalkSubSprite(subTick, 5)
@@ -432,7 +665,9 @@ export function SisunRenewalStoryStage() {
 
   const publisherLeft = getPublisherLeft();
 
-  const publisherSprite: string = isPubHumWalk
+  const publisherSprite: string = !publisherVisible
+    ? 'hum-walk-1'
+    : isPubHumWalk
     ? `hum-walk-${getWorkSubFrame(subTick, 4)}`
     : isPubReceive
     ? `receive-${getInteractSubFrame(subTick, 7)}`
@@ -468,11 +703,6 @@ export function SisunRenewalStoryStage() {
     : pubLoop < 66
     ? Math.min(100, Math.round(30 + ((pubLoop - 28) / 34) * 70))
     : 100;
-
-  // GitHub Pages 호환 투명 PNG 이미지 경로 헬퍼
-  const baseUrl = import.meta.env.BASE_URL || './';
-  const charImgUrl = (fileName: string) =>
-    `${baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`}images/characters/${fileName}`;
 
   return (
     <div
@@ -1357,7 +1587,6 @@ export function SisunRenewalStoryStage() {
               width: '236px',
               height: '268px',
               opacity: plannerVisible ? 1 : 0,
-              transition: plannerVisible ? 'left 0.055s linear' : 'none',
               zIndex: 5,
             }}
           >
@@ -1373,7 +1602,6 @@ export function SisunRenewalStoryStage() {
                 background:
                   'radial-gradient(ellipse at center, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${plannerMotion.shadowScale})`,
-                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             />
@@ -1385,53 +1613,15 @@ export function SisunRenewalStoryStage() {
                 inset: 0,
                 transformOrigin: '50% 92%',
                 transform: `translateY(${plannerMotion.bounceY}px) scaleX(${plannerMotion.scaleX}) scaleY(${plannerMotion.scaleY}) rotate(${plannerMotion.rotateDeg}deg)`,
-                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             >
-              {[
-                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
-                  key: `peek-${n}`,
-                  file: `planner-peek-${n}.png`,
-                })),
-                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
-                  key: `think-walk-${n}`,
-                  file: `planner-think-walk-${n}.png`,
-                })),
-                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
-                  key: `sit-sketch-${n}`,
-                  file: `planner-sit-sketch-${n}.png`,
-                })),
-                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
-                  key: `walk-s${n}`,
-                  file: `planner-walk-s${n}.png`,
-                })),
-                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
-                  key: `handoff-${n}`,
-                  file: `planner-handoff-${n}.png`,
-                })),
-              ].map((sprite) => {
-                const isCurrent = plannerSprite === sprite.key;
-                return (
-                  <img
-                    key={sprite.key}
-                    src={charImgUrl(sprite.file)}
-                    alt={`기획자 ${sprite.key}`}
-                    loading="eager"
-                    decoding="sync"
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                      opacity: isCurrent ? 1 : 0,
-                      transform: plannerFlipRight ? 'scaleX(-1)' : 'none',
-                      pointerEvents: 'none',
-                    }}
-                  />
-                );
-              })}
+              <CharacterSpriteCanvas
+                spriteUrl={charImgUrl(`planner-${plannerSprite}.png`)}
+                fallbackUrl={charImgUrl('character-1-planner.png')}
+                flipRight={plannerFlipRight}
+                alt={`기획자 ${plannerSprite}`}
+              />
             </div>
 
             {/* ★ [기획자 독립 VFX 레이어] 캐릭터 몸통과 분리되어 차분하게 부유하는 이펙트 ★ */}
@@ -1535,7 +1725,6 @@ export function SisunRenewalStoryStage() {
               width: '236px',
               height: '268px',
               opacity: designerVisible ? 1 : 0,
-              transition: designerVisible ? 'left 0.055s linear' : 'none',
               zIndex: 6,
             }}
           >
@@ -1551,7 +1740,6 @@ export function SisunRenewalStoryStage() {
                 background:
                   'radial-gradient(ellipse at center, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${designerMotion.shadowScale})`,
-                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             />
@@ -1563,53 +1751,15 @@ export function SisunRenewalStoryStage() {
                 inset: 0,
                 transformOrigin: '50% 92%',
                 transform: `translateY(${designerMotion.bounceY}px) scaleX(${designerMotion.scaleX}) scaleY(${designerMotion.scaleY}) rotate(${designerMotion.rotateDeg}deg)`,
-                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             >
-              {[
-                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
-                  key: `climb-${n}`,
-                  file: `designer-climb-${n}.png`,
-                })),
-                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
-                  key: `walk-s${n}`,
-                  file: `designer-walk-s${n}.png`,
-                })),
-                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
-                  key: `receive-${n}`,
-                  file: `designer-receive-${n}.png`,
-                })),
-                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
-                  key: `paint-${n}`,
-                  file: `designer-paint-${n}.png`,
-                })),
-                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
-                  key: `handoff-${n}`,
-                  file: `designer-handoff-${n}.png`,
-                })),
-              ].map((sprite) => {
-                const isCurrent = designerSprite === sprite.key;
-                return (
-                  <img
-                    key={sprite.key}
-                    src={charImgUrl(sprite.file)}
-                    alt={`디자이너 ${sprite.key}`}
-                    loading="eager"
-                    decoding="sync"
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                      opacity: isCurrent ? 1 : 0,
-                      transform: designerFlipRight ? 'scaleX(-1)' : 'none',
-                      pointerEvents: 'none',
-                    }}
-                  />
-                );
-              })}
+              <CharacterSpriteCanvas
+                spriteUrl={charImgUrl(`designer-${designerSprite}.png`)}
+                fallbackUrl={charImgUrl('character-2-designer.png')}
+                flipRight={designerFlipRight}
+                alt={`디자이너 ${designerSprite}`}
+              />
             </div>
 
             {/* ★ [디자이너 독립 VFX 레이어] 수령 반짝이 & 컬러 스와치 ★ */}
@@ -1686,7 +1836,6 @@ export function SisunRenewalStoryStage() {
               width: '236px',
               height: '268px',
               opacity: publisherVisible ? 1 : 0,
-              transition: publisherVisible ? 'left 0.055s linear' : 'none',
               zIndex: 7,
             }}
           >
@@ -1702,7 +1851,6 @@ export function SisunRenewalStoryStage() {
                 background:
                   'radial-gradient(ellipse at center, rgba(15,23,42,0.22) 0%, rgba(15,23,42,0) 75%)',
                 transform: `translateX(-50%) scale(${publisherMotion.shadowScale})`,
-                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             />
@@ -1714,57 +1862,15 @@ export function SisunRenewalStoryStage() {
                 inset: 0,
                 transformOrigin: '50% 92%',
                 transform: `translateY(${publisherMotion.bounceY}px) scaleX(${publisherMotion.scaleX}) scaleY(${publisherMotion.scaleY}) rotate(${publisherMotion.rotateDeg}deg)`,
-                transition: 'transform 0.055s linear',
                 pointerEvents: 'none',
               }}
             >
-              {[
-                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
-                  key: `hum-walk-${n}`,
-                  file: `publisher-hum-walk-${n}.png`,
-                })),
-                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
-                  key: `walk-s${n}`,
-                  file: `publisher-walk-s${n}.png`,
-                })),
-                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
-                  key: `receive-${n}`,
-                  file: `publisher-receive-${n}.png`,
-                })),
-                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
-                  key: `headset-off-${n}`,
-                  file: `publisher-headset-off-${n}.png`,
-                })),
-                ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({
-                  key: `code-focus-${n}`,
-                  file: `publisher-code-focus-${n}.png`,
-                })),
-                ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
-                  key: `complete-${n}`,
-                  file: `publisher-complete-${n}.png`,
-                })),
-              ].map((sprite) => {
-                const isCurrent = publisherSprite === sprite.key;
-                return (
-                  <img
-                    key={sprite.key}
-                    src={charImgUrl(sprite.file)}
-                    alt={`퍼블리셔 ${sprite.key}`}
-                    loading="eager"
-                    decoding="sync"
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'contain',
-                      opacity: isCurrent ? 1 : 0,
-                      transform: publisherFlipRight ? 'scaleX(-1)' : 'none',
-                      pointerEvents: 'none',
-                    }}
-                  />
-                );
-              })}
+              <CharacterSpriteCanvas
+                spriteUrl={charImgUrl(`publisher-${publisherSprite}.png`)}
+                fallbackUrl={charImgUrl('character-3-publisher.png')}
+                flipRight={publisherFlipRight}
+                alt={`퍼블리셔 ${publisherSprite}`}
+              />
             </div>
 
             {/* ★ [퍼블리셔 독립 VFX 레이어] 멜로디 음표 웨이브 · 홀로그램 코드 태그 · 완료 배지 ★ */}
