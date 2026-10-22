@@ -86,33 +86,34 @@ function getReadySpriteImage(url: string): HTMLImageElement | null {
   return null;
 }
 
-// 타임라인 등장 순서에 맞춘 순차 프리로드 목록
+// 타임라인 등장 순서에 맞춘 순차 프리로드 목록 (왜곡 없는 18종 클린 스탠딩 스프라이트만 사용)
 const CHRONOLOGICAL_SPRITE_FILES: string[] = [
-  // 0. 마스터 기본 폴백 스프라이트 (최우선)
+  // 0. 마스터 기본 폴백 스프라이트
   'character-1-planner.png',
   'character-2-designer.png',
   'character-3-publisher.png',
-  // 1. 기획자 초반 등장 (0~26틱: peek -> think-walk)
-  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `planner-peek-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `planner-think-walk-${n}.png`),
-  // 2. 기획자 착석 설계 & 디자이너 등반 등장 (26~50틱)
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `planner-sit-sketch-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `designer-climb-${n}.png`),
-  // 3. 기획자·디자이너 보행 및 1차 핸드오프 (48~72틱)
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `designer-walk-s${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `planner-walk-s${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `planner-handoff-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `designer-receive-${n}.png`),
-  // 4. 디자이너 채색 작업 & 퍼블리셔 콧노래 등장 (72~126틱)
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `designer-paint-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `publisher-hum-walk-${n}.png`),
-  // 5. 2차 핸드오프 & 퍼블리셔 코딩/완료 (126틱 이후)
-  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `designer-handoff-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `publisher-receive-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `publisher-walk-s${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `publisher-headset-off-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `publisher-code-focus-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `publisher-complete-${n}.png`),
+  // 1. 기획자 클린 스탠딩 스프라이트
+  'planner-think-1.png',
+  'planner-sketch-1.png',
+  'planner-walk-1.png',
+  'planner-walk-2.png',
+  'planner-walk-3.png',
+  'planner-handoff.png',
+  // 2. 디자이너 클린 스탠딩 스프라이트
+  'designer-work-1.png',
+  'designer-paint-1.png',
+  'designer-walk-1.png',
+  'designer-walk-2.png',
+  'designer-walk-3.png',
+  'designer-receive-1.png',
+  'designer-handoff.png',
+  // 3. 퍼블리셔 클린 스탠딩 스프라이트
+  'publisher-code-1.png',
+  'publisher-complete.png',
+  'publisher-walk-1.png',
+  'publisher-walk-2.png',
+  'publisher-walk-3.png',
+  'publisher-receive-1.png',
 ];
 
 let preloadStarted = false;
@@ -248,454 +249,209 @@ export function SisunRenewalStoryStage() {
     return -(Math.cos(Math.PI * clamped) - 1) / 2;
   };
 
-  // 12프레임 360° 스켈레탈 교차 보행 사이클 (100ms(10fps)마다 한 프레임씩 깜빡임 없이 전환)
-  const getWalkSubSprite = (st: number, offset: number) =>
-    `walk-s${(Math.floor((st + offset) / 2) % 12) + 1}`;
+  // 클린 3프레임 스탠딩 보행 사이클 (메시 워핑이 전혀 없는 원본 walk-1 -> walk-2 -> walk-3 -> walk-2 교차)
+  const WALK_CYCLE_FRAMES = ['walk-1', 'walk-2', 'walk-3', 'walk-2'] as const;
+  const getCleanWalkSprite = (st: number, offset: number): string => {
+    const idx = Math.floor((st + offset) / 3) % WALK_CYCLE_FRAMES.length;
+    return WALK_CYCLE_FRAMES[idx];
+  };
 
-  // 12프레임 360° 스켈레탈 메인 액션 사이클 (1 -> 2 -> ... -> 12 -> 1)
-  const getWorkSubFrame = (st: number, offset: number) =>
-    (Math.floor((st + offset) / 2) % 12) + 1;
-
-  // 8프레임 360° 스켈레탈 인터랙션 사이클 (1 -> 2 -> ... -> 8 -> 1)
-  const getInteractSubFrame = (st: number, offset: number) =>
-    (Math.floor((st + offset) / 2) % 8) + 1;
-
-  // 12프레임 왼발·오른발 교차 주기(F1·F7 착지, F4·F10 교차 정점)와 1:1 동기화된 보행·호흡 물리
+  // 어색한 꿀렁임(scaleX/scaleY 스쿼시·스트레치 및 회전 흔들림)을 완전히 제거한 정밀 수직 호흡·보행 모션
   const getCharacterMotion = (
     isWalking: boolean,
     st: number,
-    phaseOffset: number,
-    walkDir: -1 | 0 | 1 = 0
+    phaseOffset: number
   ) => {
     if (isWalking) {
-      const cyclePos = ((st + phaseOffset) / 2) % 12;
-      const stepPhase = (cyclePos / 6) * Math.PI;
-      const arch = Math.abs(Math.sin(stepPhase)); // F1(0)·F7(6) 착지(0), F4(3)·F10(9) 다리 교차 정점(1)
-      const bounceY = -arch * 3.2;
-      const squash = Math.cos(stepPhase * 2) * 0.009;
-      const scaleX = 1 - squash * 0.7;
-      const scaleY = 1 + squash;
-      const velocityLean = walkDir * 1.0;
-      const stepSway = Math.cos(stepPhase) * 0.8;
-      const rotateDeg = velocityLean + stepSway;
-      const shadowScale = 1 - arch * 0.07;
-      return { bounceY, scaleX, scaleY, rotateDeg, shadowScale };
-    } else {
-      const phase = (st + phaseOffset) * 0.24;
-      const bounceY = Math.sin(phase) * 1.1 - 0.5;
-      const squash = Math.sin(phase) * 0.005;
-      const scaleX = 1 - squash * 0.6;
-      const scaleY = 1 + squash;
-      const rotateDeg = Math.sin(phase * 0.7) * 0.5;
-      const shadowScale = 1 + Math.sin(phase) * 0.02;
-      return { bounceY, scaleX, scaleY, rotateDeg, shadowScale };
+      const stepPhase = (((st + phaseOffset) % 6) / 6) * Math.PI;
+      const arch = Math.abs(Math.sin(stepPhase));
+      const bounceY = -Math.round(arch * 2.5 * 2) / 2;
+      const shadowScale = Number((1 - arch * 0.04).toFixed(3));
+      return { bounceY, scaleX: 1, scaleY: 1, rotateDeg: 0, shadowScale };
     }
+    const breath = (Math.sin((st + phaseOffset) * 0.18) + 1) / 2;
+    const bounceY = -Math.round(breath * 1.5 * 2) / 2;
+    const shadowScale = Number((1 - breath * 0.02).toFixed(3));
+    return { bounceY, scaleX: 1, scaleY: 1, rotateDeg: 0, shadowScale };
   };
 
   // =========================================================================
-  // ★ [순차 등장 + 끊김 없는 88틱 무한 릴레이 협업 아키텍처] ★
+  // ★ [3인 전원 서있는 자세(Standing) 통일 + 왜곡 없는 120틱(12초) 파이프라인 협업 루프] ★
+  // - Stage 1 (0 ~ 32틱)  : [기획] 기획자가 서서 구조 구상(think-1) 및 화면설계서 스케치(sketch-1)
+  // - Stage 2 (32 ~ 50틱) : [1차 핸드오프] 기획자·디자이너 마중 이동 -> 기획자 전달(38~42) -> 디자이너 수령(42~46) -> 복귀
+  // - Stage 3 (50 ~ 78틱) : [디자인] 디자이너가 서서 UI 컬러 시안 채색(paint-1) 및 팔레트 점검(work-1)
+  // - Stage 4 (78 ~ 96틱) : [2차 핸드오프] 디자이너·퍼블리셔 마중 이동 -> 디자이너 전달(84~88) -> 퍼블리셔 수령(88~92) -> 복귀
+  // - Stage 5 (96 ~ 120틱): [퍼블리싱] 퍼블리셔가 헤드셋을 착용한 채 코딩(code-1, 96~112) 및 빌드 완료 환호(complete, 112~120)
   // =========================================================================
+  const loopTick = tick % 120;
+  const isFirstCycle = tick < 120;
+
   const plannerVisible = true;
-  const isPlannerIntro = tick < 72;
-  const pLoop = isPlannerIntro ? 0 : (tick - 72) % 88;
+  const designerVisible = true;
+  const publisherVisible = true;
 
-  // 초기 진입 시 0~6틱에 부드럽게 고개를 내밀고 멈춤 없이 바로 6~26틱 동안 걸어 들어오도록 연결
-  const isPlannerPeek = isPlannerIntro && tick < 6;
-  const isPlannerThinkWalkRight = isPlannerIntro && tick >= 6 && tick < 26;
-  const isPlannerThinkWalkLeft = !isPlannerIntro && pLoop < 14;
-  const isPlannerThinkWalk = isPlannerThinkWalkRight || isPlannerThinkWalkLeft;
+  // ---------------- 1) 기획자 (Planner · 전원 서있는 자세 통일) ----------------
+  const isPlannerWalkToDesigner = loopTick >= 32 && loopTick < 38;
+  const isPlannerGiveBlueprint = loopTick >= 38 && loopTick < 42;
+  const isPlannerAfterGiveWait = loopTick >= 42 && loopTick < 46;
+  const isPlannerWalkBack = loopTick >= 46 && loopTick < 50;
+  const isPlannerWalking = isPlannerWalkToDesigner || isPlannerWalkBack;
 
-  const isPlannerSitSketch =
-    (isPlannerIntro && tick >= 26 && tick < 50) || (!isPlannerIntro && pLoop >= 14 && pLoop < 66);
-  const sitElapsed = isPlannerIntro ? tick - 26 : pLoop - 14;
-  const sitDuration = isPlannerIntro ? 24 : 52;
+  const plannerLeft: number = isPlannerWalkToDesigner
+    ? 10.5 + easeInOut((loopTick - 32) / 6) * 13.0 // 10.5% -> 23.5%
+    : isPlannerGiveBlueprint || isPlannerAfterGiveWait
+    ? 23.5
+    : isPlannerWalkBack
+    ? 23.5 - easeInOut((loopTick - 46) / 4) * 13.0 // 23.5% -> 10.5%
+    : 10.5;
 
-  const isPlannerWalkToDesigner =
-    (isPlannerIntro && tick >= 50 && tick < 60) || (!isPlannerIntro && pLoop >= 66 && pLoop < 76);
-  const isPlannerHandoff = !isPlannerPeek && !isPlannerThinkWalk && !isPlannerSitSketch && !isPlannerWalkToDesigner;
-  const isPlannerWalking = isPlannerThinkWalk || isPlannerWalkToDesigner;
-  const plannerWalkDir: -1 | 0 | 1 =
-    isPlannerThinkWalkRight || isPlannerWalkToDesigner ? 1 : isPlannerThinkWalkLeft ? -1 : 0;
-  const basePlannerMotion = getCharacterMotion(isPlannerWalking, subTick, 0, plannerWalkDir);
+  const plannerSprite: string = isPlannerWalking
+    ? getCleanWalkSprite(subTick, 0)
+    : isPlannerGiveBlueprint
+    ? 'handoff' // planner-handoff.png (원본 자체가 우측을 향해 두 손으로 설계도를 건네는 클린 포즈)
+    : isPlannerAfterGiveWait
+    ? 'walk-2' // 디자이너가 설계도를 수령하는 동안 마주보며 미소
+    : loopTick < 10
+    ? 'think-1' // 서서 IA/구조 구상
+    : loopTick < 32
+    ? 'sketch-1' // 서서 태블릿에 화면설계서(SB) 작성
+    : Math.floor(loopTick / 12) % 2 === 0
+    ? 'sketch-1'
+    : 'walk-2';
 
-  const getPlannerSpecialMotion = () => {
-    if (isPlannerPeek) {
-      // 0~6틱: 시작과 끝(tick=6)에서 모두 0으로 수렴하는 종 모양(Bell Curve) 보간으로 포즈 전환 시 각도 점프 원천 차단
-      const peekBell = Math.sin((tick / 6) * Math.PI); // 0 -> 1 -> 0
-      return {
-        bounceY: -peekBell * 2.4,
-        scaleX: 1 + peekBell * 0.01,
-        scaleY: 1 - peekBell * 0.01,
-        rotateDeg: peekBell * 4.5,
-        shadowScale: 0.94,
-      };
-    }
-    if (isPlannerThinkWalk) {
-      // 고민하며 걷기: 보행 시작/종료 경계에서 바운스와 기울기가 0으로 부드럽게 감쇠되어 착석과 매끄럽게 직결
-      const walkProgress = isPlannerThinkWalkRight ? (tick - 6) / 20 : pLoop / 14;
-      const walkEnv = Math.sin(Math.max(0, Math.min(1, walkProgress)) * Math.PI);
-      const thinkTilt = Math.sin(subTick * 0.28) * 1.4 * walkEnv;
-      return {
-        bounceY: basePlannerMotion.bounceY * (0.35 + 0.65 * walkEnv),
-        scaleX: 1 + (basePlannerMotion.scaleX - 1) * walkEnv,
-        scaleY: 1 + (basePlannerMotion.scaleY - 1) * walkEnv,
-        rotateDeg: basePlannerMotion.rotateDeg * 0.6 * walkEnv + thinkTilt,
-        shadowScale: basePlannerMotion.shadowScale,
-      };
-    }
-    if (isPlannerSitSketch) {
-      // 바닥 착석 스케치: 처음 2.5틱 동안 부드럽게 바닥에 내려앉고, 마지막 2.5틱 동안 부드럽게 일어남 (단절 점프 없음)
-      const sitIn = easeInOut(Math.min(1, sitElapsed / 2.5));
-      const sitOut = easeInOut(Math.min(1, (sitDuration - sitElapsed) / 2.5));
-      const sitEnv = sitIn * sitOut;
-      const sketchBob = Math.sin(subTick * 0.42) * 1.3 * sitEnv;
-      const sketchTilt = Math.sin(subTick * 0.28) * 1.0 * sitEnv;
-      return {
-        bounceY: 4.5 * sitEnv + sketchBob,
-        scaleX: 1 + 0.012 * sitEnv - Math.sin(subTick * 0.42) * 0.005 * sitEnv,
-        scaleY: 1 - 0.012 * sitEnv + Math.sin(subTick * 0.42) * 0.005 * sitEnv,
-        rotateDeg: sketchTilt,
-        shadowScale: 1 + 0.08 * sitEnv,
-      };
-    }
-    if (isPlannerHandoff) {
-      const handoffWave = Math.sin(subTick * 0.45);
-      return {
-        bounceY: -Math.abs(handoffWave) * 2.6,
-        scaleX: 1 - handoffWave * 0.008,
-        scaleY: 1 + handoffWave * 0.008,
-        rotateDeg: 1.4 + handoffWave * 1.1,
-        shadowScale: 1 - Math.abs(handoffWave) * 0.04,
-      };
-    }
-    return basePlannerMotion;
-  };
+  // planner-handoff.png는 원본이 이미 우측 방향이므로 flipRight = false 유지,
+  // walk-* 스프라이트는 원본이 좌측 방향이므로 우측 이동/대기 시에만 flipRight = true
+  const plannerFlipRight: boolean = isPlannerWalkToDesigner || isPlannerAfterGiveWait;
+  const plannerMotion = getCharacterMotion(isPlannerWalking, subTick, 0);
 
-  const plannerMotion = getPlannerSpecialMotion();
-
-  const getPlannerLeft = (): number => {
-    if (isPlannerIntro) {
-      // 0~26틱 전체를 하나의 단일 연속 곡선(-4.5% -> 9.5%)으로 이동하여 중간에 멈칫거리거나 끊기는 현상 완벽 제거!
-      if (tick < 26) return -4.5 + easeInOut(tick / 26) * 14.0;
-      if (tick < 50) return 9.5; // 바닥에 앉아 첫 설계
-      if (tick < 60) return 9.5 + easeInOut((tick - 50) / 10) * 14.0; // 9.5% -> 23.5%(디자이너에게 밀착 이동)
-      return 23.5; // 60~72: 첫 산출물 전달
-    }
-    if (pLoop < 14) return 23.5 - easeInOut(pLoop / 14) * 14.0; // 23.5% -> 9.5%(왼쪽으로 고민하며 걸어감)
-    if (pLoop < 66) return 9.5; // 바닥에 앉아 새로운 설계
-    if (pLoop < 76) return 9.5 + easeInOut((pLoop - 66) / 10) * 14.0; // 9.5% -> 23.5%(디자이너에게 밀착 이동)
-    return 23.5; // 76~88: 디자이너에게 새로운 산출물 전달
-  };
-
-  const plannerLeft = getPlannerLeft();
-
-  const plannerSprite: string = isPlannerPeek
-    ? `peek-${getInteractSubFrame(subTick, 0)}`
-    : isPlannerThinkWalk
-    ? `think-walk-${getWorkSubFrame(subTick, 0)}`
-    : isPlannerSitSketch
-    ? `sit-sketch-${getWorkSubFrame(subTick, 0)}`
-    : isPlannerWalkToDesigner
-    ? getWalkSubSprite(subTick, 0)
-    : `handoff-${getInteractSubFrame(subTick, 0)}`;
-
-  // 우측을 바라봐야 하는 구간: 빼꼼 등장(0~12), 초기 우측으로 고민하며 걸어올 때(12~26), 디자이너에게 다가갈 때
-  // (산출물 전달 후 왼쪽으로 고민하며 돌아갈 때(isPlannerThinkWalkLeft)는 plannerFlipRight = false가 되어 자연스럽게 왼쪽을 보며 고민하며 걸어감!)
-  const plannerFlipRight = isPlannerPeek || isPlannerThinkWalkRight || isPlannerWalkToDesigner;
-
-  // 좌측 칠판(Zone 1: 기획자 머리 위) 진행률 및 새 사이클 전환 시 부드러운 지우개 페이드
-  const isPlannerErasing = !isPlannerIntro && pLoop < 10;
+  const isPlannerErasing = !isFirstCycle && loopTick < 6;
   const plannerBoardFade = isPlannerErasing
-    ? 0.25 + 0.75 * Math.abs(Math.cos((pLoop / 10) * Math.PI))
+    ? 0.3 + 0.7 * Math.abs(Math.cos((loopTick / 6) * Math.PI))
     : 1;
-  const plannerBoardProgress = isPlannerIntro
-    ? tick < 12
-      ? Math.round((tick / 12) * 12)
-      : tick < 26
-      ? Math.round(12 + ((tick - 12) / 14) * 28)
-      : tick < 50
-      ? Math.min(100, Math.round(40 + ((tick - 26) / 22) * 60))
-      : 100
-    : pLoop < 5
-    ? 100 // 지우개가 스윽 지나가는 전반부 동안 이전 도면이 부드럽게 페이드아웃
-    : pLoop < 14
-    ? Math.round(((pLoop - 5) / 9) * 32)
-    : pLoop < 66
-    ? Math.min(100, Math.round(32 + ((pLoop - 14) / 46) * 68))
-    : 100;
+  const plannerBoardProgress: number =
+    loopTick < 3 && !isFirstCycle
+      ? 100
+      : loopTick < 32
+      ? Math.min(100, Math.round((loopTick / 30) * 100))
+      : 100;
 
-  // =========================================================================
-  // 2) 캐릭터 2 · 디자이너 (기획자가 설계 중인 28틱에 등장 후 화면에서 사라지지 않고 무한 협업 루프!)
-  //    [최초 등장 (0 ~ 60틱)]
-  //      - 0 ~ 28: 무대 아래에서 대기 (기획자가 먼저 등장해 설계를 시작할 때까지 대기)
-  //      - 28 ~ 48: 기획자가 한창 설계 중인 타이밍에 뒤돌은 상태로 밑에서부터 기어올라오듯 등장 (climb-1..12)
-  //      - 48 ~ 60: 올라와서 좌측 기획자 쪽(32.5%)으로 다가가기 (walk-s1..s12, 41.5% -> 32.5%)
-  //    [연속 루프 (60틱 이후, 88틱 주기: dLoop = (tick - 60) % 88)]
-  //      - 0 ~ 12 (12틱): [1차 핸드오프 밀착!] 기획자(23.5%)가 건네주는 설계도를 바로 앞에서 전달받음 (receive-1..8, 32.5%)
-  //      - 12 ~ 18 (6틱): 전달받은 설계도를 들고 중앙 작업 위치(41.5%)로 이동 (walk-s1..s12, 32.5% -> 41.5%)
-  //      - 18 ~ 58 (40틱): 전달받은 설계 도면에 직접 알록달록 색칠(디자인) 진행 (paint-1..12, 41.5%)
-  //      - 58 ~ 66 (8틱): 완료되면 우측 퍼블리셔 쪽(51.5%)으로 가까이 다가가기 (walk-s1..s12, 41.5% -> 51.5%)
-  //      - 66 ~ 78 (12틱): [2차 핸드오프 밀착!] 퍼블리셔(60.5%)에게 완성된 디자인 산출물 전달 (handoff-1..8, 51.5%)
-  //      - 78 ~ 88 (10틱): 사라지지 않고 다시 왼쪽(51.5% -> 32.5%)으로 걸어가 기획자의 새 산출물 맞이 준비! -> 0틱(수령) 직결
-  // =========================================================================
-  const isDesignerIntro = tick < 60;
-  const dLoop = isDesignerIntro ? -1 : (tick - 60) % 88;
-
-  const designerVisible = tick >= 28;
-  const isDesignerClimbing = isDesignerIntro && tick >= 28 && tick < 48;
-  const isDesignerWalkToPlanner =
-    (isDesignerIntro && tick >= 48 && tick < 60) || (!isDesignerIntro && dLoop >= 78);
-  const isDesignerReceiving = !isDesignerIntro && dLoop >= 0 && dLoop < 12;
-  const isDesignerWalkToCenter = !isDesignerIntro && dLoop >= 12 && dLoop < 18;
-  const isDesignerPainting = !isDesignerIntro && dLoop >= 18 && dLoop < 58;
-  const isDesignerWalkToPublisher = !isDesignerIntro && dLoop >= 58 && dLoop < 66;
-  const isDesignerHandoff = !isDesignerIntro && dLoop >= 66 && dLoop < 78;
+  // ---------------- 2) 디자이너 (Designer · 산출물 교차 수령/전달 정밀 동기화) ----------------
+  const isDesignerWalkToPlanner = loopTick >= 32 && loopTick < 38;
+  const isDesignerWaitBlueprint = loopTick >= 38 && loopTick < 42;
+  const isDesignerReceiveBlueprint = loopTick >= 42 && loopTick < 46;
+  const isDesignerWalkToCenter = loopTick >= 46 && loopTick < 50;
+  const isDesignerDesigning = loopTick >= 50 && loopTick < 78;
+  const isDesignerWalkToPublisher = loopTick >= 78 && loopTick < 84;
+  const isDesignerGiveDesign = loopTick >= 84 && loopTick < 88;
+  const isDesignerAfterGiveWait = loopTick >= 88 && loopTick < 92;
+  const isDesignerWalkBackCenter = loopTick >= 92 && loopTick < 96;
 
   const isDesignerWalking =
-    isDesignerWalkToPlanner || isDesignerWalkToCenter || isDesignerWalkToPublisher;
-  const designerWalkDir: -1 | 0 | 1 = isDesignerWalkToPlanner
-    ? -1
-    : isDesignerWalkToCenter || isDesignerWalkToPublisher
-    ? 1
-    : 0;
-  const baseDesignerMotion = getCharacterMotion(isDesignerWalking, subTick, 7, designerWalkDir);
+    isDesignerWalkToPlanner ||
+    isDesignerWalkToCenter ||
+    isDesignerWalkToPublisher ||
+    isDesignerWalkBackCenter;
 
-  // 디자이너 특수 모션: 과도한 흔들거림이나 단절 점프 없이 60fps 연속 사인파로 부드럽게 이어지는 클라이밍·색칠·핸드오프
-  const getDesignerSpecialMotion = () => {
-    if (!designerVisible) {
-      return { bounceY: 220, scaleX: 1, scaleY: 1, rotateDeg: 0, shadowScale: 0 };
-    }
-    if (isDesignerClimbing) {
-      const climbProgress = easeInOut((tick - 28) / 20); // 0.0 -> 1.0
-      const climbEnv = 1 - climbProgress;
-      const climbY = climbEnv * 155;
-      const stepLift = Math.sin(subTick * 0.45) * -2.6 * climbEnv;
-      const swayDeg = Math.sin(subTick * 0.35) * 1.4 * climbEnv;
-      const stretch = Math.sin(subTick * 0.45) * 0.01 * climbEnv;
-      return {
-        bounceY: climbY + stepLift,
-        scaleX: 1 - stretch * 0.7,
-        scaleY: 1 + stretch,
-        rotateDeg: swayDeg,
-        shadowScale: Math.max(0.2, climbProgress * 0.96),
-      };
-    }
-    if (isDesignerPainting) {
-      const paintWave = Math.sin(subTick * 0.42);
-      const bodySwayDeg = Math.cos(subTick * 0.32) * 1.2;
-      const squash = paintWave * 0.008;
-      return {
-        bounceY: paintWave * 1.4 - 0.8,
-        scaleX: 1 - squash * 0.7,
-        scaleY: 1 + squash,
-        rotateDeg: bodySwayDeg,
-        shadowScale: 1 - Math.abs(paintWave) * 0.02,
-      };
-    }
-    if (isDesignerReceiving || isDesignerHandoff) {
-      const bowWave = Math.sin(subTick * 0.45);
-      const dirSign = isDesignerHandoff ? 1 : -1;
-      return {
-        bounceY: -Math.abs(bowWave) * 2.6,
-        scaleX: 1 - bowWave * 0.008,
-        scaleY: 1 + bowWave * 0.008,
-        rotateDeg: dirSign * (1.2 + Math.abs(bowWave) * 1.1),
-        shadowScale: 1 - Math.abs(bowWave) * 0.04,
-      };
-    }
-    return baseDesignerMotion;
-  };
+  const designerLeft: number = isDesignerWalkToPlanner
+    ? 41.5 - easeInOut((loopTick - 32) / 6) * 9.0 // 41.5% -> 32.5%
+    : isDesignerWaitBlueprint || isDesignerReceiveBlueprint
+    ? 32.5
+    : isDesignerWalkToCenter
+    ? 32.5 + easeInOut((loopTick - 46) / 4) * 9.0 // 32.5% -> 41.5%
+    : isDesignerWalkToPublisher
+    ? 41.5 + easeInOut((loopTick - 78) / 6) * 10.0 // 41.5% -> 51.5%
+    : isDesignerGiveDesign || isDesignerAfterGiveWait
+    ? 51.5
+    : isDesignerWalkBackCenter
+    ? 51.5 - easeInOut((loopTick - 92) / 4) * 10.0 // 51.5% -> 41.5%
+    : 41.5;
 
-  const designerMotion = getDesignerSpecialMotion();
+  const designerSprite: string = isDesignerWalking
+    ? getCleanWalkSprite(subTick, 4)
+    : isDesignerWaitBlueprint
+    ? 'walk-2' // 기획자가 설계도를 건네는 순간 마주보며 대기
+    : isDesignerReceiveBlueprint
+    ? 'receive-1' // 왜곡 없는 클린 설계도 수령 포즈 (designer-receive-1.png)
+    : isDesignerDesigning
+    ? loopTick < 68
+      ? 'paint-1' // 왜곡 없는 클린 UI 시안 채색 포즈 (designer-paint-1.png)
+      : 'work-1' // 팔레트 & 스타일러스 점검 포즈 (designer-work-1.png)
+    : isDesignerGiveDesign
+    ? 'handoff' // 왜곡 없는 클린 디자인 시안 전달 포즈 (designer-handoff.png)
+    : isDesignerAfterGiveWait
+    ? 'walk-2' // 퍼블리셔가 시안을 수령하는 동안 마주보며 미소
+    : 'work-1';
 
-  const getDesignerLeft = (): number => {
-    if (isDesignerIntro) {
-      if (tick < 48) return 41.5; // 중앙 아래에서 기어올라옴
-      return 41.5 - easeInOut((tick - 48) / 12) * 9.0; // 41.5% -> 32.5%(기획자 마중 밀착)
-    }
-    if (dLoop < 12) return 32.5; // 32.5% 기획자(23.5%)와 9.0% 간격으로 밀착해 설계도 수령!
-    if (dLoop < 18) return 32.5 + easeInOut((dLoop - 12) / 6) * 9.0; // 32.5% -> 41.5%
-    if (dLoop < 58) return 41.5; // 받은 설계도에 색칠하기
-    if (dLoop < 66) return 41.5 + easeInOut((dLoop - 58) / 8) * 10.0; // 41.5% -> 51.5%(퍼블리셔에게 밀착 이동)
-    if (dLoop < 78) return 51.5; // 51.5% 퍼블리셔(60.5%)와 9.0% 간격으로 밀착해 디자인 전달!
-    return 51.5 - easeInOut((dLoop - 78) / 10) * 19.0; // 51.5% -> 32.5%(다시 왼쪽으로 걸어가 기획자의 새 산출물 받기!)
-  };
+  // 우측으로 걸어갈 때(32.5->41.5, 41.5->51.5) 및 우측 퍼블리셔에게 산출물 전달/대기할 때 우측 반전
+  const designerFlipRight: boolean =
+    isDesignerWalkToCenter ||
+    isDesignerWalkToPublisher ||
+    isDesignerGiveDesign ||
+    isDesignerAfterGiveWait;
+  const designerMotion = getCharacterMotion(isDesignerWalking, subTick, 7);
 
-  const designerLeft = getDesignerLeft();
-
-  const designerSprite: string = !designerVisible
-    ? 'climb-1'
-    : isDesignerClimbing
-    ? `climb-${getWorkSubFrame(subTick, 2)}`
-    : isDesignerWalking
-    ? getWalkSubSprite(subTick, 5)
-    : isDesignerReceiving
-    ? `receive-${getInteractSubFrame(subTick, 3)}`
-    : isDesignerPainting
-    ? `paint-${getWorkSubFrame(subTick, 3)}`
-    : `handoff-${getInteractSubFrame(subTick, 3)}`;
-
-  // 우측으로 이동할 때(32.5->41.5, 41.5->51.5) 또는 우측 퍼블리셔에게 산출물을 건넬 때만 우측 방향 반전
-  const designerFlipRight =
-    isDesignerWalkToCenter || isDesignerWalkToPublisher || isDesignerHandoff;
-
-  // 중앙 칠판(Zone 2: 디자이너 머리 위) 진행률 및 새 사이클 전환 시 부드러운 지우개 페이드
-  const isFirstDesignerLoop = !isDesignerIntro && tick < 148;
-  const isDesignerErasing = !isDesignerIntro && !isFirstDesignerLoop && dLoop < 10;
+  const isDesignerErasing = !isFirstCycle && loopTick >= 46 && loopTick < 52;
   const designerBoardFade = isDesignerErasing
-    ? 0.25 + 0.75 * Math.abs(Math.cos((dLoop / 10) * Math.PI))
+    ? 0.3 + 0.7 * Math.abs(Math.cos(((loopTick - 46) / 6) * Math.PI))
     : 1;
-  const designerBoardProgress = isDesignerIntro
-    ? 0
-    : dLoop < 5
-    ? isFirstDesignerLoop
+  const designerBoardProgress: number =
+    loopTick < 49
+      ? isFirstCycle
+        ? 0
+        : 100
+      : loopTick < 50
       ? 0
-      : 100 // 2번째 루프부터는 지우개가 지나가는 전반부 동안 이전 컬러 시안이 부드럽게 페이드아웃
-    : dLoop < 12
-    ? 0
-    : dLoop < 18
-    ? Math.round(((dLoop - 12) / 6) * 18)
-    : dLoop < 58
-    ? Math.min(100, Math.round(18 + ((dLoop - 18) / 36) * 82))
-    : 100;
+      : loopTick < 78
+      ? Math.min(100, Math.round(((loopTick - 50) / 26) * 100))
+      : 100;
 
-  // =========================================================================
-  // 3) 캐릭터 3 · 퍼블리셔 (디자이너가 디자인 중인 94틱에 등장 후 화면에서 사라지지 않고 무한 협업 루프!)
-  // =========================================================================
-  const isPubIntro = tick < 126;
-  const pubLoop = isPubIntro ? -1 : (tick - 126) % 88;
+  // ---------------- 3) 퍼블리셔 (Publisher · 헤드셋 탈착 왜곡 제거 & 클린 코딩) ----------------
+  const isPubWalkToDesigner = loopTick >= 78 && loopTick < 84;
+  const isPubWaitDesign = loopTick >= 84 && loopTick < 88;
+  const isPubReceiveDesign = loopTick >= 88 && loopTick < 92;
+  const isPubWalkToDesk = loopTick >= 92 && loopTick < 96;
+  const isPubCoding = loopTick >= 96 && loopTick < 112;
+  const isPubCelebrating = loopTick >= 112;
 
-  const publisherVisible = tick >= 94;
-  const isPubWalkToDesigner = !isPubIntro && pubLoop >= 78;
-  // 최초 등장할 때(94~126)뿐 아니라, 완료 후 새 산출물을 받으러 왼쪽으로 걸어갈 때(pubLoop >= 78)도 헤드셋을 끼고 흥얼거리며 이동!
-  const isPubHumWalk = (isPubIntro && tick >= 94 && tick < 126) || isPubWalkToDesigner;
-  const isPubReceive = !isPubIntro && pubLoop >= 0 && pubLoop < 12;
-  const isPubWalkToDesk = !isPubIntro && pubLoop >= 12 && pubLoop < 18;
-  const isPubHeadsetOff = !isPubIntro && pubLoop >= 18 && pubLoop < 28;
-  const isPubCodingNoHeadset = !isPubIntro && pubLoop >= 28 && pubLoop < 66;
-  const isPubCelebrating = !isPubIntro && pubLoop >= 66 && pubLoop < 78;
+  const isPublisherWalking = isPubWalkToDesigner || isPubWalkToDesk;
 
-  const isPublisherWalking = isPubHumWalk || isPubWalkToDesk;
-  const pubWalkDir: -1 | 0 | 1 = isPubWalkToDesk ? 1 : isPubHumWalk ? -1 : 0;
-  const basePublisherMotion = getCharacterMotion(isPublisherWalking, subTick, 13, pubWalkDir);
-
-  // 퍼블리셔 특수 모션: 과도한 흔들림 없이 리드미컬하고 부드럽게 이어지는 콧노래 걸음·헤드셋 탈착·코딩·완료 모션
-  const getPublisherSpecialMotion = () => {
-    if (isPubHumWalk) {
-      const stepPhase = (((subTick + 3) % 6) / 6) * Math.PI;
-      const grooveArch = Math.sin(stepPhase);
-      const bounceY = -grooveArch * 4.0;
-      const swayDeg = Math.sin(subTick * 0.36) * 1.4 - 0.8;
-      const squash = Math.cos(stepPhase * 2) * 0.011;
-      return {
-        bounceY,
-        scaleX: 1 - squash * 0.7,
-        scaleY: 1 + squash,
-        rotateDeg: swayDeg,
-        shadowScale: 1 - grooveArch * 0.08,
-      };
-    }
-    if (isPubReceive) {
-      const bowWave = Math.sin(subTick * 0.45);
-      return {
-        bounceY: -Math.abs(bowWave) * 2.6,
-        scaleX: 1 - bowWave * 0.008,
-        scaleY: 1 + bowWave * 0.008,
-        rotateDeg: -1.2 - Math.abs(bowWave) * 1.1,
-        shadowScale: 1 - Math.abs(bowWave) * 0.04,
-      };
-    }
-    if (isPubHeadsetOff) {
-      const t = Math.max(0, Math.min(1, (pubLoop - 18) / 10));
-      const liftY = -Math.sin(t * Math.PI) * 2.8;
-      return {
-        bounceY: liftY,
-        scaleX: 1 - liftY * 0.003,
-        scaleY: 1 + liftY * 0.003,
-        rotateDeg: Math.sin(t * Math.PI * 2) * 1.1,
-        shadowScale: 1,
-      };
-    }
-    if (isPubCodingNoHeadset) {
-      const codeWave = Math.sin(subTick * 0.55);
-      const tiltWave = Math.sin(subTick * 0.32) * 0.85;
-      return {
-        bounceY: codeWave * 1.1 - 0.6,
-        scaleX: 1 - codeWave * 0.006,
-        scaleY: 1 + codeWave * 0.006,
-        rotateDeg: tiltWave,
-        shadowScale: 1.01,
-      };
-    }
-    if (isPubCelebrating) {
-      const celPhase = ((pubLoop - 66) / 6) * Math.PI;
-      const jumpArch = Math.abs(Math.sin(celPhase));
-      const jumpY = -jumpArch * 5.2;
-      const stretch = Math.cos(celPhase * 2) * -0.012;
-      return {
-        bounceY: jumpY,
-        scaleX: 1 - stretch * 0.7,
-        scaleY: 1 + stretch,
-        rotateDeg: Math.sin(celPhase) * 1.4,
-        shadowScale: Math.max(0.82, 1 - jumpArch * 0.12),
-      };
-    }
-    return basePublisherMotion;
-  };
-
-  const publisherMotion = getPublisherSpecialMotion();
-
-  const getPublisherLeft = (): number => {
-    if (isPubIntro) {
-      if (tick < 94) return 92.0; // 우측 화면 밖 대기
-      return 92.0 - easeInOut((tick - 94) / 32) * 31.5; // 92.0%(우측 끝) -> 60.5%(디자이너 앞으로 흥얼거리며 밀착 등장)
-    }
-    if (pubLoop < 12) return 60.5; // 60.5% 디자이너(51.5%)와 9.0% 간격으로 밀착해 디자인 산출물 수령!
-    if (pubLoop < 18) return 60.5 + easeInOut((pubLoop - 12) / 6) * 12.5; // 60.5% -> 73.0%(Zone 3 중앙)
-    if (pubLoop < 78) return 73.0; // 헤드셋 벗고 코딩 & 완료
-    return 73.0 - easeInOut((pubLoop - 78) / 10) * 12.5; // 73.0% -> 60.5%(헤드셋 끼고 흥얼거리며 디자이너의 새 산출물 받으러 이동!)
-  };
-
-  const publisherLeft = getPublisherLeft();
-
-  const publisherSprite: string = !publisherVisible
-    ? 'hum-walk-1'
-    : isPubHumWalk
-    ? `hum-walk-${getWorkSubFrame(subTick, 4)}`
-    : isPubReceive
-    ? `receive-${getInteractSubFrame(subTick, 7)}`
+  const publisherLeft: number = isPubWalkToDesigner
+    ? 73.0 - easeInOut((loopTick - 78) / 6) * 12.5 // 73.0% -> 60.5%
+    : isPubWaitDesign || isPubReceiveDesign
+    ? 60.5
     : isPubWalkToDesk
-    ? getWalkSubSprite(subTick, 11)
-    : isPubHeadsetOff
-    ? `headset-off-${getInteractSubFrame(subTick, 5)}`
-    : isPubCodingNoHeadset
-    ? `code-focus-${getWorkSubFrame(subTick, 7)}`
-    : `complete-${getInteractSubFrame(subTick, 7)}`;
+    ? 60.5 + easeInOut((loopTick - 92) / 4) * 12.5 // 60.5% -> 73.0%
+    : 73.0;
 
-  // 우측 작업석(60.5% -> 73.0%)으로 이동할 때만 우측 방향 반전 (흥얼거리며 왼쪽으로 이동·수령할 때는 왼쪽을 바라봄)
-  const publisherFlipRight = isPubWalkToDesk;
+  const publisherSprite: string = isPublisherWalking
+    ? getCleanWalkSprite(subTick, 8)
+    : isPubWaitDesign
+    ? 'walk-2' // 디자이너가 시안을 건네는 순간 마주보며 대기
+    : isPubReceiveDesign
+    ? 'receive-1' // 왜곡 없는 클린 디자인 시안 수령 포즈 (publisher-receive-1.png)
+    : isPubCoding
+    ? 'code-1' // 헤드셋을 착용한 채 안정적으로 타이핑하는 클린 포즈 (publisher-code-1.png)
+    : isPubCelebrating
+    ? 'complete' // 반응형 웹 빌드 완료 환호 포즈 (publisher-complete.png)
+    : 'code-1';
 
-  // 우측 칠판(Zone 3: 퍼블리셔 머리 위) 진행률 및 새 사이클 전환 시 부드러운 지우개 페이드
-  const isFirstPubLoop = !isPubIntro && tick < 214;
-  const isPublisherErasing = !isPubIntro && !isFirstPubLoop && pubLoop < 10;
+  const publisherFlipRight: boolean = isPubWalkToDesk;
+  const publisherMotion = getCharacterMotion(isPublisherWalking, subTick, 13);
+
+  const isPublisherErasing = !isFirstCycle && loopTick >= 92 && loopTick < 98;
   const publisherBoardFade = isPublisherErasing
-    ? 0.25 + 0.75 * Math.abs(Math.cos((pubLoop / 10) * Math.PI))
+    ? 0.3 + 0.7 * Math.abs(Math.cos(((loopTick - 92) / 6) * Math.PI))
     : 1;
-  const publisherBoardProgress = isPubIntro
-    ? 0
-    : pubLoop < 5
-    ? isFirstPubLoop
+  const publisherBoardProgress: number =
+    loopTick < 95
+      ? isFirstCycle
+        ? 0
+        : 100
+      : loopTick < 96
       ? 0
-      : 100 // 2번째 루프부터는 지우개가 지나가는 전반부 동안 이전 코드가 부드럽게 페이드아웃
-    : pubLoop < 12
-    ? 0
-    : pubLoop < 18
-    ? Math.round(((pubLoop - 12) / 6) * 15)
-    : pubLoop < 28
-    ? Math.round(15 + ((pubLoop - 18) / 10) * 15)
-    : pubLoop < 66
-    ? Math.min(100, Math.round(30 + ((pubLoop - 28) / 34) * 70))
-    : 100;
+      : loopTick < 112
+      ? Math.min(100, Math.round(((loopTick - 96) / 15) * 100))
+      : 100;
 
   // 60fps 동적 모션/좌표를 컨테이너 CSS Custom Properties로 동기화 (인라인 스타일 0% 원칙 준수)
   useLayoutEffect(() => {
@@ -1316,47 +1072,6 @@ export function SisunRenewalStoryStage() {
               />
             </div>
 
-            {isPlannerThinkWalk && (
-              <div className="story-vfx-layer">
-                <div
-                  className={`story-vfx-question-lg ${
-                    plannerFlipRight ? 'flip-right' : 'flip-left'
-                  }`}
-                >
-                  ?
-                </div>
-                <div
-                  className={`story-vfx-question-sm ${
-                    plannerFlipRight ? 'flip-right' : 'flip-left'
-                  }`}
-                >
-                  ?
-                </div>
-              </div>
-            )}
-
-            {isPlannerSitSketch && (
-              <div className="story-vfx-layer">
-                <svg
-                  width="50"
-                  height="50"
-                  viewBox="0 0 54 54"
-                  className="story-vfx-bulb"
-                >
-                  <g stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round">
-                    <line x1="27" y1="4" x2="27" y2="9" />
-                    <line x1="10" y1="11" x2="14" y2="15" />
-                    <line x1="44" y1="11" x2="40" y2="15" />
-                    <line x1="5" y1="26" x2="10" y2="26" />
-                    <line x1="49" y1="26" x2="44" y2="26" />
-                  </g>
-                  <circle cx="27" cy="25" r="11" fill="#fde047" stroke="#4a3525" strokeWidth="2.2" />
-                  <rect x="22" y="35" width="10" height="6" rx="2" fill="#e2e8f0" stroke="#4a3525" strokeWidth="2" />
-                  <path d="M24 27 Q27 20 30 27" fill="none" stroke="#b45309" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-              </div>
-            )}
-
             <div className="story-char-badge-wrap">
               <div className="story-char-badge story-char-badge-planner">기획자</div>
             </div>
@@ -1375,21 +1090,6 @@ export function SisunRenewalStoryStage() {
               />
             </div>
 
-            {isDesignerPainting && (
-              <div className="story-vfx-layer">
-                <svg
-                  width="44"
-                  height="44"
-                  viewBox="0 0 44 44"
-                  className="story-vfx-swatch"
-                >
-                  <rect x="10" y="8" width="10" height="24" rx="2.5" fill="#3b82f6" stroke="#4a3525" strokeWidth="1.8" transform="rotate(-18 15 28)" />
-                  <rect x="16" y="8" width="10" height="24" rx="2.5" fill="#10b981" stroke="#4a3525" strokeWidth="1.8" transform="rotate(6 21 28)" />
-                  <rect x="20" y="10" width="10" height="24" rx="2.5" fill="#8b5cf6" stroke="#4a3525" strokeWidth="1.8" transform="rotate(28 25 28)" />
-                </svg>
-              </div>
-            )}
-
             <div className="story-char-badge-wrap story-badge-wrap-designer">
               <div className="story-char-badge story-char-badge-designer">디자이너</div>
             </div>
@@ -1407,19 +1107,6 @@ export function SisunRenewalStoryStage() {
                 alt={`퍼블리셔 ${publisherSprite}`}
               />
             </div>
-
-            {isPubCodingNoHeadset && (
-              <div className="story-vfx-layer">
-                <div className="story-vfx-code-tag">{'</>'}</div>
-                <div className="story-vfx-brace-tag">{'{ }'}</div>
-              </div>
-            )}
-
-            {isPubCelebrating && (
-              <div className="story-vfx-layer">
-                <div className="story-vfx-html-badge">{'<HTML/>'}</div>
-              </div>
-            )}
 
             <div className="story-char-badge-wrap">
               <div className="story-char-badge story-char-badge-publisher">퍼블리셔</div>
