@@ -286,7 +286,7 @@ export function App() {
             <span className="nav-badge">2026</span>
           </a>
 
-          <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)', margin: '12px 6px' }} />
+          <div className="sidebar-divider" />
 
           <a
             href="#/audit"
@@ -317,33 +317,19 @@ export function App() {
 
           <div className="topbar-right">
             {isSupabaseEnabled() && (
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 10px',
-                  background: '#f0fdf4',
-                  border: '1px solid #bbf7d0',
-                  color: '#15803d',
-                  borderRadius: '9999px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                }}
-              >
-                <Database size={13} color="#16a34a" /> 클라우드 DB 연결됨 (Supabase)
+              <span className="topbar-db-badge">
+                <Database size={14} className="topbar-db-icon" /> 클라우드 DB 연결됨 (Supabase)
               </span>
             )}
-            <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              접속자: <strong style={{ color: 'var(--text-main)' }}>{currentUser.name}</strong> ({currentUser.department})
+            <span className="topbar-user-info">
+              접속자: <strong className="topbar-user-name">{currentUser.name}</strong> ({currentUser.department})
             </span>
             <button
               onClick={handleLogout}
-              className="btn btn-secondary"
-              style={{ padding: '5px 10px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+              className="btn btn-secondary topbar-logout-btn"
               title="로그아웃"
             >
-              <LogOut size={13} /> 로그아웃
+              <LogOut size={14} /> 로그아웃
             </button>
           </div>
         </header>

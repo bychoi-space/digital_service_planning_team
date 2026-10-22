@@ -52,9 +52,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
       badge: 'PILLAR 01',
       title: '시선닷컴 (sisun.com) UI/UX 전면 개편',
       subtitle: '화면설계(SB) · 비주얼 UI 디자인 · 반응형 퍼블리싱',
-      color: '#2563eb',
-      bgGradient: 'linear-gradient(135deg, rgba(37,99,235,0.05) 0%, rgba(37,99,235,0.01) 100%)',
-      borderColor: '#bfdbfe',
+      themeClass: 'pillar-theme-blue',
       description:
         '미샤(MICHAA)·잇미샤(it MICHAA)·E.B.M 브랜드 감성을 온전히 전달하도록 화면설계부터 디자인·퍼블리싱까지 전 과정을 총괄합니다.',
       pipelineSteps: [
@@ -93,9 +91,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
       badge: 'PILLAR 02',
       title: '시선닷컴 어드민(백오피스) 운영 효율화',
       subtitle: '상품·프로모션 세팅 자동화 · 운영 공수 절감',
-      color: '#059669',
-      bgGradient: 'linear-gradient(135deg, rgba(5,150,105,0.05) 0%, rgba(5,150,105,0.01) 100%)',
-      borderColor: '#a7f3d0',
+      themeClass: 'pillar-theme-emerald',
       description:
         '온라인MD·운영팀의 반복 수기 작업을 줄이고, 대량 상품 등록과 기획전 세팅을 직관적으로 처리하도록 백오피스를 개선합니다.',
       pipelineSteps: [
@@ -134,9 +130,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
       badge: 'PILLAR 03',
       title: '시선인터내셔널 이커머스 정책 & 프로세스 정의',
       subtitle: '온·오프라인 통합 정책 · 부서별 협업 R&R 표준화',
-      color: '#7c3aed',
-      bgGradient: 'linear-gradient(135deg, rgba(124,58,237,0.05) 0%, rgba(124,58,237,0.01) 100%)',
-      borderColor: '#ddd6fe',
+      themeClass: 'pillar-theme-purple',
       description:
         '브랜드 사업부·온라인몰·물류·마케팅·IT 간 업무 기준을 일원화하고 전사 이커머스 표준 운영 규정을 정립합니다.',
       pipelineSteps: [
@@ -179,7 +173,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
       name: '토스 디자인 (Toss Product & Design)',
       url: 'https://toss.design',
       tag: '국내 최고 인터랙션',
-      logoColor: '#3182f6',
+      tagClass: 'benchmark-tag-toss',
       summary: '복잡한 금융과 쇼핑 UX를 극도로 단순화하고, 모션과 마이크로 인터랙션으로 사용자를 몰입시키는 기획 체계',
       benchmarkingPoints: [
         '기획자(PO/서비스기획)와 디자이너가 단일 화면설계 시스템(TDS)으로 협업',
@@ -192,7 +186,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
       name: '쇼피파이 폴라리스 (Shopify Polaris)',
       url: 'https://polaris.shopify.com',
       tag: '글로벌 이커머스 & 어드민 표준',
-      logoColor: '#008060',
+      tagClass: 'benchmark-tag-shopify',
       summary: '전 세계 1위 글로벌 커머스 플랫폼의 백오피스(어드민) UI/UX 디자인 가이드라인',
       benchmarkingPoints: [
         '온라인MD가 가장 많이 다루는 대량 상품 등록, 재고 테이블 필터링 표준화',
@@ -205,7 +199,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
       name: '리니어 메소드 (Linear Method)',
       url: 'https://linear.app/method',
       tag: '글래스모피즘 & 스프린트 미학',
-      logoColor: '#5e6ad2',
+      tagClass: 'benchmark-tag-linear',
       summary: '감각적인 다크 테마와 매끄러운 반응 속도로 글로벌 테크 기업들의 기획/이슈 관리를 선도하는 방법론',
       benchmarkingPoints: [
         '불필요한 회의와 보고를 없애고, 살아있는 이슈 티켓과 자동화된 감사 로그로 소통',
@@ -218,7 +212,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
       name: '29CM / 무신사 테크 & 프로덕트',
       url: 'https://medium.com/musinsa-tech',
       tag: '패션 버티컬 커머스 최적화',
-      logoColor: '#111111',
+      tagClass: 'benchmark-tag-29cm',
       summary: '프리미엄 패션 브랜드의 가치 전달과 브랜드 룩북, 큐레이션 기획전 중심의 이커머스 설계',
       benchmarkingPoints: [
         '단순 상품 판매를 넘어선 브랜드 스토리텔링과 고화질 화보형 UI 레이아웃',
@@ -377,94 +371,31 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
+    <div className="overview-container">
       {/* 1. 최상단 슬림 히어로 배너 (시선인터내셔널 비전 & 미션 1줄 요약) */}
-      <div
-        style={{
-          background: 'linear-gradient(135deg, #090d16 0%, #0f1f3d 40%, #1e3a8a 100%)',
-          borderRadius: 'var(--radius-xl)',
-          padding: '22px 32px',
-          color: '#ffffff',
-          boxShadow: 'var(--shadow-xl)',
-          position: 'relative',
-          overflow: 'hidden',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-        }}
-      >
-        {/* 장식용 은은한 배경 발광 원 */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '-60px',
-            right: '-60px',
-            width: '240px',
-            height: '240px',
-            background: 'radial-gradient(circle, rgba(59, 130, 246, 0.35) 0%, rgba(37, 99, 235, 0) 70%)',
-            borderRadius: '50%',
-            pointerEvents: 'none',
-          }}
-        />
-
-        <div style={{ width: '100%', position: 'relative', zIndex: 2 }}>
-          <h1
-            style={{
-              fontSize: 'clamp(17px, 1.85vw, 24px)',
-              fontWeight: 800,
-              letterSpacing: '-0.6px',
-              lineHeight: 1.35,
-              marginBottom: '6px',
-              whiteSpace: 'nowrap',
-              textShadow: '0 2px 10px rgba(0,0,0,0.3)',
-            }}
-          >
-            {TEAM_GUIDE_DATA.vision}
-          </h1>
-
-          <p
-            style={{
-              fontSize: 'clamp(12px, 1.05vw, 14.5px)',
-              color: '#cbd5e1',
-              lineHeight: 1.5,
-              marginBottom: 0,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {TEAM_GUIDE_DATA.mission}
-          </p>
+      <div className="overview-hero">
+        <div className="overview-hero-glow" />
+        <div className="overview-hero-content">
+          <h1 className="overview-hero-title">{TEAM_GUIDE_DATA.vision}</h1>
+          <p className="overview-hero-mission">{TEAM_GUIDE_DATA.mission}</p>
         </div>
       </div>
 
       {/* 2. 3인 캐릭터 [시선닷컴 UI/UX 개편] 릴레이 애니메이션 쇼케이스 */}
       <SisunRenewalStoryStage />
 
-      {/* 2. 서비스기획팀 3대 집중 추진 영역 (탭 UI & 통합 상세 뷰) */}
+      {/* 3. 서비스기획팀 3대 집중 추진 영역 (탭 UI & 통합 상세 뷰) */}
       <div id="pillars-section">
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginBottom: '14px',
-          }}
-        >
-          <Layers size={20} color="#2563eb" />
-          <h2 style={{ fontSize: '19px', fontWeight: 800 }}>서비스기획팀 3대 집중 추진 영역</h2>
+        <div className="overview-section-header">
+          <Layers size={20} className="overview-section-icon" />
+          <h2 className="overview-section-title">서비스기획팀 3대 집중 추진 영역</h2>
         </div>
 
-        {/* 상단 3대 영역 TAB 바 (중복 아이콘 제거, 간결한 탭 구조) */}
+        {/* 상단 3대 영역 TAB 바 */}
         <div
           role="tablist"
           aria-label="서비스기획팀 3대 집중 추진 영역 탭"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-            gap: '8px',
-            background: '#f1f5f9',
-            padding: '6px',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0',
-            marginBottom: '14px',
-          }}
+          className="pillars-tablist"
         >
           {PILLARS_DATA.map((pillar) => {
             const isSelected = activePillar === pillar.id;
@@ -475,145 +406,32 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
                 role="tab"
                 aria-selected={isSelected}
                 onClick={() => setActivePillar(pillar.id)}
-                style={{
-                  background: isSelected ? '#ffffff' : 'transparent',
-                  border: isSelected ? `1.5px solid ${pillar.color}` : '1.5px solid transparent',
-                  borderRadius: '9px',
-                  padding: '12px 16px',
-                  cursor: 'pointer',
-                  boxShadow: isSelected ? `0 4px 12px -2px ${pillar.color}20` : 'none',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  gap: '4px',
-                  textAlign: 'left',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  transition: 'all 0.15s ease',
-                }}
+                className={`pillar-tab ${pillar.themeClass} ${isSelected ? 'active' : ''}`}
               >
-                {isSelected && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: '3px',
-                      background: pillar.color,
-                    }}
-                  />
-                )}
-
-                <span
-                  style={{
-                    fontSize: '10.5px',
-                    fontWeight: 800,
-                    color: isSelected ? pillar.color : '#64748b',
-                    letterSpacing: '0.6px',
-                  }}
-                >
-                  {pillar.badge}
-                </span>
-
-                <div
-                  style={{
-                    fontSize: '14.5px',
-                    fontWeight: isSelected ? 800 : 700,
-                    color: isSelected ? 'var(--text-main)' : '#475569',
-                    lineHeight: 1.35,
-                  }}
-                >
-                  {pillar.title}
-                </div>
-
-                <div
-                  style={{
-                    fontSize: '12px',
-                    color: isSelected ? 'var(--text-secondary)' : '#64748b',
-                    lineHeight: 1.35,
-                  }}
-                >
-                  {pillar.subtitle}
-                </div>
+                <span className="pillar-tab-badge">{pillar.badge}</span>
+                <div className="pillar-tab-title">{pillar.title}</div>
+                <div className="pillar-tab-subtitle">{pillar.subtitle}</div>
               </button>
             );
           })}
         </div>
 
-        {/* 선택된 영역의 통합 상세 패널 (중복 섹션 통합 & 텍스트 간소화) */}
+        {/* 선택된 영역의 통합 상세 패널 */}
         {(() => {
           const selected = PILLARS_DATA[activePillar];
           return (
-            <div
-              className="card"
-              style={{
-                padding: '22px 24px',
-                background: selected.bgGradient,
-                border: `1.5px solid ${selected.borderColor}`,
-                boxShadow: 'var(--shadow-sm)',
-                animation: 'fadeIn 0.2s ease-out',
-              }}
-            >
-              <p
-                style={{
-                  fontSize: '13.5px',
-                  color: '#334155',
-                  fontWeight: 600,
-                  lineHeight: 1.5,
-                  marginBottom: '16px',
-                }}
-              >
-                {selected.description}
-              </p>
+            <div className={`card pillar-panel ${selected.themeClass}`}>
+              <p className="pillar-panel-desc">{selected.description}</p>
 
               {/* 통합 3단계 핵심 과업 카드 그리드 */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                  gap: '14px',
-                  marginBottom: '14px',
-                }}
-              >
+              <div className="pillar-steps-grid">
                 {selected.pipelineSteps.map((step, sIdx) => (
-                  <div
-                    key={sIdx}
-                    style={{
-                      background: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '10px',
-                      padding: '16px 18px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                    }}
-                  >
-                    <div style={{ fontSize: '14px', fontWeight: 800, color: selected.color }}>
-                      {step.name}
-                    </div>
-                    <div style={{ fontSize: '12.5px', color: '#475569', lineHeight: 1.45 }}>
-                      {step.desc}
-                    </div>
-                    <div
-                      style={{
-                        marginTop: '4px',
-                        paddingTop: '10px',
-                        borderTop: '1px solid #f1f5f9',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px',
-                      }}
-                    >
+                  <div key={sIdx} className="pillar-step-card">
+                    <div className="pillar-step-name">{step.name}</div>
+                    <div className="pillar-step-desc">{step.desc}</div>
+                    <div className="pillar-step-points">
                       {step.points.map((pt, pIdx) => (
-                        <div
-                          key={pIdx}
-                          style={{
-                            fontSize: '12px',
-                            color: '#334155',
-                            lineHeight: 1.4,
-                          }}
-                        >
+                        <div key={pIdx} className="pillar-step-point">
                           • {pt}
                         </div>
                       ))}
@@ -622,91 +440,42 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
                 ))}
               </div>
 
-              {/* 핵심 기대 목표 바 (아이콘 및 정량 숫자 배제) */}
-              <div
-                style={{
-                  background: '#ffffff',
-                  padding: '11px 16px',
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '12.5px',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <span style={{ color: selected.color, fontWeight: 800 }}>핵심 추진 목표</span>
-                <span style={{ color: '#cbd5e1' }}>|</span>
-                <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>{selected.keyMetrics}</strong>
+              {/* 핵심 추진 목표 바 */}
+              <div className="pillar-goal-bar">
+                <span className="pillar-goal-label">핵심 추진 목표</span>
+                <span className="pillar-goal-divider">|</span>
+                <strong className="pillar-goal-text">{selected.keyMetrics}</strong>
               </div>
             </div>
           );
         })()}
       </div>
 
-      {/* 3. 시선닷컴 5단계 기획 & 릴리즈 스프린트 (인터랙티브 스텝퍼) */}
+      {/* 4. 시선닷컴 5단계 기획 & 릴리즈 스프린트 (인터랙티브 스텝퍼) */}
       <div id="process-guide">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <Compass size={22} color="#2563eb" />
-          <h2 style={{ fontSize: '20px', fontWeight: 800 }}>시선닷컴 5단계 기획 & 릴리즈 스프린트</h2>
+        <div className="overview-section-header">
+          <Compass size={22} className="overview-section-icon" />
+          <h2 className="overview-section-title">시선닷컴 5단계 기획 & 릴리즈 스프린트</h2>
         </div>
-        <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', marginBottom: '18px' }}>
+        <p className="overview-section-desc">
           단계를 클릭하시면 해당 스프린트 단계의 핵심 산출물과 유관부서 협의 체크리스트를 확인하실 수 있습니다.
         </p>
 
         {/* 인터랙티브 스텝퍼 버튼 헤더 */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '10px',
-            marginBottom: '16px',
-          }}
-        >
+        <div className="sprint-stepper-grid">
           {TEAM_GUIDE_DATA.processSteps.map((step) => {
             const isStepActive = activeStep === step.step;
             return (
               <button
                 key={step.step}
+                type="button"
                 onClick={() => setActiveStep(step.step)}
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  border: isStepActive ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                  background: isStepActive ? '#eff6ff' : '#ffffff',
-                  color: isStepActive ? '#1d4ed8' : '#475569',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  transition: 'all 0.15s ease',
-                  boxShadow: isStepActive ? '0 4px 12px rgba(37,99,235,0.15)' : 'none',
-                }}
+                className={`sprint-step-btn ${isStepActive ? 'active' : ''}`}
               >
-                <span
-                  style={{
-                    width: '26px',
-                    height: '26px',
-                    borderRadius: '50%',
-                    background: isStepActive ? '#2563eb' : '#e2e8f0',
-                    color: isStepActive ? '#ffffff' : '#64748b',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  {step.step}
-                </span>
-                <div style={{ overflow: 'hidden' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 700, color: isStepActive ? '#2563eb' : '#94a3b8', textTransform: 'uppercase' }}>
-                    STEP 0{step.step}
-                  </div>
-                  <div style={{ fontSize: '12.5px', fontWeight: 700, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                <span className="sprint-step-circle">{step.step}</span>
+                <div className="sprint-step-text-wrap">
+                  <div className="sprint-step-code">STEP 0{step.step}</div>
+                  <div className="sprint-step-short-title">
                     {step.title.split(' ')[0]} {step.title.split(' ')[1]}
                   </div>
                 </div>
@@ -719,87 +488,59 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
         {(() => {
           const currentStep = TEAM_GUIDE_DATA.processSteps[activeStep - 1];
           return (
-            <div
-              className="card"
-              style={{
-                padding: '24px 28px',
-                border: '1.5px solid #bfdbfe',
-                background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
-                boxShadow: 'var(--shadow-md)',
-                animation: 'fadeIn 0.2s ease-out',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+            <div className="card sprint-detail-card">
+              <div className="sprint-detail-top">
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <span
-                      style={{
-                        padding: '3px 8px',
-                        background: '#2563eb',
-                        color: '#ffffff',
-                        fontSize: '11px',
-                        fontWeight: 800,
-                        borderRadius: '4px',
-                      }}
-                    >
-                      STEP {currentStep.step}
-                    </span>
-                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
-                      {currentStep.subtitle}
-                    </span>
+                  <div className="sprint-detail-badge-row">
+                    <span className="sprint-detail-badge">STEP {currentStep.step}</span>
+                    <span className="sprint-detail-subtitle">{currentStep.subtitle}</span>
                   </div>
-                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)' }}>
-                    {currentStep.title}
-                  </h3>
+                  <h3 className="sprint-detail-title">{currentStep.title}</h3>
                 </div>
 
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div className="sprint-nav-actions">
                   {activeStep > 1 && (
                     <button
+                      type="button"
                       onClick={() => setActiveStep(activeStep - 1)}
-                      className="btn btn-secondary"
-                      style={{ padding: '6px 12px', fontSize: '12px' }}
+                      className="btn btn-secondary sprint-nav-btn"
                     >
                       이전 단계
                     </button>
                   )}
                   {activeStep < 5 && (
                     <button
+                      type="button"
                       onClick={() => setActiveStep(activeStep + 1)}
-                      className="btn btn-primary"
-                      style={{ padding: '6px 14px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      className="btn btn-primary sprint-nav-btn"
                     >
-                      다음 단계 보기 <ChevronRight size={14} />
+                      다음 단계 보기 <ChevronRight size={15} />
                     </button>
                   )}
                 </div>
               </div>
 
-              <p style={{ fontSize: '14px', color: '#334155', lineHeight: 1.6, marginBottom: '20px' }}>
-                {currentStep.description}
-              </p>
+              <p className="sprint-detail-desc">{currentStep.description}</p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', paddingTop: '16px', borderTop: '1px dashed #cbd5e1' }}>
+              <div className="sprint-meta-grid">
                 <div>
-                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <FolderGit2 size={15} color="#2563eb" /> 본 단계 핵심 산출물 (Deliverables):
+                  <div className="sprint-meta-heading">
+                    <FolderGit2 size={16} className="overview-section-icon" /> 본 단계 핵심 산출물 (Deliverables):
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div className="sprint-deliverable-list">
                     {currentStep.deliverables.map((deliv, dIdx) => (
-                      <div key={dIdx} style={{ fontSize: '12.5px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <CheckCircle2 size={13} color="#10b981" /> {deliv}
+                      <div key={dIdx} className="sprint-deliverable-item">
+                        <CheckCircle2 size={15} color="#10b981" /> {deliv}
                       </div>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Users size={15} color="#7c3aed" /> 주요 협의 관계자 (Stakeholders):
+                  <div className="sprint-meta-heading">
+                    <Users size={16} color="#7c3aed" /> 주요 협의 관계자 (Stakeholders):
                   </div>
-                  <div style={{ fontSize: '13px', color: '#475569', background: '#ffffff', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                    {currentStep.stakeholders}
-                  </div>
+                  <div className="sprint-stakeholder-box">{currentStep.stakeholders}</div>
                 </div>
               </div>
             </div>
@@ -807,39 +548,29 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
         })()}
       </div>
 
-      {/* 4. 사내 6대 유관부서 맞춤 협업 가이드 & 업무 요청 양식 복사기 */}
-      <div className="card" style={{ padding: '30px 32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <Laptop size={22} color="#2563eb" />
-          <h2 style={{ fontSize: '20px', fontWeight: 800 }}>사내 6대 유관부서별 맞춤 협업 데스크</h2>
+      {/* 5. 사내 6대 유관부서 맞춤 협업 가이드 & 업무 요청 양식 복사기 */}
+      <div className="card overview-card-padded">
+        <div className="overview-section-header">
+          <Laptop size={22} className="overview-section-icon" />
+          <h2 className="overview-section-title">사내 6대 유관부서별 맞춤 협업 데스크</h2>
         </div>
-        <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+        <p className="overview-section-desc">
           소속 부서 탭을 클릭하시면, 서비스기획팀과의 맞춤형 협업 포인트 및 메신저/이메일용 업무 요청 양식을 1초 만에 복사하실 수 있습니다.
         </p>
 
         {/* 부서 선택 버튼 바 */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '22px' }}>
+        <div className="collab-dept-bar">
           {COMPANY_DEPARTMENTS.map((dept) => {
             const isSelected = selectedDeptId === dept.id;
             return (
               <button
                 key={dept.id}
+                type="button"
                 onClick={() => {
                   setSelectedDeptId(dept.id);
                   setExpandedFaqIndex(null);
                 }}
-                style={{
-                  padding: '9px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: isSelected ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
-                  background: isSelected ? '#eff6ff' : '#ffffff',
-                  color: isSelected ? '#1d4ed8' : '#475569',
-                  fontSize: '13px',
-                  fontWeight: isSelected ? 700 : 500,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  boxShadow: isSelected ? '0 2px 8px rgba(37,99,235,0.12)' : 'none',
-                }}
+                className={`collab-dept-btn ${isSelected ? 'active' : ''}`}
               >
                 {dept.name} {dept.isPlanningTeam && '⭐ (우리팀)'}
               </button>
@@ -851,155 +582,73 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
         {(() => {
           const collab = DEPT_COLLAB_INFO[selectedDeptId] || DEPT_COLLAB_INFO['dept-online-mn'];
           return (
-            <div
-              style={{
-                background: '#f8fafc',
-                border: '1.5px solid #e2e8f0',
-                borderRadius: 'var(--radius-lg)',
-                padding: '24px',
-                animation: 'fadeIn 0.2s ease-out',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '20px',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                <h3 style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-main)' }}>
-                  {collab.roleTitle}
-                </h3>
-                <span style={{ fontSize: '12px', background: '#dbeafe', color: '#1e40af', padding: '3px 10px', borderRadius: '9999px', fontWeight: 600 }}>
-                  💡 {collab.guideTip}
-                </span>
+            <div className="collab-detail-box">
+              <div className="collab-detail-header">
+                <h3 className="collab-role-title">{collab.roleTitle}</h3>
+                <span className="collab-tip-badge">{collab.guideTip}</span>
               </div>
 
               {/* 중점 협업 포인트 */}
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
-                  🎯 주요 협업 및 지원 업무 범위:
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div className="collab-sub-title">주요 협업 및 지원 업무 범위</div>
+                <div className="collab-points-list">
                   {collab.cooperationPoints.map((pt, pIdx) => (
-                    <div key={pIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', color: '#334155' }}>
-                      <CheckCircle2 size={16} color="#2563eb" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div key={pIdx} className="collab-point-item">
+                      <CheckCircle2 size={16} className="collab-point-icon" />
                       <span>{pt}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* 업무 요청 양식 1클릭 복사기 (인터랙션) */}
-              <div
-                style={{
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '16px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <MessageSquare size={15} color="#2563eb" /> 사내 메신저(잔디) / 이메일 공식 요청 템플릿
+              {/* 업무 요청 양식 1클릭 복사기 */}
+              <div className="collab-template-card">
+                <div className="collab-template-header">
+                  <div className="collab-template-title">
+                    <MessageSquare size={16} className="overview-section-icon" /> 사내 메신저(잔디) / 이메일 공식 요청 템플릿
                   </div>
                   <button
+                    type="button"
                     onClick={() => handleCopyText(collab.requestTemplate, selectedDeptId)}
-                    className="btn"
-                    style={{
-                      background: copiedKey === selectedDeptId ? '#059669' : '#2563eb',
-                      color: '#ffffff',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      padding: '6px 12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      borderRadius: '6px',
-                    }}
+                    className={`btn collab-copy-btn ${copiedKey === selectedDeptId ? 'copied' : ''}`}
                   >
                     {copiedKey === selectedDeptId ? (
                       <>
-                        <Check size={14} /> 양식 복사 완료!
+                        <Check size={15} /> 양식 복사 완료!
                       </>
                     ) : (
                       <>
-                        <Copy size={14} /> 양식 클립보드 복사
+                        <Copy size={15} /> 양식 클립보드 복사
                       </>
                     )}
                   </button>
                 </div>
 
-                <pre
-                  style={{
-                    background: '#f8fafc',
-                    padding: '12px',
-                    borderRadius: '6px',
-                    fontSize: '12px',
-                    color: '#334155',
-                    fontFamily: 'monospace',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all',
-                    border: '1px solid #e2e8f0',
-                    margin: 0,
-                  }}
-                >
-                  {collab.requestTemplate}
-                </pre>
+                <pre className="collab-template-pre">{collab.requestTemplate}</pre>
               </div>
 
               {/* 자주 묻는 질문(FAQ) 아코디언 */}
               {collab.faq && collab.faq.length > 0 && (
                 <div>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <HelpCircle size={15} color="#64748b" /> 자주 묻는 질문 (FAQ)
+                  <div className="collab-sub-title">
+                    <HelpCircle size={16} color="#64748b" /> 자주 묻는 질문 (FAQ)
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div className="collab-faq-list">
                     {collab.faq.map((item, fIdx) => {
                       const isExpanded = expandedFaqIndex === fIdx;
                       return (
-                        <div
-                          key={fIdx}
-                          style={{
-                            background: '#ffffff',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '6px',
-                            overflow: 'hidden',
-                          }}
-                        >
+                        <div key={fIdx} className="collab-faq-item">
                           <div
                             onClick={() => setExpandedFaqIndex(isExpanded ? null : fIdx)}
-                            style={{
-                              padding: '10px 14px',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              cursor: 'pointer',
-                              fontSize: '12.5px',
-                              fontWeight: 600,
-                              color: '#1e293b',
-                            }}
+                            className="collab-faq-question"
                           >
                             <span>Q. {item.q}</span>
                             <ChevronRight
-                              size={15}
-                              style={{
-                                transform: isExpanded ? 'rotate(90deg)' : 'none',
-                                transition: 'transform 0.15s ease',
-                              }}
+                              size={16}
+                              className={`collab-faq-chevron ${isExpanded ? 'expanded' : ''}`}
                             />
                           </div>
-                          {isExpanded && (
-                            <div
-                              style={{
-                                padding: '10px 14px',
-                                background: '#f8fafc',
-                                borderTop: '1px solid #e2e8f0',
-                                fontSize: '12px',
-                                color: '#475569',
-                                lineHeight: 1.5,
-                              }}
-                            >
-                              A. {item.a}
-                            </div>
-                          )}
+                          {isExpanded && <div className="collab-faq-answer">A. {item.a}</div>}
                         </div>
                       );
                     })}
@@ -1008,97 +657,56 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
               )}
 
               {/* 공식 소통 창구 바 */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px dashed #cbd5e1', fontSize: '12.5px' }}>
-                <span style={{ color: 'var(--text-muted)' }}>공식 소통 및 요청 담당:</span>
-                <strong style={{ color: '#2563eb' }}>{collab.mainContact}</strong>
+              <div className="collab-contact-bar">
+                <span className="collab-contact-label">공식 소통 및 요청 담당:</span>
+                <strong className="collab-contact-value">{collab.mainContact}</strong>
               </div>
             </div>
           );
         })()}
       </div>
 
-      {/* 5. 국내외 서비스기획 & 프로덕트 벤치마킹 허브 (사용자 요청 반영 섹션) */}
-      <div id="benchmark-hub" className="card" style={{ padding: '30px 32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Sparkles size={22} color="#2563eb" />
-            <h2 style={{ fontSize: '20px', fontWeight: 800 }}>국내외 서비스기획/프로덕트 벤치마킹 레퍼런스</h2>
+      {/* 6. 국내외 서비스기획 & 프로덕트 벤치마킹 허브 */}
+      <div id="benchmark-hub" className="card overview-card-padded">
+        <div className="overview-section-header-between">
+          <div className="overview-section-title-group">
+            <Sparkles size={22} className="overview-section-icon" />
+            <h2 className="overview-section-title">국내외 서비스기획/프로덕트 벤치마킹 레퍼런스</h2>
           </div>
-          <span style={{ fontSize: '12px', background: '#eff6ff', color: '#1d4ed8', padding: '4px 10px', borderRadius: '9999px', fontWeight: 600 }}>
+          <span className="benchmark-header-badge">
             Toss · Shopify · Linear · 29CM 디자인 시스템 분석
           </span>
         </div>
 
-        <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', marginBottom: '22px' }}>
+        <p className="overview-section-desc">
           서비스기획팀이 지향하는 최상위 프로덕트 기준을 제공하기 위해, 글로벌 및 국내 1위 테크 기업들의 기획·디자인 시스템을 벤치마킹하여 시선닷컴에 도입하고 있습니다.
         </p>
 
         {/* 4대 벤치마크 사이트 카드 그리드 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '18px' }}>
+        <div className="benchmark-grid">
           {BENCHMARK_SITES.map((site) => (
-            <div
-              key={site.id}
-              className="interactive-card"
-              style={{
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                borderRadius: 'var(--radius-lg)',
-                padding: '22px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: site.logoColor,
-                    background: `${site.logoColor}15`,
-                    padding: '3px 8px',
-                    borderRadius: '4px',
-                  }}
-                >
-                  {site.tag}
-                </span>
+            <div key={site.id} className="interactive-card benchmark-card">
+              <div className="benchmark-card-top">
+                <span className={`benchmark-tag ${site.tagClass}`}>{site.tag}</span>
                 <a
                   href={site.url}
                   target="_blank"
                   rel="noreferrer"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontSize: '12px',
-                    color: '#64748b',
-                    textDecoration: 'none',
-                    fontWeight: 600,
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#2563eb')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = '#64748b')}
+                  className="benchmark-link"
                 >
-                  공식 사이트 <ArrowUpRight size={14} />
+                  공식 사이트 <ArrowUpRight size={15} />
                 </a>
               </div>
 
-              <h4 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.4 }}>
-                {site.name}
-              </h4>
+              <h4 className="benchmark-name">{site.name}</h4>
+              <p className="benchmark-summary">{site.summary}</p>
 
-              <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                {site.summary}
-              </p>
-
-              <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px dashed #e2e8f0' }}>
-                <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#1e3a8a', marginBottom: '6px' }}>
-                  ⭐ 시선닷컴 적용 벤치마킹 포인트:
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div className="benchmark-points-section">
+                <div className="benchmark-points-title">시선닷컴 적용 벤치마킹 포인트</div>
+                <div className="benchmark-points-list">
                   {site.benchmarkingPoints.map((pt, pIdx) => (
-                    <div key={pIdx} style={{ fontSize: '11.5px', color: '#334155', display: 'flex', alignItems: 'flex-start', gap: '5px' }}>
-                      <CheckCircle2 size={12} color="#2563eb" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div key={pIdx} className="benchmark-point-item">
+                      <CheckCircle2 size={15} className="benchmark-point-icon" />
                       <span>{pt}</span>
                     </div>
                   ))}
@@ -1109,102 +717,54 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
         </div>
       </div>
 
-      {/* 6. 공식 협업 창구 & 팀원 명단 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
+      {/* 7. 공식 협업 창구 & 팀원 명단 */}
+      <div className="overview-bottom-grid">
         {/* 공식 협업 창구 */}
-        <div className="card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <MessageSquare size={18} color="#2563eb" />
-            <h3 style={{ fontSize: '16px', fontWeight: 700 }}>공식 기획 문의 & 정기 회의체</h3>
+        <div className="card overview-subcard">
+          <div className="overview-subcard-header">
+            <MessageSquare size={18} className="overview-section-icon" />
+            <h3 className="overview-subcard-title">공식 기획 문의 & 정기 회의체</h3>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div className="channel-list">
             {TEAM_GUIDE_DATA.collaborationChannels.map((ch, idx) => (
-              <div
-                key={idx}
-                style={{
-                  padding: '12px 14px',
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: 'var(--radius-md)',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>{ch.name}</span>
-                  <span style={{ fontSize: '11px', background: '#e0e7ff', color: '#3730a3', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
-                    {ch.type}
-                  </span>
+              <div key={idx} className="channel-item">
+                <div className="channel-item-top">
+                  <span className="channel-name">{ch.name}</span>
+                  <span className="channel-type-badge">{ch.type}</span>
                 </div>
-                <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{ch.purpose}</div>
-                <div style={{ fontSize: '12px', color: '#2563eb', fontWeight: 600 }}>{ch.linkOrContact}</div>
+                <div className="channel-purpose">{ch.purpose}</div>
+                <div className="channel-contact">{ch.linkOrContact}</div>
               </div>
             ))}
           </div>
         </div>
 
         {/* 서비스기획팀 조직 R&R 및 다짐 */}
-        <div className="card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <Users size={18} color="#2563eb" />
-            <h3 style={{ fontSize: '16px', fontWeight: 700 }}>서비스기획팀 R&R 조직 구성</h3>
+        <div className="card overview-subcard">
+          <div className="overview-subcard-header">
+            <Users size={18} className="overview-section-icon" />
+            <h3 className="overview-subcard-title">서비스기획팀 R&R 조직 구성</h3>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '14px',
-                borderRadius: 'var(--radius-md)',
-                background: '#f0fdf4',
-                border: '1px solid #bbf7d0',
-              }}
-            >
-              <div
-                style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '50%',
-                  backgroundColor: '#059669',
-                  color: '#ffffff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  flexShrink: 0,
-                }}
-              >
-                기획
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#166534' }}>
-                  시선인터내셔널 디지털서비스기획팀
-                </div>
-                <div style={{ fontSize: '12px', color: '#15803d', marginTop: '2px' }}>
+          <div className="team-org-body">
+            <div className="team-org-banner">
+              <div className="team-org-avatar">기획</div>
+              <div className="team-org-info">
+                <div className="team-org-name">시선인터내셔널 디지털서비스기획팀</div>
+                <div className="team-org-roles">
                   시선닷컴 UI/UX 화면설계 · 비주얼 디자인 · 퍼블리싱 · 백오피스 어드민 효율화 · 이커머스 정책
                 </div>
               </div>
             </div>
 
-            <div
-              style={{
-                padding: '12px',
-                background: '#f8fafc',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid #e2e8f0',
-                fontSize: '12px',
-                color: '#475569',
-                lineHeight: 1.6,
-              }}
-            >
-              💬 <strong>협업 안내:</strong> 담당 기획자별 개별 연락은 사내 메신저(잔디) 검색 또는 상단 <strong>#sisun-service-planning</strong> 채널을 이용해 주시면 가장 빠르고 체계적으로 소통하실 수 있습니다.
+            <div className="team-org-notice">
+              <strong>협업 안내:</strong> 담당 기획자별 개별 연락은 사내 메신저(잔디) 검색 또는 상단 <strong>#sisun-service-planning</strong> 채널을 이용해 주시면 가장 빠르고 체계적으로 소통하실 수 있습니다.
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
+            <div className="team-org-actions">
               <button
+                type="button"
                 onClick={onNavigateToTasks}
-                className="btn btn-primary"
-                style={{ width: '100%', fontSize: '13px', justifyContent: 'center' }}
+                className="btn btn-primary team-org-tasks-btn"
               >
                 전체 업무 목록(Tasks) 확인하기
               </button>
