@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { User } from '../../types';
 import { PlanningStorageService } from '../../services/storage';
 import { COMPANY_DEPARTMENTS } from '../../constants/departments';
@@ -18,10 +18,22 @@ import {
 
 interface LoginPageProps {
   onLoginSuccess: (user: User) => void;
+  initialMode?: 'login' | 'register';
+  onModeChange?: (mode: 'login' | 'register') => void;
 }
 
-export function LoginPage({ onLoginSuccess }: LoginPageProps) {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange }: LoginPageProps) {
+  const [mode, setMode] = useState<'login' | 'register'>(initialMode);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
+
+  const handleModeSwitch = (nextMode: 'login' | 'register') => {
+    setMode(nextMode);
+    setErrorMessage('');
+    onModeChange?.(nextMode);
+  };
 
   // 로그인 상태
   const [loginName, setLoginName] = useState('');
@@ -278,10 +290,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           >
             <button
               type="button"
-              onClick={() => {
-                setMode('login');
-                setErrorMessage('');
-              }}
+              onClick={() => handleModeSwitch('login')}
               style={{
                 flex: 1,
                 padding: '9px',
@@ -300,10 +309,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setMode('register');
-                setErrorMessage('');
-              }}
+              onClick={() => handleModeSwitch('register')}
               style={{
                 flex: 1,
                 padding: '9px',
@@ -502,10 +508,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <div style={{ textAlign: 'center', marginTop: '6px' }}>
                 <button
                   type="button"
-                  onClick={() => {
-                    setMode('login');
-                    setErrorMessage('');
-                  }}
+                  onClick={() => handleModeSwitch('login')}
                   style={{
                     background: 'none',
                     border: 'none',

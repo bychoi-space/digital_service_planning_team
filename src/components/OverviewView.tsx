@@ -487,6 +487,10 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
 
             <a
               href="#benchmark-hub"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById('benchmark-hub')?.scrollIntoView({ behavior: 'smooth' });
+              }}
               className="btn btn-secondary"
               style={{
                 background: 'transparent',

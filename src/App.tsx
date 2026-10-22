@@ -23,11 +23,23 @@ import {
 } from 'lucide-react';
 
 type NavTab = 'overview' | 'tasks' | 'vacations' | 'kpi' | 'audit';
+type AuthMode = 'login' | 'register';
+
+function isAuthHash(hash: string = typeof window !== 'undefined' ? window.location.hash : ''): boolean {
+  const cleanHash = hash.replace(/^#\/?/, '').toLowerCase().trim();
+  return cleanHash === 'login' || cleanHash === 'register' || cleanHash === 'signup';
+}
+
+function parseAuthModeFromHash(hash: string = typeof window !== 'undefined' ? window.location.hash : ''): AuthMode {
+  const cleanHash = hash.replace(/^#\/?/, '').toLowerCase().trim();
+  if (cleanHash === 'register' || cleanHash === 'signup') return 'register';
+  return 'login';
+}
 
 // URL 해시로부터 현재 탭 파싱 (새로고침 및 딥링크 지원)
-function parseTabFromHash(): NavTab {
+function parseTabFromHash(hash: string = typeof window !== 'undefined' ? window.location.hash : ''): NavTab {
   if (typeof window === 'undefined') return 'overview';
-  const cleanHash = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
+  const cleanHash = hash.replace(/^#\/?/, '').toLowerCase().trim();
   if (cleanHash === 'tasks' || cleanHash.startsWith('tasks/')) return 'tasks';
   if (cleanHash === 'schedule' || cleanHash === 'vacations' || cleanHash.startsWith('schedule/')) return 'vacations';
   if (cleanHash === 'kpi' || cleanHash === 'kpis' || cleanHash.startsWith('kpi/')) return 'kpi';
@@ -48,8 +60,24 @@ const TAB_TITLES: Record<NavTab, string> = {
   audit: '서비스기획팀 업무포털 | 감사 로그',
 };
 
+const AUTH_TITLES: Record<AuthMode, string> = {
+  login: '서비스기획팀 업무포털 | 로그인',
+  register: '서비스기획팀 업무포털 | 회원가입',
+};
+
 export function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    PlanningStorageService.initialize();
+    return PlanningStorageService.isLoggedIn();
+  });
+
+  const [currentUser, setCurrentUser] = useState<User>(() => {
+    PlanningStorageService.initialize();
+    return PlanningStorageService.getCurrentUser();
+  });
+
   const [activeTab, setActiveTabState] = useState<NavTab>(() => parseTabFromHash());
+  const [authMode, setAuthMode] = useState<AuthMode>(() => parseAuthModeFromHash());
 
   // URL Hash 변경 함수 (브라우저 히스토리 및 타이틀 동기화)
   const navigateTo = (tab: NavTab) => {
@@ -61,32 +89,54 @@ export function App() {
     document.title = TAB_TITLES[tab] || '서비스기획팀 업무포털';
   };
 
-  // 브라우저 뒤로가기 / 앞으로가기 및 URL 직접 입력(F5) 감지
+  // 로그인/회원가입 모드 전환 시 URL 해시 동기화
+  const handleAuthModeChange = (mode: AuthMode) => {
+    setAuthMode(mode);
+    const targetHash = `#/${mode}`;
+    if (window.location.hash !== targetHash) {
+      window.location.hash = targetHash;
+    }
+    document.title = AUTH_TITLES[mode];
+  };
+
+  // 인증 상태 및 브라우저 뒤로가기/앞으로가기/URL 직접 입력(F5) 감지
   useEffect(() => {
-    const handleHashChange = () => {
-      const parsed = parseTabFromHash();
-      setActiveTabState(parsed);
-      document.title = TAB_TITLES[parsed] || '서비스기획팀 업무포털';
+    const syncRouteWithAuth = () => {
+      const currentHash = window.location.hash;
+
+      if (!isAuthenticated) {
+        if (isAuthHash(currentHash)) {
+          const mode = parseAuthModeFromHash(currentHash);
+          setAuthMode(mode);
+          document.title = AUTH_TITLES[mode];
+        } else {
+          // 비로그인 상태에서 대시보드 URL(#/overview, #/tasks 등) 접근 시 원래 목적지 저장 후 #/login으로 분리
+          if (currentHash && currentHash !== '#' && currentHash !== '#/') {
+            setActiveTabState(parseTabFromHash(currentHash));
+          }
+          window.history.replaceState(null, '', '#/login');
+          setAuthMode('login');
+          document.title = AUTH_TITLES.login;
+        }
+      } else {
+        if (!currentHash || currentHash === '#' || currentHash === '#/' || isAuthHash(currentHash)) {
+          const targetHash = tabToHash(activeTab);
+          window.history.replaceState(null, '', targetHash);
+          document.title = TAB_TITLES[activeTab] || '서비스기획팀 업무포털';
+        } else {
+          const parsed = parseTabFromHash(currentHash);
+          setActiveTabState(parsed);
+          document.title = TAB_TITLES[parsed] || '서비스기획팀 업무포털';
+        }
+      }
     };
 
-    // 초기 마운트 시 해시가 비어있으면 #/overview로 정규화
-    if (!window.location.hash || window.location.hash === '#' || window.location.hash === '#/') {
-      window.history.replaceState(null, '', '#/overview');
-    }
-    document.title = TAB_TITLES[parseTabFromHash()] || '서비스기획팀 업무포털';
+    syncRouteWithAuth();
 
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    PlanningStorageService.initialize();
-    return PlanningStorageService.isLoggedIn();
-  });
+    window.addEventListener('hashchange', syncRouteWithAuth);
+    return () => window.removeEventListener('hashchange', syncRouteWithAuth);
+  }, [isAuthenticated, activeTab]);
 
-  const [currentUser, setCurrentUser] = useState<User>(() => {
-    PlanningStorageService.initialize();
-    return PlanningStorageService.getCurrentUser();
-  });
   const [syncKey, setSyncKey] = useState(0);
 
   // 마운트 시 Supabase 원격 DB와 자동 동기화
@@ -114,6 +164,7 @@ export function App() {
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
     setIsAuthenticated(true);
+    navigateTo(activeTab);
     showToast(`${user.name}님 환영합니다! (${user.department})`, 'success');
   };
 
@@ -121,14 +172,22 @@ export function App() {
   const handleLogout = () => {
     PlanningStorageService.logout();
     setIsAuthenticated(false);
+    setActiveTabState('overview');
+    setAuthMode('login');
+    window.location.hash = '#/login';
+    document.title = AUTH_TITLES.login;
     showToast('안전하게 로그아웃되었습니다.', 'info');
   };
 
-  // 1. 인증되지 않은 상태이면 독립된 로그인/회원가입 페이지 표시
+  // 1. 인증되지 않은 상태이면 독립된 로그인/회원가입 페이지 표시 (#/login 또는 #/register)
   if (!isAuthenticated) {
     return (
       <>
-        <LoginPage onLoginSuccess={handleLoginSuccess} />
+        <LoginPage
+          onLoginSuccess={handleLoginSuccess}
+          initialMode={authMode}
+          onModeChange={handleAuthModeChange}
+        />
         {/* 플로팅 토스트 알림 */}
         <div className="toast-container">
           {toasts.map((toast) => (
