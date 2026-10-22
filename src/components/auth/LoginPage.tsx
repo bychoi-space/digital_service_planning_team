@@ -227,6 +227,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
   };
 
   const frame8 = (frameTick % 8) + 1;
+  const studioBgUrl = `${BASE_URL.endsWith('/') ? BASE_URL : `${BASE_URL}/`}images/login-studio-bg.jpg`;
 
   return (
     <div
@@ -235,34 +236,36 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+        background: '#0b1120',
         padding: '160px 260px 90px',
         position: 'relative',
         overflow: 'hidden',
       }}
     >
-      {/* 배경 장식 원형 블러 */}
+      {/* 1. 서비스기획팀 크리에이티브 스튜디오 & 라운지 아웃포커싱(Depth-of-Field) 배경 레이어 */}
       <div
         style={{
           position: 'absolute',
-          top: '-15%',
-          left: '-10%',
-          width: '550px',
-          height: '550px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(37,99,235,0.22) 0%, rgba(0,0,0,0) 70%)',
+          inset: 0,
+          backgroundImage: `url("${studioBgUrl}")`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center center',
+          backgroundRepeat: 'no-repeat',
+          filter: 'blur(5px) brightness(0.76) saturate(1.08)',
+          transform: 'scale(1.03)',
+          zIndex: 1,
           pointerEvents: 'none',
         }}
       />
+
+      {/* 2. 공간감 비네팅 & 컬러 톤 매칭 오버레이 */}
       <div
         style={{
           position: 'absolute',
-          bottom: '-15%',
-          right: '-10%',
-          width: '600px',
-          height: '600px',
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(16,185,129,0.16) 0%, rgba(0,0,0,0) 70%)',
+          inset: 0,
+          background:
+            'radial-gradient(ellipse at center, rgba(15, 23, 42, 0.14) 0%, rgba(11, 17, 32, 0.52) 100%)',
+          zIndex: 2,
           pointerEvents: 'none',
         }}
       />
