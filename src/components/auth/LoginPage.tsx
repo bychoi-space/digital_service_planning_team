@@ -230,33 +230,32 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
 
   return (
     <div className="login-page-shell">
-      {/* 1. 서비스기획팀 크리에이티브 스튜디오 & 라운지 아웃포커싱(Depth-of-Field) 배경 레이어 */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: `url("${studioBgUrl}")`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center center',
-          backgroundRepeat: 'no-repeat',
-          filter: 'blur(5px) brightness(0.76) saturate(1.08)',
-          transform: 'scale(1.03)',
-          zIndex: 1,
-          pointerEvents: 'none',
-        }}
-      />
+      {/* 배경 전용 클리핑 래퍼 (blur 및 scale(1.03)로 인한 가로/세로 스크롤 오버플로우 원천 차단) */}
+      <div className="login-bg-clip">
+        {/* 1. 서비스기획팀 크리에이티브 스튜디오 & 라운지 아웃포커싱(Depth-of-Field) 배경 레이어 */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url("${studioBgUrl}")`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center center',
+            backgroundRepeat: 'no-repeat',
+            filter: 'blur(5px) brightness(0.76) saturate(1.08)',
+            transform: 'scale(1.03)',
+          }}
+        />
 
-      {/* 2. 공간감 비네팅 & 컬러 톤 매칭 오버레이 */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background:
-            'radial-gradient(ellipse at center, rgba(15, 23, 42, 0.14) 0%, rgba(11, 17, 32, 0.52) 100%)',
-          zIndex: 2,
-          pointerEvents: 'none',
-        }}
-      />
+        {/* 2. 공간감 비네팅 & 컬러 톤 매칭 오버레이 */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'radial-gradient(ellipse at center, rgba(15, 23, 42, 0.14) 0%, rgba(11, 17, 32, 0.52) 100%)',
+          }}
+        />
+      </div>
 
       {/* =====================================================================
           중앙 스테이지 래퍼 (메인 로그인 카드 + 로그인 전용 신규 캐릭터 3종 반응형 배치)
@@ -282,9 +281,12 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
           {/* 바닥 접지 그림자 */}
           <div
             style={{
+              position: 'absolute',
+              bottom: '2px',
+              left: '50%',
+              transform: 'translateX(-50%)',
               width: '55%',
-              height: '14px',
-              margin: '-12px auto 0',
+              height: '12px',
               borderRadius: '50%',
               background: 'radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 75%)',
             }}
@@ -296,24 +298,24 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                - 정면을 바라보며 상단 가로바를 두 손으로 잡고 대롱대롱 매달려 있는 포즈
             ----------------------------------------------------------------- */}
         <div className="login-char-designer">
-          {/* 화면 천장에서 가로바 양손 위치(30.5%, 69.5%)로 내려오는 2줄 와이어 */}
+          {/* 화면 천장에서 가로바 양손 위치(좌/우 30.5%, 상단 8.6% 지점)로 내려오는 2줄 와이어 */}
           <div
             style={{
               position: 'absolute',
-              top: '-240px',
+              bottom: '91.4%',
               left: '30.5%',
               width: '2px',
-              height: '258px',
+              height: '220px',
               background: 'linear-gradient(180deg, rgba(148,163,184,0.05) 0%, rgba(203,213,225,0.45) 100%)',
             }}
           />
           <div
             style={{
               position: 'absolute',
-              top: '-240px',
+              bottom: '91.4%',
               right: '30.5%',
               width: '2px',
-              height: '258px',
+              height: '220px',
               background: 'linear-gradient(180deg, rgba(148,163,184,0.05) 0%, rgba(203,213,225,0.45) 100%)',
             }}
           />
@@ -353,9 +355,12 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
           {/* 구석 바닥 접지 그림자 */}
           <div
             style={{
+              position: 'absolute',
+              bottom: '2px',
+              left: '50%',
+              transform: 'translateX(-50%)',
               width: '75%',
-              height: '16px',
-              margin: '-14px auto 0',
+              height: '14px',
               borderRadius: '50%',
               background: 'radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 75%)',
             }}
@@ -369,21 +374,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
           {/* 좌측(태블릿/모바일 상단): 서비스기획팀 브랜딩 영역 */}
           <div className="login-brand-panel">
             <div>
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 12px',
-                  background: 'rgba(255, 255, 255, 0.16)',
-                  backdropFilter: 'blur(6px)',
-                  borderRadius: '9999px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  color: '#bfdbfe',
-                  marginBottom: '16px',
-                }}
-              >
+              <div className="login-brand-badge">
                 <Sparkles size={13} /> 서비스기획팀 업무 포털
               </div>
 
@@ -404,30 +395,15 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
           {/* 우측(태블릿/모바일 하단): 폼 영역 (로그인 / 회원가입) */}
           <div className="login-form-panel">
             {/* 상단 탭 전환 바 */}
-            <div
-              style={{
-                display: 'flex',
-                background: '#f1f5f9',
-                padding: '4px',
-                borderRadius: 'var(--radius-md)',
-                marginBottom: '28px',
-              }}
-            >
+            <div className="login-tab-bar">
               <button
                 type="button"
                 onClick={() => handleModeSwitch('login')}
+                className="login-tab-btn"
                 style={{
-                  flex: 1,
-                  padding: '9px',
-                  border: 'none',
-                  borderRadius: '6px',
                   background: mode === 'login' ? '#ffffff' : 'transparent',
                   color: mode === 'login' ? '#1e293b' : '#64748b',
-                  fontWeight: 700,
-                  fontSize: '13.5px',
-                  cursor: 'pointer',
                   boxShadow: mode === 'login' ? 'var(--shadow-sm)' : 'none',
-                  transition: 'all 0.15s ease',
                 }}
               >
                 로그인
@@ -435,18 +411,11 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
               <button
                 type="button"
                 onClick={() => handleModeSwitch('register')}
+                className="login-tab-btn"
                 style={{
-                  flex: 1,
-                  padding: '9px',
-                  border: 'none',
-                  borderRadius: '6px',
                   background: mode === 'register' ? '#ffffff' : 'transparent',
                   color: mode === 'register' ? '#1e293b' : '#64748b',
-                  fontWeight: 700,
-                  fontSize: '13.5px',
-                  cursor: 'pointer',
                   boxShadow: mode === 'register' ? 'var(--shadow-sm)' : 'none',
-                  transition: 'all 0.15s ease',
                 }}
               >
                 신규 등록 (회원가입)
@@ -457,19 +426,19 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
             {errorMessage && (
               <div
                 style={{
-                  padding: '10px 14px',
+                  padding: '9px 12px',
                   background: '#fef2f2',
                   border: '1px solid #fecaca',
                   color: '#b91c1c',
                   borderRadius: 'var(--radius-md)',
-                  fontSize: '13px',
+                  fontSize: '12.5px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  marginBottom: '18px',
+                  marginBottom: '12px',
                 }}
               >
-                <AlertCircle size={16} />
+                <AlertCircle size={15} />
                 <span>{errorMessage}</span>
               </div>
             )}
@@ -479,7 +448,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
               <form
                 onSubmit={handleLoginSubmit}
                 autoComplete="off"
-                style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+                className="login-form"
               >
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -493,7 +462,6 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                     value={loginName}
                     onChange={(e) => setLoginName(e.target.value)}
                     className="form-input"
-                    style={{ padding: '11px 14px' }}
                   />
                 </div>
 
@@ -511,20 +479,12 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     className="form-input"
-                    style={{ padding: '11px 14px' }}
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="btn btn-primary"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    fontSize: '14.5px',
-                    fontWeight: 700,
-                    marginTop: '8px',
-                  }}
+                  className="btn btn-primary login-submit-btn"
                 >
                   포털 접속하기 <ArrowRight size={16} />
                 </button>
@@ -534,7 +494,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
               <form
                 onSubmit={handleRegisterSubmit}
                 autoComplete="off"
-                style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+                className="login-form login-form-register"
               >
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -567,7 +527,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                       </option>
                     ))}
                   </select>
-                  <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '4px' }}>
+                  <div className="login-dept-hint">
                     * 서비스기획팀 선택 시 [편집 권한], 유관부서 선택 시 [읽기 전용 모드]가 적용됩니다.
                   </div>
                 </div>
@@ -610,14 +570,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
 
                 <button
                   type="submit"
-                  className="btn btn-primary"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    fontSize: '14.5px',
-                    fontWeight: 700,
-                    marginTop: '10px',
-                  }}
+                  className="btn btn-primary login-submit-btn"
                 >
                   회원가입 및 바로 접속 <ArrowRight size={16} />
                 </button>
