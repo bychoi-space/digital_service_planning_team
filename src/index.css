@@ -693,4 +693,304 @@ button, input, select, textarea {
   100% { transform: scale(0.85); opacity: 0.4; }
 }
 
+/* ============================================================================
+   로그인 / 회원가입 페이지 반응형 아키텍처 (Desktop Wide · Laptop · Tablet · Mobile)
+   ============================================================================ */
+
+.login-page-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b1120;
+  padding: 160px 260px 90px;
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.login-stage {
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  z-index: 10;
+}
+
+.login-card {
+  width: 100%;
+  background: #ffffff;
+  border-radius: var(--radius-xl);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.42);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  position: relative;
+  z-index: 10;
+}
+
+.login-brand-panel {
+  background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%);
+  padding: 44px 36px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.login-brand-title {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.35;
+  letter-spacing: -0.5px;
+  margin-bottom: 16px;
+}
+
+.login-brand-desc {
+  font-size: 14px;
+  color: #e0e7ff;
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+.login-brand-footer {
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 12px;
+  color: #bfdbfe;
+}
+
+.login-form-panel {
+  padding: 40px 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.login-pw-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* 캐릭터 3종 기본 배치 (PC 와이드 1400px+ 기준) */
+.login-char-publisher {
+  position: absolute;
+  left: -192px;
+  bottom: 4px;
+  width: 228px;
+  height: 228px;
+  z-index: 20;
+  pointer-events: none;
+  transform-origin: right bottom;
+  transition: transform 0.25s ease, left 0.25s ease, bottom 0.25s ease;
+}
+
+.login-char-designer {
+  position: absolute;
+  top: -214px;
+  right: -52px;
+  width: 224px;
+  height: 224px;
+  z-index: 20;
+  pointer-events: none;
+  transform-origin: center bottom;
+  transition: transform 0.25s ease, top 0.25s ease, right 0.25s ease;
+}
+
+.login-char-planner {
+  position: absolute;
+  right: -248px;
+  bottom: -36px;
+  width: 232px;
+  height: 232px;
+  z-index: 20;
+  pointer-events: none;
+  transform-origin: left bottom;
+  transition: transform 0.25s ease, right 0.25s ease, bottom 0.25s ease;
+}
+
+/* ----------------------------------------------------------------------------
+   1) 일반 노트북 & 태블릿 가로 (1024px ~ 1399px)
+   ---------------------------------------------------------------------------- */
+@media (max-width: 1399px) {
+  .login-page-shell {
+    padding: 136px 140px 72px;
+  }
+
+  .login-stage {
+    max-width: 860px;
+  }
+
+  .login-brand-panel {
+    padding: 36px 28px;
+  }
+
+  .login-brand-title {
+    font-size: 23px;
+  }
+
+  .login-form-panel {
+    padding: 34px 28px;
+  }
+
+  .login-char-publisher {
+    left: -142px;
+    bottom: 6px;
+    transform: scale(0.76);
+  }
+
+  .login-char-designer {
+    top: -168px;
+    right: -20px;
+    transform: scale(0.78);
+  }
+
+  .login-char-planner {
+    right: -182px;
+    bottom: -26px;
+    transform: scale(0.76);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   2) 태블릿 세로 모드 (768px ~ 1023px)
+      - 로그인 카드를 상·하 1단(Single Column, max-width: 540px)으로 전환하여
+        태블릿 좌·우·상·하 배경 여백을 확보하고 캐릭터 3종이 안정적으로 배치되도록 구성
+   ---------------------------------------------------------------------------- */
+@media (max-width: 1023px) {
+  .login-page-shell {
+    padding: 132px 110px 72px;
+  }
+
+  .login-stage {
+    max-width: 540px;
+  }
+
+  .login-card {
+    grid-template-columns: 1fr;
+  }
+
+  .login-brand-panel {
+    padding: 30px 28px 24px;
+  }
+
+  .login-brand-title {
+    font-size: 22px;
+    margin-bottom: 10px;
+  }
+
+  .login-brand-footer {
+    margin-top: 20px;
+    padding-top: 14px;
+  }
+
+  .login-form-panel {
+    padding: 30px 28px 34px;
+  }
+
+  .login-char-publisher {
+    left: -124px;
+    bottom: 12px;
+    transform: scale(0.68);
+  }
+
+  .login-char-designer {
+    top: -154px;
+    right: 8px;
+    transform: scale(0.72);
+  }
+
+  .login-char-planner {
+    right: -156px;
+    bottom: -22px;
+    transform: scale(0.68);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   3) 모바일 디바이스 (767px 이하)
+      - 좌우 여백이 없는 모바일 환경을 고려하여 상단(디자이너) 및 하단 좌·우(퍼블리셔·기획자)
+        여백으로 캐릭터 3종을 재배치하고 입력 폼 가독성 및 터치 영역 최적화
+   ---------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .login-page-shell {
+    align-items: flex-start;
+    padding: 112px 16px 124px;
+  }
+
+  .login-stage {
+    max-width: 440px;
+    margin: 0 auto;
+  }
+
+  .login-card {
+    grid-template-columns: 1fr;
+    border-radius: 16px;
+  }
+
+  .login-brand-panel {
+    padding: 24px 20px 20px;
+  }
+
+  .login-brand-title {
+    font-size: 20px;
+    line-height: 1.35;
+    margin-bottom: 8px;
+  }
+
+  .login-brand-desc {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .login-brand-footer {
+    margin-top: 14px;
+    padding-top: 12px;
+    font-size: 11px;
+  }
+
+  .login-form-panel {
+    padding: 24px 20px 28px;
+  }
+
+  /* 모바일 iOS 자동 줌 방지 및 터치 편의성 확보 */
+  .login-form-panel .form-input,
+  .login-form-panel .form-select {
+    font-size: 16px;
+    padding: 11px 13px;
+  }
+
+  /* 모바일에서 캐릭터 3종이 잘리지 않도록 상단(디자이너) & 하단(퍼블리셔·기획자) 여백에 배치 */
+  .login-char-designer {
+    top: -120px;
+    right: 12px;
+    transform: scale(0.56);
+  }
+
+  .login-char-publisher {
+    left: 6px;
+    bottom: -108px;
+    transform-origin: left bottom;
+    transform: scale(0.52);
+  }
+
+  .login-char-planner {
+    right: 6px;
+    bottom: -112px;
+    transform-origin: right bottom;
+    transform: scale(0.52);
+  }
+}
+
+/* 소형 모바일 (480px 이하): 비밀번호/비밀번호 확인 1열 전환 */
+@media (max-width: 480px) {
+  .login-pw-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+
 

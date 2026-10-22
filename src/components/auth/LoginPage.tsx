@@ -230,18 +230,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
   const studioBgUrl = `${BASE_URL.endsWith('/') ? BASE_URL : `${BASE_URL}/`}images/login-studio-bg.jpg`;
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: '#0b1120',
-        padding: '160px 260px 90px',
-        position: 'relative',
-        overflow: 'hidden',
-      }}
-    >
+    <div className="login-page-shell">
       {/* 1. 서비스기획팀 크리에이티브 스튜디오 & 라운지 아웃포커싱(Depth-of-Field) 배경 레이어 */}
       <div
         style={{
@@ -271,32 +260,14 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
       />
 
       {/* =====================================================================
-          중앙 스테이지 래퍼 (메인 로그인 카드 + 로그인 전용 신규 캐릭터 3종 확대 배치)
+          중앙 스테이지 래퍼 (메인 로그인 카드 + 로그인 전용 신규 캐릭터 3종 반응형 배치)
           ===================================================================== */}
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          maxWidth: '960px',
-          zIndex: 10,
-        }}
-      >
+      <div className="login-stage">
         {/* -----------------------------------------------------------------
             1. [웹 퍼블리셔 - 신규 전용 일러스트]
                - 로그인 카드 좌측 바깥 벽면에 오른쪽 어깨·등을 기대고 발목을 교차해 서 있는 포즈
-               - 크기 228px로 확대, left: -192px 배치로 카드 외벽에 밀착되면서 가려짐 제로(zIndex: 20)
             ----------------------------------------------------------------- */}
-        <div
-          style={{
-            position: 'absolute',
-            left: '-192px',
-            bottom: '4px',
-            width: '228px',
-            height: '228px',
-            zIndex: 20,
-            pointerEvents: 'none',
-          }}
-        >
+        <div className="login-char-publisher">
           <div
             style={{
               filter: 'drop-shadow(-10px 12px 18px rgba(0, 0, 0, 0.48))',
@@ -323,19 +294,8 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
         {/* -----------------------------------------------------------------
             2. [UI 디자이너 - 신규 전용 일러스트]
                - 정면을 바라보며 상단 가로바를 두 손으로 잡고 대롱대롱 매달려 있는 포즈
-               - 크기 224px로 확대, 카드 우측 상단 바깥 여백(top: -214px, right: -52px, zIndex: 20)
             ----------------------------------------------------------------- */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '-214px',
-            right: '-52px',
-            width: '224px',
-            height: '224px',
-            zIndex: 20,
-            pointerEvents: 'none',
-          }}
-        >
+        <div className="login-char-designer">
           {/* 화면 천장에서 가로바 양손 위치(30.5%, 69.5%)로 내려오는 2줄 와이어 */}
           <div
             style={{
@@ -375,19 +335,8 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
         {/* -----------------------------------------------------------------
             3. [서비스기획자 - 신규 전용 일러스트]
                - 우측 하단 구석 여백 바닥에 태블릿을 내려놓고 한 손으로 턱을 괴고 귀찮은 듯 앉아 있는 포즈
-               - 크기 232px로 확대, right: -248px, bottom: -36px 배치(zIndex: 20)
             ----------------------------------------------------------------- */}
-        <div
-          style={{
-            position: 'absolute',
-            right: '-248px',
-            bottom: '-36px',
-            width: '232px',
-            height: '232px',
-            zIndex: 20,
-            pointerEvents: 'none',
-          }}
-        >
+        <div className="login-char-planner">
           <div
             style={{
               filter: 'drop-shadow(0 12px 20px rgba(0, 0, 0, 0.5))',
@@ -412,32 +361,11 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
         </div>
 
         {/* =================================================================
-            메인 2단 로그인 카드 본체 (zIndex: 10)
+            메인 로그인 카드 본체 (PC/노트북 2단 · 태블릿/모바일 1단 자동 전환)
             ================================================================= */}
-        <div
-          style={{
-            width: '100%',
-            background: '#ffffff',
-            borderRadius: 'var(--radius-xl)',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.42)',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-            overflow: 'hidden',
-            position: 'relative',
-            zIndex: 10,
-          }}
-        >
-          {/* 좌측: 서비스기획팀 브랜딩 영역 */}
-          <div
-            style={{
-              background: 'linear-gradient(180deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%)',
-              padding: '44px 36px',
-              color: '#ffffff',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-            }}
-          >
+        <div className="login-card">
+          {/* 좌측(태블릿/모바일 상단): 서비스기획팀 브랜딩 영역 */}
+          <div className="login-brand-panel">
             <div>
               <div
                 style={{
@@ -451,44 +379,28 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                   fontSize: '12px',
                   fontWeight: 600,
                   color: '#bfdbfe',
-                  marginBottom: '20px',
+                  marginBottom: '16px',
                 }}
               >
                 <Sparkles size={13} /> 서비스기획팀 업무 포털
               </div>
 
-              <h2
-                style={{
-                  fontSize: '26px',
-                  fontWeight: 800,
-                  lineHeight: 1.35,
-                  letterSpacing: '-0.5px',
-                  marginBottom: '16px',
-                }}
-              >
+              <h2 className="login-brand-title">
                 서비스 기획과 협업의 모든 것,<br />하나의 포털에서
               </h2>
 
-              <p style={{ fontSize: '14px', color: '#e0e7ff', lineHeight: 1.6, marginBottom: 0 }}>
+              <p className="login-brand-desc">
                 일상 기획 업무(Task), 팀원 휴가 일정, 분기/연간 KPI 목표 및 달성 평가를 투명하게 공유하고 관리합니다.
               </p>
             </div>
 
-            <div
-              style={{
-                marginTop: '36px',
-                paddingTop: '20px',
-                borderTop: '1px solid rgba(255, 255, 255, 0.15)',
-                fontSize: '12px',
-                color: '#bfdbfe',
-              }}
-            >
+            <div className="login-brand-footer">
               서비스기획팀 업무 포털 v1.0
             </div>
           </div>
 
-          {/* 우측: 폼 영역 (로그인 / 회원가입) */}
-          <div style={{ padding: '40px 36px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          {/* 우측(태블릿/모바일 하단): 폼 영역 (로그인 / 회원가입) */}
+          <div className="login-form-panel">
             {/* 상단 탭 전환 바 */}
             <div
               style={{
@@ -658,7 +570,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div className="login-pw-grid">
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <KeyRound size={14} color="#64748b" /> 비밀번호 *
