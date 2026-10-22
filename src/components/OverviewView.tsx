@@ -359,10 +359,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
-      {/* 0. 페이지 진입 시 첫인상: 3인 캐릭터 [시선닷컴 UI/UX 개편] 릴레이 애니메이션 쇼케이스 (스타일 A & B 비교) */}
-      <SisunRenewalStoryStage />
-
-      {/* 1. 히어로 비주얼 배너 (시선인터내셔널 프리미엄 비전 + 글로벌 벤치마킹 모션) */}
+      {/* 1. 최상단 히어로 비주얼 배너 (시선인터내셔널 프리미엄 비전 + 글로벌 벤치마킹 모션) */}
       <div
         style={{
           background: 'linear-gradient(135deg, #090d16 0%, #0f1f3d 40%, #1e3a8a 100%)',
@@ -509,6 +506,9 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
           </div>
         </div>
       </div>
+
+      {/* 2. 3인 캐릭터 [시선닷컴 UI/UX 개편] 릴레이 애니메이션 쇼케이스 */}
+      <SisunRenewalStoryStage />
 
       {/* 2. 서비스기획팀 3대 집중 추진 영역 (인터랙티브 쇼케이스 & 마이크로 모션) */}
       <div id="pillars-section">
