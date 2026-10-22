@@ -192,7 +192,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                 marginBottom: '20px',
               }}
             >
-              <Sparkles size={13} /> 디지털서비스기획팀 업무 포털
+              <Sparkles size={13} /> 서비스기획팀 업무 포털
             </div>
 
             <h2
@@ -213,7 +213,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
           </div>
 
           <div style={{ marginTop: '36px', paddingTop: '20px', borderTop: '1px solid rgba(255, 255, 255, 0.15)', fontSize: '12px', color: '#bfdbfe' }}>
-            디지털서비스기획팀 업무 포털 v1.0
+            서비스기획팀 업무 포털 v1.0
           </div>
         </div>
 
@@ -347,7 +347,11 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
             </form>
           ) : (
             /* B. 신규 등록 (회원가입) 폼 */
-            <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form
+              onSubmit={handleRegisterSubmit}
+              autoComplete="off"
+              style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+            >
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <UserIcon size={14} color="#64748b" /> 성명 (이름) *
@@ -355,6 +359,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                 <input
                   type="text"
                   required
+                  autoComplete="off"
                   placeholder="예: 홍길동"
                   value={regName}
                   onChange={(e) => setRegName(e.target.value)}
@@ -374,12 +379,12 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                 >
                   {COMPANY_DEPARTMENTS.map((dept) => (
                     <option key={dept.id} value={dept.name}>
-                      {dept.name} {dept.isPlanningTeam ? '(편집 권한)' : '(읽기전용 뷰어)'}
+                      {dept.name}
                     </option>
                   ))}
                 </select>
                 <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '4px' }}>
-                  * 디지털서비스기획팀 선택 시 [편집 권한], 유관부서 선택 시 [읽기 전용 모드]가 적용됩니다.
+                  * 서비스기획팀 선택 시 [편집 권한], 유관부서 선택 시 [읽기 전용 모드]가 적용됩니다.
                 </div>
               </div>
 
@@ -391,6 +396,9 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                   <input
                     type="password"
                     required
+                    readOnly
+                    onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
+                    autoComplete="new-password"
                     placeholder="비밀번호 설정"
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
@@ -405,6 +413,9 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                   <input
                     type="password"
                     required
+                    readOnly
+                    onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
+                    autoComplete="new-password"
                     placeholder="비밀번호 재입력"
                     value={regPasswordConfirm}
                     onChange={(e) => setRegPasswordConfirm(e.target.value)}
@@ -426,23 +437,6 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
               >
                 회원가입 및 바로 접속 <ArrowRight size={16} />
               </button>
-
-              <div style={{ textAlign: 'center', marginTop: '6px' }}>
-                <button
-                  type="button"
-                  onClick={() => handleModeSwitch('login')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#2563eb',
-                    fontSize: '12.5px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  이미 등록된 계정이 있으신가요? 로그인하기
-                </button>
-              </div>
             </form>
           )}
         </div>
