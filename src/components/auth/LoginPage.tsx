@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 // ============================================================================
-// GitHub Pages 호환 캐릭터 스프라이트 프리로더 & 무깜빡임 Canvas 렌더러
+// 로그인 화면 전용 신규 캐릭터 스프라이트 프리로더 & 고해상도(560x560) 무깜빡임 Canvas 렌더러
 // ============================================================================
 const BASE_URL = import.meta.env.BASE_URL || './';
 function loginCharUrl(fileName: string): string {
@@ -45,23 +45,23 @@ function preloadLoginSprite(fileName: string): void {
   img.src = url;
 }
 
-const LOGIN_STAGE_SPRITES = [
-  'character-1-planner.png',
-  'character-2-designer.png',
-  'character-3-publisher.png',
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `planner-sit-sketch-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `designer-climb-${n}.png`),
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => `publisher-code-focus-${n}.png`),
+const LOGIN_EXCLUSIVE_SPRITES = [
+  'login-publisher-lean.png',
+  'login-designer-hang.png',
+  'login-planner-sit.png',
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `login-publisher-lean-${n}.png`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `login-designer-hang-${n}.png`),
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `login-planner-sit-${n}.png`),
 ];
 
 interface SpriteCanvasProps {
   fileName: string;
   fallbackFileName: string;
-  size?: number;
+  size: number;
   style?: React.CSSProperties;
 }
 
-function LoginSpriteCanvas({ fileName, fallbackFileName, size = 152, style }: SpriteCanvasProps) {
+function LoginSpriteCanvas({ fileName, fallbackFileName, size, style }: SpriteCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastDrawnRef = useRef<string>('');
 
@@ -88,8 +88,8 @@ function LoginSpriteCanvas({ fileName, fallbackFileName, size = 152, style }: Sp
           : null;
 
       if (chosenImg && chosenImg.src !== lastDrawnRef.current) {
-        ctx.clearRect(0, 0, 240, 240);
-        ctx.drawImage(chosenImg, 0, 0, 240, 240);
+        ctx.clearRect(0, 0, 560, 560);
+        ctx.drawImage(chosenImg, 0, 0, 560, 560);
         lastDrawnRef.current = chosenImg.src;
       }
     };
@@ -102,8 +102,8 @@ function LoginSpriteCanvas({ fileName, fallbackFileName, size = 152, style }: Sp
   return (
     <canvas
       ref={canvasRef}
-      width={240}
-      height={240}
+      width={560}
+      height={560}
       style={{
         width: `${size}px`,
         height: `${size}px`,
@@ -138,14 +138,14 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
   // 에러 및 안내 메시지
   const [errorMessage, setErrorMessage] = useState('');
 
-  // 애니메이션 프레임 틱 (부드러운 12프레임 루프)
+  // 로그인 화면 전용 8프레임 루프 틱
   const [frameTick, setFrameTick] = useState(0);
 
   useEffect(() => {
-    LOGIN_STAGE_SPRITES.forEach(preloadLoginSprite);
+    LOGIN_EXCLUSIVE_SPRITES.forEach(preloadLoginSprite);
     const interval = window.setInterval(() => {
       setFrameTick((prev) => prev + 1);
-    }, 115);
+    }, 150);
     return () => window.clearInterval(interval);
   }, []);
 
@@ -226,7 +226,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
     }
   };
 
-  const frame12 = (frameTick % 12) + 1;
+  const frame8 = (frameTick % 8) + 1;
 
   return (
     <div
@@ -236,7 +236,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
         alignItems: 'center',
         justifyContent: 'center',
         background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
-        padding: '120px 240px 80px',
+        padding: '160px 260px 90px',
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -268,7 +268,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
       />
 
       {/* =====================================================================
-          중앙 스테이지 래퍼 (메인 로그인 카드 + 카드 바깥 여백 캐릭터 3종 배치)
+          중앙 스테이지 래퍼 (메인 로그인 카드 + 로그인 전용 신규 캐릭터 3종 확대 배치)
           ===================================================================== */}
       <div
         style={{
@@ -279,152 +279,137 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
         }}
       >
         {/* -----------------------------------------------------------------
-            1. [퍼블리셔] 로그인 카드 좌측 바깥 벽면 여백에 기대듯 서 있는 포즈
-               - 카드 바깥 왼쪽 여백(left: -136px)에 배치, zIndex: 20으로 가려짐 원천 차단
-               - transformOrigin: 'center bottom' + rotate(6deg)로 카드 왼쪽 외벽에 자연스럽게 기댐
+            1. [웹 퍼블리셔 - 신규 전용 일러스트]
+               - 로그인 카드 좌측 바깥 벽면에 오른쪽 어깨·등을 기대고 발목을 교차해 서 있는 포즈
+               - 크기 228px로 확대, left: -192px 배치로 카드 외벽에 밀착되면서 가려짐 제로(zIndex: 20)
             ----------------------------------------------------------------- */}
         <div
           style={{
             position: 'absolute',
-            left: '-136px',
-            bottom: '12px',
-            width: '156px',
-            height: '156px',
+            left: '-192px',
+            bottom: '4px',
+            width: '228px',
+            height: '228px',
             zIndex: 20,
             pointerEvents: 'none',
           }}
         >
           <div
             style={{
-              transform: `rotate(6deg) translateY(${Math.sin(frameTick * 0.35) * 1.5}px)`,
-              transformOrigin: 'center bottom',
-              filter: 'drop-shadow(-8px 10px 16px rgba(0, 0, 0, 0.45))',
+              filter: 'drop-shadow(-10px 12px 18px rgba(0, 0, 0, 0.48))',
             }}
           >
             <LoginSpriteCanvas
-              fileName={`publisher-code-focus-${frame12}.png`}
-              fallbackFileName="character-3-publisher.png"
-              size={156}
+              fileName={`login-publisher-lean-${frame8}.png`}
+              fallbackFileName="login-publisher-lean.png"
+              size={228}
             />
           </div>
           {/* 바닥 접지 그림자 */}
           <div
             style={{
-              width: '92px',
-              height: '14px',
-              margin: '-12px auto 0',
+              width: '124px',
+              height: '16px',
+              margin: '-14px auto 0',
               borderRadius: '50%',
-              background: 'radial-gradient(ellipse, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 75%)',
+              background: 'radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 75%)',
             }}
           />
         </div>
 
         {/* -----------------------------------------------------------------
-            2. [디자이너] 상단 배경 여백에서 위쪽 가로바에 두 손으로 매달려 있는 포즈
-               - 카드 우측 상단 바깥 여백(top: -150px, right: -48px)에 배치, zIndex: 20
-               - 천장에서 내려온 와이어 가로바(손 높이 top: 48px)에 정확히 양손을 걸고 매달림
+            2. [UI 디자이너 - 신규 전용 일러스트]
+               - 정면을 바라보며 상단 가로바를 두 손으로 잡고 대롱대롱 매달려 있는 포즈
+               - 크기 224px로 확대, 카드 우측 상단 바깥 여백(top: -214px, right: -52px, zIndex: 20)
             ----------------------------------------------------------------- */}
         <div
           style={{
             position: 'absolute',
-            top: '-150px',
-            right: '-48px',
-            width: '152px',
-            height: '152px',
+            top: '-214px',
+            right: '-52px',
+            width: '224px',
+            height: '224px',
             zIndex: 20,
             pointerEvents: 'none',
           }}
         >
-          {/* 화면 상단에서 내려오는 2줄 와이어 & 가로 철봉 바 (양손 위치 top: 48px 정렬) */}
+          {/* 화면 천장에서 가로바 양손 위치(30.5%, 69.5%)로 내려오는 2줄 와이어 */}
           <div
             style={{
               position: 'absolute',
-              top: '-220px',
-              left: '34px',
+              top: '-240px',
+              left: '30.5%',
               width: '2px',
-              height: '268px',
-              background: 'linear-gradient(180deg, rgba(148,163,184,0.05) 0%, rgba(148,163,184,0.45) 100%)',
+              height: '258px',
+              background: 'linear-gradient(180deg, rgba(148,163,184,0.05) 0%, rgba(203,213,225,0.45) 100%)',
             }}
           />
           <div
             style={{
               position: 'absolute',
-              top: '-220px',
-              right: '34px',
+              top: '-240px',
+              right: '30.5%',
               width: '2px',
-              height: '268px',
-              background: 'linear-gradient(180deg, rgba(148,163,184,0.05) 0%, rgba(148,163,184,0.45) 100%)',
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              top: '46px',
-              left: '22px',
-              right: '22px',
-              height: '5px',
-              borderRadius: '999px',
-              background: 'linear-gradient(90deg, #64748b 0%, #cbd5e1 50%, #64748b 100%)',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
+              height: '258px',
+              background: 'linear-gradient(180deg, rgba(148,163,184,0.05) 0%, rgba(203,213,225,0.45) 100%)',
             }}
           />
 
           <div
             style={{
               position: 'relative',
-              transform: `translateY(${Math.sin(frameTick * 0.5) * 2}px)`,
-              transformOrigin: 'center 48px',
-              filter: 'drop-shadow(0 12px 18px rgba(0, 0, 0, 0.45))',
+              filter: 'drop-shadow(0 14px 20px rgba(0, 0, 0, 0.48))',
             }}
           >
             <LoginSpriteCanvas
-              fileName={`designer-climb-${frame12}.png`}
-              fallbackFileName="character-2-designer.png"
-              size={152}
+              fileName={`login-designer-hang-${frame8}.png`}
+              fallbackFileName="login-designer-hang.png"
+              size={224}
             />
           </div>
         </div>
 
         {/* -----------------------------------------------------------------
-            3. [기획자] 우측 하단 구석 배경 여백 바닥에 편하게 앉아 있는 포즈
-               - 카드 바깥 우측 하단 구석 여백(right: -200px, bottom: -32px)에 배치, zIndex: 20
+            3. [서비스기획자 - 신규 전용 일러스트]
+               - 우측 하단 구석 여백 바닥에 태블릿을 내려놓고 한 손으로 턱을 괴고 귀찮은 듯 앉아 있는 포즈
+               - 크기 232px로 확대, right: -248px, bottom: -36px 배치(zIndex: 20)
             ----------------------------------------------------------------- */}
         <div
           style={{
             position: 'absolute',
-            right: '-200px',
-            bottom: '-32px',
-            width: '156px',
-            height: '156px',
+            right: '-248px',
+            bottom: '-36px',
+            width: '232px',
+            height: '232px',
             zIndex: 20,
             pointerEvents: 'none',
           }}
         >
           <div
             style={{
-              filter: 'drop-shadow(0 10px 18px rgba(0, 0, 0, 0.45))',
+              filter: 'drop-shadow(0 12px 20px rgba(0, 0, 0, 0.5))',
             }}
           >
             <LoginSpriteCanvas
-              fileName={`planner-sit-sketch-${frame12}.png`}
-              fallbackFileName="character-1-planner.png"
-              size={156}
+              fileName={`login-planner-sit-${frame8}.png`}
+              fallbackFileName="login-planner-sit.png"
+              size={232}
             />
           </div>
-          {/* 구석 바닥 그림자 */}
+          {/* 구석 바닥 접지 그림자 */}
           <div
             style={{
-              width: '116px',
-              height: '16px',
-              margin: '-14px auto 0',
+              width: '176px',
+              height: '18px',
+              margin: '-16px auto 0',
               borderRadius: '50%',
-              background: 'radial-gradient(ellipse, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0) 75%)',
+              background: 'radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 75%)',
             }}
           />
         </div>
 
         {/* =================================================================
-            메인 2단 로그인 카드 본체 (zIndex: 10, 불필요한 장식/문구 제거)
+            메인 2단 로그인 카드 본체 (zIndex: 10)
             ================================================================= */}
         <div
           style={{
