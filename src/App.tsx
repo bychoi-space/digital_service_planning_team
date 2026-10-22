@@ -336,9 +336,7 @@ export function App() {
 
         {/* 본문 화면 렌더링 */}
         <div className="content-body" key={syncKey}>
-          {activeTab === 'overview' && (
-            <OverviewView onNavigateToTasks={() => navigateTo('tasks')} />
-          )}
+          {activeTab === 'overview' && <OverviewView />}
           {activeTab === 'tasks' && (
             <TasksView
               currentUser={currentUser}

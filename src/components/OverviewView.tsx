@@ -3,19 +3,10 @@ import { TEAM_GUIDE_DATA } from '../constants/teamGuide';
 import { SisunRenewalStoryStage } from './SisunRenewalStoryStage';
 import {
   Compass,
-  MessageSquare,
-  Users,
-  CheckCircle2,
-  Sparkles,
   Layers,
-  ArrowUpRight,
 } from 'lucide-react';
 
-interface OverviewViewProps {
-  onNavigateToTasks: () => void;
-}
-
-export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
+export function OverviewView() {
   // 3대 핵심 업무 탭 상태 (0: UI/UX개편, 1: 어드민효율화, 2: 이커머스정책)
   const [activePillar, setActivePillar] = useState<number>(0);
 
@@ -140,62 +131,6 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
     },
   ];
 
-  // 국내외 4대 벤치마킹 레퍼런스 데이터
-  const BENCHMARK_SITES = [
-    {
-      id: 'toss',
-      name: '토스 디자인 (Toss Product & Design)',
-      url: 'https://toss.design',
-      tag: '국내 최고 인터랙션',
-      tagClass: 'benchmark-tag-toss',
-      summary: '복잡한 금융과 쇼핑 UX를 극도로 단순화하고, 모션과 마이크로 인터랙션으로 사용자를 몰입시키는 기획 체계',
-      benchmarkingPoints: [
-        '기획자(PO/서비스기획)와 디자이너가 단일 화면설계 시스템(TDS)으로 협업',
-        '사용자 여정(CJM)의 불필요한 단계를 과감히 제거하는 One Thing Per Screen 원칙',
-        '시선닷컴 메인 배너 및 기획전 레이아웃에 토스식 부드러운 스크롤 인터랙션 벤치마킹',
-      ],
-    },
-    {
-      id: 'shopify',
-      name: '쇼피파이 폴라리스 (Shopify Polaris)',
-      url: 'https://polaris.shopify.com',
-      tag: '글로벌 이커머스 & 어드민 표준',
-      tagClass: 'benchmark-tag-shopify',
-      summary: '전 세계 1위 글로벌 커머스 플랫폼의 백오피스(어드민) UI/UX 디자인 가이드라인',
-      benchmarkingPoints: [
-        '온라인MD가 가장 많이 다루는 대량 상품 등록, 재고 테이블 필터링 표준화',
-        '복잡한 프로모션(할인율, 타임세일, 쿠폰) 조건 설정 폼의 직관적 시각화',
-        '시선닷컴 백오피스 어드민 개편 시 테이블 인터랙션 및 배치 작업 UI에 적극 반영',
-      ],
-    },
-    {
-      id: 'linear',
-      name: '리니어 메소드 (Linear Method)',
-      url: 'https://linear.app/method',
-      tag: '글래스모피즘 & 스프린트 미학',
-      tagClass: 'benchmark-tag-linear',
-      summary: '감각적인 다크 테마와 매끄러운 반응 속도로 글로벌 테크 기업들의 기획/이슈 관리를 선도하는 방법론',
-      benchmarkingPoints: [
-        '불필요한 회의와 보고를 없애고, 살아있는 이슈 티켓과 자동화된 감사 로그로 소통',
-        '마우스 호버 시 은은한 발광 효과(Hover Glow)와 매끄러운 반응형 UX',
-        '본 서비스기획팀 업무관리 포털의 대시보드 카드 및 감사 로그 뷰에 디자인 반영',
-      ],
-    },
-    {
-      id: '29cm',
-      name: '29CM / 무신사 테크 & 프로덕트',
-      url: 'https://medium.com/musinsa-tech',
-      tag: '패션 버티컬 커머스 최적화',
-      tagClass: 'benchmark-tag-29cm',
-      summary: '프리미엄 패션 브랜드의 가치 전달과 브랜드 룩북, 큐레이션 기획전 중심의 이커머스 설계',
-      benchmarkingPoints: [
-        '단순 상품 판매를 넘어선 브랜드 스토리텔링과 고화질 화보형 UI 레이아웃',
-        '패션 브랜드(MICHAA, it MICHAA) 감성에 맞춘 룩북 태깅 및 원클릭 장바구니 담기',
-        '시선닷컴 모바일 메인 룩북 개편 및 시즌 프로모션 기획 시 참고 모델',
-      ],
-    },
-  ];
-
   return (
     <div className="overview-container">
       {/* 1. 최상단 슬림 히어로 배너 (시선인터내셔널 비전 & 미션 1줄 요약) */}
@@ -294,109 +229,6 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
               </div>
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* 5. 국내외 서비스기획 & 프로덕트 벤치마킹 허브 */}
-      <div id="benchmark-hub" className="card overview-card-padded">
-        <div className="overview-section-header-between">
-          <div className="overview-section-title-group">
-            <Sparkles size={22} className="overview-section-icon" />
-            <h2 className="overview-section-title">국내외 서비스기획/프로덕트 벤치마킹 레퍼런스</h2>
-          </div>
-          <span className="benchmark-header-badge">
-            Toss · Shopify · Linear · 29CM 디자인 시스템 분석
-          </span>
-        </div>
-
-        <p className="overview-section-desc">
-          서비스기획팀이 지향하는 최상위 프로덕트 기준을 제공하기 위해, 글로벌 및 국내 1위 테크 기업들의 기획·디자인 시스템을 벤치마킹하여 시선닷컴에 도입하고 있습니다.
-        </p>
-
-        {/* 4대 벤치마크 사이트 카드 그리드 */}
-        <div className="benchmark-grid">
-          {BENCHMARK_SITES.map((site) => (
-            <div key={site.id} className="interactive-card benchmark-card">
-              <div className="benchmark-card-top">
-                <span className={`benchmark-tag ${site.tagClass}`}>{site.tag}</span>
-                <a
-                  href={site.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="benchmark-link"
-                >
-                  공식 사이트 <ArrowUpRight size={15} />
-                </a>
-              </div>
-
-              <h4 className="benchmark-name">{site.name}</h4>
-              <p className="benchmark-summary">{site.summary}</p>
-
-              <div className="benchmark-points-section">
-                <div className="benchmark-points-title">시선닷컴 적용 벤치마킹 포인트</div>
-                <div className="benchmark-points-list">
-                  {site.benchmarkingPoints.map((pt, pIdx) => (
-                    <div key={pIdx} className="benchmark-point-item">
-                      <CheckCircle2 size={15} className="benchmark-point-icon" />
-                      <span>{pt}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 7. 공식 협업 창구 & 팀원 명단 */}
-      <div className="overview-bottom-grid">
-        {/* 공식 협업 창구 */}
-        <div className="card overview-subcard">
-          <div className="overview-subcard-header">
-            <MessageSquare size={18} className="overview-section-icon" />
-            <h3 className="overview-subcard-title">공식 기획 문의 & 정기 회의체</h3>
-          </div>
-          <div className="channel-list">
-            {TEAM_GUIDE_DATA.collaborationChannels.map((ch, idx) => (
-              <div key={idx} className="channel-item">
-                <div className="channel-item-top">
-                  <span className="channel-name">{ch.name}</span>
-                  <span className="channel-type-badge">{ch.type}</span>
-                </div>
-                <div className="channel-purpose">{ch.purpose}</div>
-                <div className="channel-contact">{ch.linkOrContact}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 서비스기획팀 조직 R&R 및 다짐 */}
-        <div className="card overview-subcard">
-          <div className="overview-subcard-header">
-            <Users size={18} className="overview-section-icon" />
-            <h3 className="overview-subcard-title">서비스기획팀 R&R 조직 구성</h3>
-          </div>
-          <div className="team-org-body">
-            <div className="team-org-banner">
-              <div className="team-org-avatar">기획</div>
-              <div className="team-org-info">
-                <div className="team-org-name">서비스기획팀</div>
-                <div className="team-org-roles">
-                  시선닷컴 UI/UX 화면설계 · 비주얼 디자인 · 퍼블리싱 · 백오피스 어드민 효율화 · 이커머스 정책
-                </div>
-              </div>
-            </div>
-
-            <div className="team-org-actions">
-              <button
-                type="button"
-                onClick={onNavigateToTasks}
-                className="btn btn-primary team-org-tasks-btn"
-              >
-                전체 업무 목록(Tasks) 확인하기
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
