@@ -1167,7 +1167,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                     <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                       <input
                         type="text"
-                        placeholder="문서명 (예: Figma 와이어프레임)"
+                        placeholder="문서명 (예: 화면설계서 SB)"
                         value={formData.linkTitle}
                         onChange={(e) => setFormData({ ...formData, linkTitle: e.target.value })}
                         className="form-input"

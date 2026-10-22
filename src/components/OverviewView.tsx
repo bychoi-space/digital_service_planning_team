@@ -36,9 +36,6 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
   // 3대 핵심 업무 탭 상태 (0: UI/UX개편, 1: 어드민효율화, 2: 이커머스정책)
   const [activePillar, setActivePillar] = useState<number>(0);
 
-  // Pillar 1: UI/UX 개편 세부 산출물 탭 (sb: 기획서, ui: 비주얼디자인, pub: 반응형퍼블리싱)
-  const [pillar1SubTab, setPillar1SubTab] = useState<'sb' | 'ui' | 'pub'>('sb');
-
   // Pillar 2: 어드민 효율화 Before/After 토글 상태 ('after' | 'before')
   const [adminComparisonMode, setAdminComparisonMode] = useState<'after' | 'before'>('after');
 
@@ -72,7 +69,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
       glowClass: 'interactive-glow-blue',
       bgGradient: 'linear-gradient(135deg, rgba(37,99,235,0.06) 0%, rgba(37,99,235,0.01) 100%)',
       borderColor: '#93c5fd',
-      icon: <Palette size={22} color="#2563eb" />,
+      icon: <Palette size={18} color="#2563eb" />,
       description:
         '미샤(MICHAA), 잇미샤(it MICHAA), E.B.M 등 시선인터내셔널의 대표 프리미엄 패션 브랜드 감성을 온전히 전달할 수 있도록 고객 경험(CX)을 혁신합니다.',
       pipelineSteps: [
@@ -82,14 +79,14 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
         },
         {
           name: '2. UI/UX 비주얼 디자인',
-          desc: '브랜드 아이덴티티와 최신 트렌드를 반영한 고해상도 디자인 시스템 및 피그마 컴포넌트화',
+          desc: '브랜드 아이덴티티와 최신 트렌드를 반영한 고해상도 디자인 시스템 및 UI 컴포넌트화',
         },
         {
           name: '3. 반응형 웹 퍼블리싱',
           desc: '모바일 웹, PC 브라우저, 앱 웹뷰 어디서나 완벽한 비율과 속도를 보장하는 정밀 퍼블리싱',
         },
       ],
-      keyMetrics: '모바일 이탈률 15%p 감축 / 상품 상세 페이지 체류 시간 25% 증가 목표',
+      keyMetrics: '모바일 탐색 이탈 최소화 / 상품 상세 페이지 몰입도 및 구매 전환 경험 강화',
     },
     {
       id: 1,
@@ -100,7 +97,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
       glowClass: 'interactive-glow-emerald',
       bgGradient: 'linear-gradient(135deg, rgba(5,150,105,0.06) 0%, rgba(5,150,105,0.01) 100%)',
       borderColor: '#86efac',
-      icon: <Sliders size={22} color="#059669" />,
+      icon: <Sliders size={18} color="#059669" />,
       description:
         '온라인MD, 운영팀이 매일 반복하는 비효율적인 수기 작업을 제거하고, 대량 상품 등록 및 기획전 세팅을 직관적으로 수행할 수 있도록 어드민 사용성을 개선합니다.',
       pipelineSteps: [
@@ -114,10 +111,10 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
         },
         {
           name: '3. 주문/클레임 처리 워크플로우 단축',
-          desc: '교환/반품 승인 및 물류 연동 단계 간소화로 VOC 처리 속도 50% 단축',
+          desc: '교환/반품 승인 및 물류 연동 단계 간소화로 클레임 및 VOC 처리 프로세스 개선',
         },
       ],
-      keyMetrics: '온라인MD 일상 세팅 공수 40% 절감 / 휴먼 에러 제로화',
+      keyMetrics: '온라인MD 반복 세팅 공수 절감 / 수기 입력에 따른 운영 휴먼 에러 방지',
     },
     {
       id: 2,
@@ -128,7 +125,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
       glowClass: 'interactive-glow-purple',
       bgGradient: 'linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(124,58,237,0.01) 100%)',
       borderColor: '#c4b5fd',
-      icon: <BookOpen size={22} color="#7c3aed" />,
+      icon: <BookOpen size={18} color="#7c3aed" />,
       description:
         '브랜드 사업부, 온라인몰, 물류, 마케팅, IT 간의 업무 경계를 허물고, 누구나 명확한 기준에 따라 일할 수 있도록 전사 이커머스 운영 규정을 정립합니다.',
       pipelineSteps: [
@@ -145,7 +142,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
           desc: '요구사항 접수부터 릴리즈까지 각 부서(MN, MD, 마케팅, 정보실)의 명확한 역할 매트릭스',
         },
       ],
-      keyMetrics: '부서간 커뮤니케이션 비용 60% 단축 / 전사 이커머스 표준 매뉴얼 구축',
+      keyMetrics: '유관부서 간 협업 커뮤니케이션 효율화 / 전사 이커머스 표준 운영 매뉴얼 구축',
     },
   ];
 
@@ -258,7 +255,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
 1. 제안 영역: (상품관리 / 프로모션세팅 / 주문관리 / 정산)
 2. 현재 문제점(AS-IS): (예: 엑셀 대량 업로드 시 옵션명 오타 발생 시 전체 실패됨)
 3. 희망 개선안(TO-BE): (예: 정상 행은 우선 등록되고 오류 행만 엑셀로 재다운로드)
-4. 기대 효과: 일일 상품 등록 작업 시간 약 1시간 단축 예상`,
+4. 기대 효과: 반복 수기 등록 공수 절감 및 대량 업로드 오류 방지`,
       faq: [
         {
           q: '대량 상품 등록 어드민 UI 개선 일정은 언제 릴리즈되나요?',
@@ -321,8 +318,8 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
       guideTip: 'A/B 테스트 제안은 가설과 타겟 지표(CTR, CVR)를 함께 전달해 주시면 즉시 설계안을 도출합니다.',
       requestTemplate: `[디지털마케팅 ➔ 서비스기획팀 A/B 테스트 제안]
 1. 테스트 대상 페이지: (메인 히어로 / 상품 상세 / 장바구니)
-2. 검증 가설: (예: 장바구니 첫 구매 10% 할인 팝업 노출 시 CVR 1.8% 상승)
-3. 타겟 모수 및 기간: 2주간 전체 유입자의 50% 분할`,
+2. 검증 가설: (예: 장바구니 첫 구매 혜택 안내 팝업 노출 시 결제 전환 경험 개선 여부 검증)
+3. 타겟 모수 및 기간: (예: 대조군 A / 실험군 B 균등 분할 테스트)`,
       faq: [
         {
           q: '광고 추적 스크립트(GTM/픽셀) 삽입 요청은 어떻게 하나요?',
@@ -343,11 +340,11 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
 1. 과제명: 
 2. 담당자:
 3. 마감 예정일: 
-4. 관련 산출물 링크: (피그마 SB 링크)`,
+4. 관련 산출물 링크: (화면설계서 SB 문서 링크)`,
       faq: [
         {
-          q: '피그마 화면설계서 버전 관리 원칙은 무엇인가요?',
-          a: '모든 컴포넌트는 TDS(Team Design System) 라이브러리를 바인딩하며, 브랜치 머지 전 팀 리뷰를 필수로 거칩니다.',
+          q: '화면설계서(SB) 버전 및 산출물 관리 원칙은 무엇인가요?',
+          a: '모든 화면설계서(SB)는 표준 문서 템플릿과 정책 코드(Policy Code) 체계를 준수하여 작성하며, 배포 전 팀 리뷰를 필수로 거칩니다.',
         },
       ],
     },
@@ -414,59 +411,62 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
       {/* 2. 3인 캐릭터 [시선닷컴 UI/UX 개편] 릴레이 애니메이션 쇼케이스 */}
       <SisunRenewalStoryStage />
 
-      {/* 2. 서비스기획팀 3대 집중 추진 영역 (인터랙티브 쇼케이스 & 마이크로 모션) */}
+      {/* 2. 서비스기획팀 3대 집중 추진 영역 (탭 UI & 상세 쇼케이스) */}
       <div id="pillars-section">
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '18px',
-            flexWrap: 'wrap',
-            gap: '12px',
+            gap: '8px',
+            marginBottom: '16px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Layers size={22} color="#2563eb" />
-            <h2 style={{ fontSize: '20px', fontWeight: 800 }}>서비스기획팀 3대 집중 추진 영역</h2>
-          </div>
-          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-            * 각 카드를 클릭하면 상세 추진 파이프라인 및 인터랙티브 시뮬레이터를 확인하실 수 있습니다.
-          </span>
+          <Layers size={22} color="#2563eb" />
+          <h2 style={{ fontSize: '20px', fontWeight: 800 }}>서비스기획팀 3대 집중 추진 영역</h2>
         </div>
 
-        {/* 3대 영역 탭 카드 그리드 (Hover Glow 및 승강 모션 적용) */}
+        {/* 3대 집중 추진 영역 상단 TAB 바 (폴더/세그먼트 탭 형태, 불필요 안내 문구 제거) */}
         <div
+          role="tablist"
+          aria-label="서비스기획팀 3대 집중 추진 영역 탭"
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '18px',
-            marginBottom: '20px',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: '8px',
+            background: '#f1f5f9',
+            padding: '6px',
+            borderRadius: '14px',
+            border: '1px solid #e2e8f0',
+            marginBottom: '16px',
           }}
         >
           {PILLARS_DATA.map((pillar) => {
             const isSelected = activePillar === pillar.id;
             return (
-              <div
+              <button
                 key={pillar.id}
+                type="button"
+                role="tab"
+                aria-selected={isSelected}
                 onClick={() => setActivePillar(pillar.id)}
-                className={`interactive-card ${pillar.glowClass}`}
                 style={{
-                  background: '#ffffff',
-                  border: isSelected ? `2px solid ${pillar.color}` : '1px solid var(--border-light)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '24px',
+                  background: isSelected ? '#ffffff' : 'transparent',
+                  border: isSelected ? `1.5px solid ${pillar.color}` : '1.5px solid transparent',
+                  borderRadius: '10px',
+                  padding: '14px 18px',
                   cursor: 'pointer',
-                  boxShadow: isSelected ? `0 10px 25px -4px ${pillar.color}35` : 'var(--shadow-sm)',
-                  transform: isSelected ? 'translateY(-4px)' : 'none',
+                  boxShadow: isSelected ? `0 4px 14px -2px ${pillar.color}25` : 'none',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '12px',
+                  alignItems: 'flex-start',
+                  gap: '6px',
+                  textAlign: 'left',
                   position: 'relative',
                   overflow: 'hidden',
+                  transition: 'all 0.18s ease',
                 }}
               >
-                {/* 선택 활성화 인디케이터 라인 */}
+                {/* 선택 활성화 상단 탭 인디케이터 바 */}
                 {isSelected && (
                   <div
                     style={{
@@ -474,66 +474,63 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
                       top: 0,
                       left: 0,
                       right: 0,
-                      height: '4px',
+                      height: '3px',
                       background: pillar.color,
                     }}
                   />
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      color: pillar.color,
-                      letterSpacing: '0.8px',
-                      padding: '4px 10px',
-                      background: `${pillar.color}15`,
-                      borderRadius: '6px',
-                    }}
-                  >
-                    {pillar.badge}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
                   <div
                     style={{
-                      width: '38px',
-                      height: '38px',
-                      borderRadius: '50%',
-                      background: `${pillar.color}12`,
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '8px',
+                      background: isSelected ? `${pillar.color}15` : '#e2e8f0',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      flexShrink: 0,
                     }}
                   >
                     {pillar.icon}
                   </div>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      color: isSelected ? pillar.color : '#64748b',
+                      letterSpacing: '0.6px',
+                      padding: '2px 8px',
+                      background: isSelected ? `${pillar.color}12` : '#e2e8f0',
+                      borderRadius: '5px',
+                    }}
+                  >
+                    {pillar.badge}
+                  </span>
                 </div>
-
-                <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-main)', lineHeight: 1.4 }}>
-                  {pillar.title}
-                </h3>
-
-                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  {pillar.subtitle}
-                </p>
 
                 <div
                   style={{
-                    marginTop: 'auto',
-                    paddingTop: '12px',
-                    borderTop: '1px solid #f1f5f9',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    fontSize: '12.5px',
-                    fontWeight: 700,
-                    color: pillar.color,
+                    fontSize: '15px',
+                    fontWeight: isSelected ? 800 : 700,
+                    color: isSelected ? 'var(--text-main)' : '#475569',
+                    lineHeight: 1.35,
                   }}
                 >
-                  <span>{isSelected ? '상세 프로세스 열람 중' : '클릭하여 상세 보기'}</span>
-                  <ChevronRight size={15} />
+                  {pillar.title}
                 </div>
-              </div>
+
+                <div
+                  style={{
+                    fontSize: '12px',
+                    color: isSelected ? 'var(--text-secondary)' : '#64748b',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {pillar.subtitle}
+                </div>
+              </button>
             );
           })}
         </div>
@@ -577,7 +574,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
 
               {/* 3대 중점 영역별 특화 인터랙티브 위젯 */}
               {activePillar === 0 && (
-                /* Pillar 1: UI/UX 개편 3대 산출물 갤러리/탭 (스토리보드 vs UI디자인 vs 퍼블리싱) */
+                /* Pillar 1: UI/UX 개편 3단계 제작 파이프라인 전체 펼침 뷰 (클릭 없이 한눈에 확인) */
                 <div
                   style={{
                     background: '#ffffff',
@@ -592,107 +589,79 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
+                      gap: '8px',
                       marginBottom: '16px',
-                      flexWrap: 'wrap',
-                      gap: '10px',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Palette size={18} color="#2563eb" />
-                      <strong style={{ fontSize: '14.5px', color: 'var(--text-main)' }}>
-                        시선닷컴 개편 3단계 제작 파이프라인 미리보기
-                      </strong>
-                    </div>
-
-                    {/* 서브탭 버튼 */}
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button
-                        onClick={() => setPillar1SubTab('sb')}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: pillar1SubTab === 'sb' ? 700 : 500,
-                          background: pillar1SubTab === 'sb' ? '#eff6ff' : '#f8fafc',
-                          color: pillar1SubTab === 'sb' ? '#1d4ed8' : '#64748b',
-                          border: pillar1SubTab === 'sb' ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                        }}
-                      >
-                        <FileText size={13} /> 1. 화면설계서(SB)
-                      </button>
-
-                      <button
-                        onClick={() => setPillar1SubTab('ui')}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: pillar1SubTab === 'ui' ? 700 : 500,
-                          background: pillar1SubTab === 'ui' ? '#eff6ff' : '#f8fafc',
-                          color: pillar1SubTab === 'ui' ? '#1d4ed8' : '#64748b',
-                          border: pillar1SubTab === 'ui' ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                        }}
-                      >
-                        <Palette size={13} /> 2. 비주얼 UI 디자인
-                      </button>
-
-                      <button
-                        onClick={() => setPillar1SubTab('pub')}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: pillar1SubTab === 'pub' ? 700 : 500,
-                          background: pillar1SubTab === 'pub' ? '#eff6ff' : '#f8fafc',
-                          color: pillar1SubTab === 'pub' ? '#1d4ed8' : '#64748b',
-                          border: pillar1SubTab === 'pub' ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                        }}
-                      >
-                        <Monitor size={13} /> 3. 반응형 웹 퍼블리싱
-                      </button>
-                    </div>
+                    <Palette size={18} color="#2563eb" />
+                    <strong style={{ fontSize: '14.5px', color: 'var(--text-main)' }}>
+                      시선닷컴 개편 3단계 제작 파이프라인 미리보기
+                    </strong>
                   </div>
 
-                  {/* 서브탭 상세 컨텐츠 */}
-                  {pillar1SubTab === 'sb' && (
+                  {/* 3단계 제작 파이프라인 전체 펼침 목록 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {/* 1. 화면설계서(SB) */}
                     <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#1e3a8a', marginBottom: '6px' }}>
-                        📋 피그마(Figma) 표준 화면설계서(Storyboard) 작성 규격
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            padding: '3px 9px',
+                            borderRadius: '5px',
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <FileText size={12} /> 1. 화면설계서(SB)
+                        </span>
+                        <span style={{ fontWeight: 700, fontSize: '13.5px', color: '#1e3a8a' }}>
+                          📋 표준 화면설계서(Storyboard) 작성 규격
+                        </span>
                       </div>
                       <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, marginBottom: '12px' }}>
                         시선닷컴 개편의 모든 화면은 디바이스별 반응형 와이어프레임과 함께 상세 정책 번호(Policy Code), 예외 케이스(품절/네트워크 에러/마일리지 한도 초과 등)를 명확히 문서화합니다.
                       </p>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
                         <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}>
-                          <strong>• IA 및 유저 플로우:</strong> 고객 탐색 ➔ 결제 전환 경로 30% 단축
+                          <strong>• IA 및 유저 플로우:</strong> 고객 탐색 ➔ 결제 전환 이동 동선 최적화
                         </div>
                         <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}>
                           <strong>• 정책 명세(Description):</strong> 결제 PG/쿠폰 복합 결제 룰 상세 정의
                         </div>
                         <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}>
-                          <strong>• 컴포넌트 규격화:</strong> 버튼, 뱃지, 모달 표준 컴포넌트 100% 매핑
+                          <strong>• 컴포넌트 규격화:</strong> 버튼, 뱃지, 모달 등 공통 UI 요소 표준 정의
                         </div>
                       </div>
                     </div>
-                  )}
 
-                  {pillar1SubTab === 'ui' && (
+                    {/* 2. 비주얼 UI 디자인 */}
                     <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#1e3a8a', marginBottom: '6px' }}>
-                        🎨 미샤(MICHAA) · 잇미샤 · E.B.M 고유의 프리미엄 비주얼 디자인
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            padding: '3px 9px',
+                            borderRadius: '5px',
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Palette size={12} /> 2. 비주얼 UI 디자인
+                        </span>
+                        <span style={{ fontWeight: 700, fontSize: '13.5px', color: '#1e3a8a' }}>
+                          🎨 미샤(MICHAA) · 잇미샤 · E.B.M 고유의 프리미엄 비주얼 디자인
+                        </span>
                       </div>
                       <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, marginBottom: '12px' }}>
                         프리미엄 패션 브랜드의 감성을 극대화하기 위해 여백의 미학(Negative Space), 섬세한 타이포그래피 계층, 고해상도 화보 최적화 뷰어를 제공합니다.
@@ -709,15 +678,32 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
                         </div>
                       </div>
                     </div>
-                  )}
 
-                  {pillar1SubTab === 'pub' && (
+                    {/* 3. 반응형 웹 퍼블리싱 */}
                     <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ fontWeight: 700, fontSize: '13.5px', color: '#1e3a8a', marginBottom: '6px' }}>
-                        💻 모바일 앱 & PC 크로스 브라우징 반응형 퍼블리싱
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            padding: '3px 9px',
+                            borderRadius: '5px',
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Monitor size={12} /> 3. 반응형 웹 퍼블리싱
+                        </span>
+                        <span style={{ fontWeight: 700, fontSize: '13.5px', color: '#1e3a8a' }}>
+                          💻 모바일 앱 & PC 크로스 브라우징 반응형 퍼블리싱
+                        </span>
                       </div>
                       <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, marginBottom: '12px' }}>
-                        모든 화면은 W3C 웹 표준을 준수하며 모바일 웹, PC 브라우저, iOS/안드로이드 웹뷰 어디서든 버벅임 없는 60fps 마이크로 인터랙션을 보장합니다.
+                        모든 화면은 W3C 웹 표준을 준수하며 모바일 웹, PC 브라우저, iOS/안드로이드 웹뷰 어디서든 매끄러운 반응형 레이아웃과 마이크로 인터랙션을 보장합니다.
                       </p>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
                         <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -731,7 +717,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
                         </div>
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 
@@ -826,13 +812,13 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
                         <div style={{ background: '#ffffff', padding: '12px', borderRadius: '6px', border: '1px solid #fca5a5', fontSize: '12.5px', color: '#7f1d1d' }}>
-                          <strong>• 상품 등록 소요:</strong> 100개 기준 약 3.5~4시간 (건별 수기 등록 및 엑셀 에러 잦음)
+                          <strong>• 상품 등록 방식:</strong> 건별 수기 입력 비중이 높고 대량 엑셀 업로드 시 오류 확인이 번거로움
                         </div>
                         <div style={{ background: '#ffffff', padding: '12px', borderRadius: '6px', border: '1px solid #fca5a5', fontSize: '12.5px', color: '#7f1d1d' }}>
-                          <strong>• 기획전 세팅:</strong> 상품 일괄 추가 시 페이징 렉, 시작 시간 수동 배포 대기
+                          <strong>• 기획전 세팅:</strong> 상품 일괄 추가 시 페이징 지연 및 시작 시간 수동 배포 대기
                         </div>
                         <div style={{ background: '#ffffff', padding: '12px', borderRadius: '6px', border: '1px solid #fca5a5', fontSize: '12.5px', color: '#7f1d1d' }}>
-                          <strong>• 오류 검증 불가:</strong> 등록 버튼 누른 후 뒤늦게 옵션 불일치 팝업 발생
+                          <strong>• 오류 검증 불가:</strong> 등록 버튼 클릭 후 뒤늦게 옵션 불일치 팝업 발생
                         </div>
                       </div>
                     </div>
@@ -847,17 +833,17 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontWeight: 700, marginBottom: '8px' }}>
-                        <span>🚀 서비스기획팀 개선 후: 운영 공수 93% 단축 혁신</span>
+                        <span>🚀 서비스기획팀 개선 방향: 반복 수기 작업 자동화 및 운영 효율화</span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
                         <div style={{ background: '#ffffff', padding: '12px', borderRadius: '6px', border: '1px solid #86efac', fontSize: '12.5px', color: '#14532d' }}>
-                          <strong>• 상품 등록 소요:</strong> 스마트 일괄 파싱으로 <strong style={{ color: '#059669' }}>15분 내 완료 (93% 절감)</strong>
+                          <strong>• 상품 일괄 등록:</strong> 스마트 일괄 파싱 및 사전 검증으로 <strong style={{ color: '#059669' }}>반복 등록 공수 절감</strong>
                         </div>
                         <div style={{ background: '#ffffff', padding: '12px', borderRadius: '6px', border: '1px solid #86efac', fontSize: '12.5px', color: '#14532d' }}>
                           <strong>• 스마트 스케줄러:</strong> 타임세일 자동 온/오프 및 대용량 엑셀 드래그 앤 드롭
                         </div>
                         <div style={{ background: '#ffffff', padding: '12px', borderRadius: '6px', border: '1px solid #86efac', fontSize: '12.5px', color: '#14532d' }}>
-                          <strong>• 실시간 프리뷰:</strong> 업로드 즉시 오류 셀 하이라이트 표시로 재작업 0건화
+                          <strong>• 실시간 프리뷰:</strong> 업로드 즉시 오류 셀 하이라이트 표시로 재작업 방지
                         </div>
                       </div>
                     </div>
@@ -890,7 +876,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
                         1. 온·오프라인 옴니 멤버십 규정
                       </div>
                       <p style={{ fontSize: '12px', color: '#475569', lineHeight: 1.5 }}>
-                        오프라인 백화점/아울렛 매장 포인트와 시선닷컴 온라인 마일리지의 1:1 교차 사용 및 승급 기준 표준화
+                        오프라인 백화점/아울렛 매장 포인트와 시선닷컴 온라인 마일리지의 통합 교차 사용 및 승급 기준 표준화
                       </p>
                     </div>
 
@@ -946,7 +932,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
                 ))}
               </div>
 
-              {/* 핵심 기대 지표 바 */}
+              {/* 핵심 기대 지표 바 (근거 없는 정량 수치 배제, 정성적 목표 방향만 표기) */}
               <div
                 style={{
                   background: '#ffffff',

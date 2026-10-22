@@ -9,7 +9,7 @@ export const TEAM_GUIDE_DATA: TeamGuideInfo = {
       title: '시선닷컴 (sisun.com) UI/UX 전면 개편',
       description: '프리미엄 패션 브랜드 감성을 살린 기획서(스토리보드) 작성, 감각적인 비주얼 디자인, 완성도 높은 웹 퍼블리싱 파이프라인 총괄',
       leadName: '서비스기획팀 UI/UX 파트',
-      services: ['Figma 화면설계서/SB', '메인/기획전/상세 UI 디자인', '반응형 웹 퍼블리싱', '모바일 웹/앱 웹뷰 최적화'],
+      services: ['화면설계서(SB) 작성', '메인/기획전/상세 UI 디자인', '반응형 웹 퍼블리싱', '모바일 웹/앱 웹뷰 최적화'],
       tagColor: '#2563eb',
     },
     {
@@ -42,8 +42,8 @@ export const TEAM_GUIDE_DATA: TeamGuideInfo = {
       step: 2,
       title: '기획서(스토리보드) 작성 & 정책 수립',
       subtitle: 'UX Planning & Policy',
-      description: '시선닷컴 고객 여정 지도(CJM)를 기반으로 정보 구조(IA)와 피그마 와이어프레임, 상세 예외 처리 정책을 정의합니다.',
-      deliverables: ['Figma 화면설계서 (SB)', '이커머스 정책 명세서', 'IA 구조도'],
+      description: '시선닷컴 고객 여정 지도(CJM)를 기반으로 정보 구조(IA)와 화면 와이어프레임, 상세 예외 처리 정책을 정의합니다.',
+      deliverables: ['화면설계서 (SB)', '이커머스 정책 명세서', 'IA 구조도'],
       stakeholders: '서비스기획팀 전원',
     },
     {
