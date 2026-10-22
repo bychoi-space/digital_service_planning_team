@@ -8,24 +8,14 @@ import {
   Users,
   CheckCircle2,
   Sparkles,
-  Palette,
-  Sliders,
-  BookOpen,
   Laptop,
   Layers,
   ChevronRight,
-  TrendingUp,
   Copy,
   Check,
-  Zap,
-  Clock,
   ArrowUpRight,
   HelpCircle,
   FolderGit2,
-  FileText,
-  Smartphone,
-  Monitor,
-  ShieldCheck,
 } from 'lucide-react';
 
 interface OverviewViewProps {
@@ -35,9 +25,6 @@ interface OverviewViewProps {
 export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
   // 3대 핵심 업무 탭 상태 (0: UI/UX개편, 1: 어드민효율화, 2: 이커머스정책)
   const [activePillar, setActivePillar] = useState<number>(0);
-
-  // Pillar 2: 어드민 효율화 Before/After 토글 상태 ('after' | 'before')
-  const [adminComparisonMode, setAdminComparisonMode] = useState<'after' | 'before'>('after');
 
   // 5단계 스프린트 진행 단계 상태 (1~5)
   const [activeStep, setActiveStep] = useState<number>(1);
@@ -58,91 +45,130 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
     setTimeout(() => setCopiedKey(null), 2500);
   };
 
-  // 3대 핵심 업무 상세 데이터
+  // 3대 핵심 업무 상세 데이터 (중복 아이콘 제거, 핵심 내용 통합 및 텍스트 간결화)
   const PILLARS_DATA = [
     {
       id: 0,
       badge: 'PILLAR 01',
       title: '시선닷컴 (sisun.com) UI/UX 전면 개편',
-      subtitle: '기획서(화면설계/SB) 작성 · 프리미엄 UI 디자인 · 반응형 퍼블리싱 총괄',
+      subtitle: '화면설계(SB) · 비주얼 UI 디자인 · 반응형 퍼블리싱',
       color: '#2563eb',
-      glowClass: 'interactive-glow-blue',
-      bgGradient: 'linear-gradient(135deg, rgba(37,99,235,0.06) 0%, rgba(37,99,235,0.01) 100%)',
-      borderColor: '#93c5fd',
-      icon: <Palette size={18} color="#2563eb" />,
+      bgGradient: 'linear-gradient(135deg, rgba(37,99,235,0.05) 0%, rgba(37,99,235,0.01) 100%)',
+      borderColor: '#bfdbfe',
       description:
-        '미샤(MICHAA), 잇미샤(it MICHAA), E.B.M 등 시선인터내셔널의 대표 프리미엄 패션 브랜드 감성을 온전히 전달할 수 있도록 고객 경험(CX)을 혁신합니다.',
+        '미샤(MICHAA)·잇미샤(it MICHAA)·E.B.M 브랜드 감성을 온전히 전달하도록 화면설계부터 디자인·퍼블리싱까지 전 과정을 총괄합니다.',
       pipelineSteps: [
         {
           name: '1. 기획서(화면설계서/SB) 작성',
-          desc: '고객 여정(CJM) 분석을 바탕으로 메인, 상품상세, 룩북, 주문/결제 화면설계 및 정책 명세',
+          desc: '고객 여정(CJM) 기반 화면 구조 및 상세 정책·예외 케이스 명세',
+          points: [
+            'IA 및 플로우: 탐색 ➔ 결제 전환 동선 최적화',
+            '정책 명세: 결제·쿠폰·마일리지 복합 룰 정의',
+            '표준 규격화: 공통 UI 요소 및 예외 케이스 정의',
+          ],
         },
         {
           name: '2. UI/UX 비주얼 디자인',
-          desc: '브랜드 아이덴티티와 최신 트렌드를 반영한 고해상도 디자인 시스템 및 UI 컴포넌트화',
+          desc: '브랜드 아이덴티티를 극대화한 고해상도 비주얼 디자인 시스템',
+          points: [
+            '브랜드 무드: 미샤(클래식 모던)·잇미샤(영 페미닌)',
+            '룩북 뷰어: 화보 내 착장 상품 인터랙티브 태깅',
+            '컴포넌트 표준: 왜곡 없는 컬러 재현 및 UI 일관성',
+          ],
         },
         {
           name: '3. 반응형 웹 퍼블리싱',
-          desc: '모바일 웹, PC 브라우저, 앱 웹뷰 어디서나 완벽한 비율과 속도를 보장하는 정밀 퍼블리싱',
+          desc: '모바일·PC·앱 웹뷰 전 환경 크로스 브라우징 및 웹 표준 구현',
+          points: [
+            '모바일 퍼스트: 디바이스별 최적 비율 반응형 설계',
+            '로딩 최적화: WebP/AVIF 이미지 레이지 로딩 적용',
+            '웹 표준 준수: 웹 접근성 및 SEO 메타태그 완비',
+          ],
         },
       ],
-      keyMetrics: '모바일 탐색 이탈 최소화 / 상품 상세 페이지 몰입도 및 구매 전환 경험 강화',
+      keyMetrics: '모바일 탐색 이탈 최소화 · 상품 상세 몰입도 및 구매 전환 경험 강화',
     },
     {
       id: 1,
       badge: 'PILLAR 02',
       title: '시선닷컴 어드민(백오피스) 운영 효율화',
-      subtitle: 'MD/영업팀 작업 능률 극대화 · 상품 및 프로모션 세팅 자동화',
+      subtitle: '상품·프로모션 세팅 자동화 · 운영 공수 절감',
       color: '#059669',
-      glowClass: 'interactive-glow-emerald',
-      bgGradient: 'linear-gradient(135deg, rgba(5,150,105,0.06) 0%, rgba(5,150,105,0.01) 100%)',
-      borderColor: '#86efac',
-      icon: <Sliders size={18} color="#059669" />,
+      bgGradient: 'linear-gradient(135deg, rgba(5,150,105,0.05) 0%, rgba(5,150,105,0.01) 100%)',
+      borderColor: '#a7f3d0',
       description:
-        '온라인MD, 운영팀이 매일 반복하는 비효율적인 수기 작업을 제거하고, 대량 상품 등록 및 기획전 세팅을 직관적으로 수행할 수 있도록 어드민 사용성을 개선합니다.',
+        '온라인MD·운영팀의 반복 수기 작업을 줄이고, 대량 상품 등록과 기획전 세팅을 직관적으로 처리하도록 백오피스를 개선합니다.',
       pipelineSteps: [
         {
           name: '1. 상품 대량 일괄 관리 개선',
-          desc: '옵션/재고/가격 엑셀 일괄 등록 속도 개선 및 오류 검증 프리뷰 제공',
+          desc: '옵션·재고·가격 대량 엑셀 업로드 및 사전 오류 검증',
+          points: [
+            '일괄 파싱: 대용량 엑셀 드래그 앤 드롭 등록',
+            '실시간 프리뷰: 업로드 즉시 오류 셀 하이라이트',
+            '재작업 방지: 정상 행 우선 반영 및 오류 내역 추출',
+          ],
         },
         {
           name: '2. 프로모션/기획전 세팅 간소화',
-          desc: '쿠폰 발급 조건 및 타임세일 자동 스케줄링 어드민 UI 전면 직관화',
+          desc: '쿠폰 발급 조건 및 타임세일 자동 스케줄링 UI 직관화',
+          points: [
+            '스마트 스케줄러: 기획전·타임세일 자동 온/오프',
+            '조건 템플릿: 자주 쓰는 쿠폰·사은품 룰 프리셋',
+            '상품 진열 개선: 드래그 정렬 및 대량 상품 일괄 매핑',
+          ],
         },
         {
-          name: '3. 주문/클레임 처리 워크플로우 단축',
-          desc: '교환/반품 승인 및 물류 연동 단계 간소화로 클레임 및 VOC 처리 프로세스 개선',
+          name: '3. 주문/클레임 워크플로우 단축',
+          desc: '교환·반품 승인 및 물류 연동 간소화로 VOC 처리 개선',
+          points: [
+            '원클릭 처리: 교환·반품 검품 및 환불 승인 간소화',
+            '물류 상태 연동: 입출고·배송 추적 상태 실시간 조회',
+            'CS 이력 통합: 고객별 문의·클레임 단일 화면 확인',
+          ],
         },
       ],
-      keyMetrics: '온라인MD 반복 세팅 공수 절감 / 수기 입력에 따른 운영 휴먼 에러 방지',
+      keyMetrics: '온라인MD 반복 세팅 공수 절감 · 수기 입력에 따른 운영 휴먼 에러 방지',
     },
     {
       id: 2,
       badge: 'PILLAR 03',
       title: '시선인터내셔널 이커머스 정책 & 프로세스 정의',
-      subtitle: '전사 온·오프라인 연계 표준 수립 · 6대 사내 부서간 협업 매트릭스',
+      subtitle: '온·오프라인 통합 정책 · 부서별 협업 R&R 표준화',
       color: '#7c3aed',
-      glowClass: 'interactive-glow-purple',
-      bgGradient: 'linear-gradient(135deg, rgba(124,58,237,0.06) 0%, rgba(124,58,237,0.01) 100%)',
-      borderColor: '#c4b5fd',
-      icon: <BookOpen size={18} color="#7c3aed" />,
+      bgGradient: 'linear-gradient(135deg, rgba(124,58,237,0.05) 0%, rgba(124,58,237,0.01) 100%)',
+      borderColor: '#ddd6fe',
       description:
-        '브랜드 사업부, 온라인몰, 물류, 마케팅, IT 간의 업무 경계를 허물고, 누구나 명확한 기준에 따라 일할 수 있도록 전사 이커머스 운영 규정을 정립합니다.',
+        '브랜드 사업부·온라인몰·물류·마케팅·IT 간 업무 기준을 일원화하고 전사 이커머스 표준 운영 규정을 정립합니다.',
       pipelineSteps: [
         {
           name: '1. 온·오프라인 통합 멤버십 규정',
-          desc: '오프라인 매장 고객과 시선닷컴 온라인 고객의 포인트/등급/쿠폰 통합 정책 수립',
+          desc: '오프라인 매장과 시선닷컴 고객의 포인트·등급·혜택 통합 정책',
+          points: [
+            '마일리지 통합: 매장 포인트·온라인 마일리지 교차 사용',
+            '등급 산정 표준: 온·오프 합산 구매 실적 기준 정립',
+            '옴니 쿠폰 정책: 채널 간 발급·사용 예외 기준 명문화',
+          ],
         },
         {
-          name: '2. 브랜드별 온라인 판매 및 반품 규정',
-          desc: '패션 상품군별(의류, 잡화) 검품 기준 및 왕복 배송비, 환불 정책 표준화',
+          name: '2. 온라인 판매 및 반품/교환 규정',
+          desc: '패션 상품군별 검품 기준 및 배송비·환불 정책 표준화',
+          points: [
+            '검품 기준서: 의류·잡화 품목별 불량/변심 판정 기준',
+            '배송비 규정: 교환·반품 왕복 배송비 부과/면제 기준',
+            '자동 환불 정책: 입고 확인 후 환불 승인 표준 프로세스',
+          ],
         },
         {
           name: '3. 사내 유관부서 협업 R&R 정의',
-          desc: '요구사항 접수부터 릴리즈까지 각 부서(MN, MD, 마케팅, 정보실)의 명확한 역할 매트릭스',
+          desc: '요구사항 접수부터 릴리즈까지 6대 부서별 역할 매트릭스',
+          points: [
+            '표준 인입 창구: 부서별 요청 양식 및 사전 검토 절차',
+            '책임 매트릭스: 기획·MD·MN·정보실·마케팅 역할 정의',
+            '배포 거버넌스: 정기 싱크 및 QA 검수 후 운영 반영',
+          ],
         },
       ],
-      keyMetrics: '유관부서 간 협업 커뮤니케이션 효율화 / 전사 이커머스 표준 운영 매뉴얼 구축',
+      keyMetrics: '유관부서 간 협업 커뮤니케이션 효율화 · 전사 이커머스 표준 매뉴얼 구축',
     },
   ];
 
@@ -411,33 +437,33 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
       {/* 2. 3인 캐릭터 [시선닷컴 UI/UX 개편] 릴레이 애니메이션 쇼케이스 */}
       <SisunRenewalStoryStage />
 
-      {/* 2. 서비스기획팀 3대 집중 추진 영역 (탭 UI & 상세 쇼케이스) */}
+      {/* 2. 서비스기획팀 3대 집중 추진 영역 (탭 UI & 통합 상세 뷰) */}
       <div id="pillars-section">
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            marginBottom: '16px',
+            marginBottom: '14px',
           }}
         >
-          <Layers size={22} color="#2563eb" />
-          <h2 style={{ fontSize: '20px', fontWeight: 800 }}>서비스기획팀 3대 집중 추진 영역</h2>
+          <Layers size={20} color="#2563eb" />
+          <h2 style={{ fontSize: '19px', fontWeight: 800 }}>서비스기획팀 3대 집중 추진 영역</h2>
         </div>
 
-        {/* 3대 집중 추진 영역 상단 TAB 바 (폴더/세그먼트 탭 형태, 불필요 안내 문구 제거) */}
+        {/* 상단 3대 영역 TAB 바 (중복 아이콘 제거, 간결한 탭 구조) */}
         <div
           role="tablist"
           aria-label="서비스기획팀 3대 집중 추진 영역 탭"
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
             gap: '8px',
             background: '#f1f5f9',
             padding: '6px',
-            borderRadius: '14px',
+            borderRadius: '12px',
             border: '1px solid #e2e8f0',
-            marginBottom: '16px',
+            marginBottom: '14px',
           }}
         >
           {PILLARS_DATA.map((pillar) => {
@@ -452,21 +478,20 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
                 style={{
                   background: isSelected ? '#ffffff' : 'transparent',
                   border: isSelected ? `1.5px solid ${pillar.color}` : '1.5px solid transparent',
-                  borderRadius: '10px',
-                  padding: '14px 18px',
+                  borderRadius: '9px',
+                  padding: '12px 16px',
                   cursor: 'pointer',
-                  boxShadow: isSelected ? `0 4px 14px -2px ${pillar.color}25` : 'none',
+                  boxShadow: isSelected ? `0 4px 12px -2px ${pillar.color}20` : 'none',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'flex-start',
-                  gap: '6px',
+                  gap: '4px',
                   textAlign: 'left',
                   position: 'relative',
                   overflow: 'hidden',
-                  transition: 'all 0.18s ease',
+                  transition: 'all 0.15s ease',
                 }}
               >
-                {/* 선택 활성화 상단 탭 인디케이터 바 */}
                 {isSelected && (
                   <div
                     style={{
@@ -480,39 +505,20 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
                   />
                 )}
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
-                  <div
-                    style={{
-                      width: '28px',
-                      height: '28px',
-                      borderRadius: '8px',
-                      background: isSelected ? `${pillar.color}15` : '#e2e8f0',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {pillar.icon}
-                  </div>
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      color: isSelected ? pillar.color : '#64748b',
-                      letterSpacing: '0.6px',
-                      padding: '2px 8px',
-                      background: isSelected ? `${pillar.color}12` : '#e2e8f0',
-                      borderRadius: '5px',
-                    }}
-                  >
-                    {pillar.badge}
-                  </span>
-                </div>
+                <span
+                  style={{
+                    fontSize: '10.5px',
+                    fontWeight: 800,
+                    color: isSelected ? pillar.color : '#64748b',
+                    letterSpacing: '0.6px',
+                  }}
+                >
+                  {pillar.badge}
+                </span>
 
                 <div
                   style={{
-                    fontSize: '15px',
+                    fontSize: '14.5px',
                     fontWeight: isSelected ? 800 : 700,
                     color: isSelected ? 'var(--text-main)' : '#475569',
                     lineHeight: 1.35,
@@ -525,7 +531,7 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
                   style={{
                     fontSize: '12px',
                     color: isSelected ? 'var(--text-secondary)' : '#64748b',
-                    lineHeight: 1.4,
+                    lineHeight: 1.35,
                   }}
                 >
                   {pillar.subtitle}
@@ -535,420 +541,104 @@ export function OverviewView({ onNavigateToTasks }: OverviewViewProps) {
           })}
         </div>
 
-        {/* 선택된 영역의 세부 쇼케이스 패널 */}
+        {/* 선택된 영역의 통합 상세 패널 (중복 섹션 통합 & 텍스트 간소화) */}
         {(() => {
           const selected = PILLARS_DATA[activePillar];
           return (
             <div
               className="card"
               style={{
-                padding: '30px 32px',
+                padding: '22px 24px',
                 background: selected.bgGradient,
                 border: `1.5px solid ${selected.borderColor}`,
-                boxShadow: 'var(--shadow-md)',
-                animation: 'fadeIn 0.25s ease-out',
-                position: 'relative',
+                boxShadow: 'var(--shadow-sm)',
+                animation: 'fadeIn 0.2s ease-out',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                <span
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 800,
-                    color: selected.color,
-                    letterSpacing: '0.6px',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {selected.badge} 상세 추진 전략 & 산출물
-                </span>
-              </div>
-
-              <h3 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '10px' }}>
-                {selected.title}
-              </h3>
-
-              <p style={{ fontSize: '14.5px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '24px' }}>
+              <p
+                style={{
+                  fontSize: '13.5px',
+                  color: '#334155',
+                  fontWeight: 600,
+                  lineHeight: 1.5,
+                  marginBottom: '16px',
+                }}
+              >
                 {selected.description}
               </p>
 
-              {/* 3대 중점 영역별 특화 인터랙티브 위젯 */}
-              {activePillar === 0 && (
-                /* Pillar 1: UI/UX 개편 3단계 제작 파이프라인 전체 펼침 뷰 (클릭 없이 한눈에 확인) */
-                <div
-                  style={{
-                    background: '#ffffff',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 'var(--radius-lg)',
-                    padding: '20px',
-                    marginBottom: '20px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      marginBottom: '16px',
-                    }}
-                  >
-                    <Palette size={18} color="#2563eb" />
-                    <strong style={{ fontSize: '14.5px', color: 'var(--text-main)' }}>
-                      시선닷컴 개편 3단계 제작 파이프라인 미리보기
-                    </strong>
-                  </div>
-
-                  {/* 3단계 제작 파이프라인 전체 펼침 목록 */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {/* 1. 화면설계서(SB) */}
-                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                        <span
-                          style={{
-                            padding: '3px 9px',
-                            borderRadius: '5px',
-                            fontSize: '11.5px',
-                            fontWeight: 700,
-                            background: '#eff6ff',
-                            color: '#1d4ed8',
-                            border: '1px solid #bfdbfe',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
-                          <FileText size={12} /> 1. 화면설계서(SB)
-                        </span>
-                        <span style={{ fontWeight: 700, fontSize: '13.5px', color: '#1e3a8a' }}>
-                          📋 표준 화면설계서(Storyboard) 작성 규격
-                        </span>
-                      </div>
-                      <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, marginBottom: '12px' }}>
-                        시선닷컴 개편의 모든 화면은 디바이스별 반응형 와이어프레임과 함께 상세 정책 번호(Policy Code), 예외 케이스(품절/네트워크 에러/마일리지 한도 초과 등)를 명확히 문서화합니다.
-                      </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-                        <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}>
-                          <strong>• IA 및 유저 플로우:</strong> 고객 탐색 ➔ 결제 전환 이동 동선 최적화
-                        </div>
-                        <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}>
-                          <strong>• 정책 명세(Description):</strong> 결제 PG/쿠폰 복합 결제 룰 상세 정의
-                        </div>
-                        <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}>
-                          <strong>• 컴포넌트 규격화:</strong> 버튼, 뱃지, 모달 등 공통 UI 요소 표준 정의
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 2. 비주얼 UI 디자인 */}
-                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                        <span
-                          style={{
-                            padding: '3px 9px',
-                            borderRadius: '5px',
-                            fontSize: '11.5px',
-                            fontWeight: 700,
-                            background: '#eff6ff',
-                            color: '#1d4ed8',
-                            border: '1px solid #bfdbfe',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
-                          <Palette size={12} /> 2. 비주얼 UI 디자인
-                        </span>
-                        <span style={{ fontWeight: 700, fontSize: '13.5px', color: '#1e3a8a' }}>
-                          🎨 미샤(MICHAA) · 잇미샤 · E.B.M 고유의 프리미엄 비주얼 디자인
-                        </span>
-                      </div>
-                      <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, marginBottom: '12px' }}>
-                        프리미엄 패션 브랜드의 감성을 극대화하기 위해 여백의 미학(Negative Space), 섬세한 타이포그래피 계층, 고해상도 화보 최적화 뷰어를 제공합니다.
-                      </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-                        <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}>
-                          <strong>• 브랜드 테마 시스템:</strong> 미샤(클래식 모던), 잇미샤(영 페미닌)
-                        </div>
-                        <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}>
-                          <strong>• 룩북 인터랙티브 뷰:</strong> 화보 내 착장 상품 태깅 팝업
-                        </div>
-                        <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}>
-                          <strong>• 다크/라이트 대비:</strong> 패션 컬러 왜곡 없는 고품질 색상 재현
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 3. 반응형 웹 퍼블리싱 */}
-                    <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                        <span
-                          style={{
-                            padding: '3px 9px',
-                            borderRadius: '5px',
-                            fontSize: '11.5px',
-                            fontWeight: 700,
-                            background: '#eff6ff',
-                            color: '#1d4ed8',
-                            border: '1px solid #bfdbfe',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
-                          <Monitor size={12} /> 3. 반응형 웹 퍼블리싱
-                        </span>
-                        <span style={{ fontWeight: 700, fontSize: '13.5px', color: '#1e3a8a' }}>
-                          💻 모바일 앱 & PC 크로스 브라우징 반응형 퍼블리싱
-                        </span>
-                      </div>
-                      <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, marginBottom: '12px' }}>
-                        모든 화면은 W3C 웹 표준을 준수하며 모바일 웹, PC 브라우저, iOS/안드로이드 웹뷰 어디서든 매끄러운 반응형 레이아웃과 마이크로 인터랙션을 보장합니다.
-                      </p>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
-                        <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Smartphone size={15} color="#2563eb" /> 모바일 퍼스트 최적화 퍼블리싱
-                        </div>
-                        <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Zap size={15} color="#059669" /> WebP/AVIF 이미지 레이지 로딩
-                        </div>
-                        <div style={{ background: '#ffffff', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <ShieldCheck size={15} color="#7c3aed" /> 웹 접근성 및 SEO 메타태그 완비
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {activePillar === 1 && (
-                /* Pillar 2: 어드민 효율화 Before vs After 인터랙티브 비교 위젯 */
-                <div
-                  style={{
-                    background: '#ffffff',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 'var(--radius-lg)',
-                    padding: '20px',
-                    marginBottom: '20px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginBottom: '16px',
-                      flexWrap: 'wrap',
-                      gap: '10px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Clock size={18} color="#059669" />
-                      <strong style={{ fontSize: '14.5px', color: 'var(--text-main)' }}>
-                        어드민(백오피스) 운영 효율화: AS-IS vs TO-BE 인터랙티브 비교
-                      </strong>
-                    </div>
-
-                    {/* 비교 모드 전환 토글 스위치 */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        background: '#f1f5f9',
-                        padding: '3px',
-                        borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
-                      }}
-                    >
-                      <button
-                        onClick={() => setAdminComparisonMode('before')}
-                        style={{
-                          padding: '6px 14px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: adminComparisonMode === 'before' ? 700 : 500,
-                          background: adminComparisonMode === 'before' ? '#ffffff' : 'transparent',
-                          color: adminComparisonMode === 'before' ? '#ef4444' : '#64748b',
-                          border: 'none',
-                          cursor: 'pointer',
-                          boxShadow: adminComparisonMode === 'before' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        과거 방식 (AS-IS)
-                      </button>
-                      <button
-                        onClick={() => setAdminComparisonMode('after')}
-                        style={{
-                          padding: '6px 14px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: adminComparisonMode === 'after' ? 700 : 500,
-                          background: adminComparisonMode === 'after' ? '#059669' : 'transparent',
-                          color: adminComparisonMode === 'after' ? '#ffffff' : '#64748b',
-                          border: 'none',
-                          cursor: 'pointer',
-                          boxShadow: adminComparisonMode === 'after' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        ✨ 기획팀 개선안 (TO-BE)
-                      </button>
-                    </div>
-                  </div>
-
-                  {adminComparisonMode === 'before' ? (
-                    <div
-                      style={{
-                        background: '#fef2f2',
-                        border: '1px solid #fecaca',
-                        padding: '16px',
-                        borderRadius: '8px',
-                        animation: 'fadeIn 0.2s ease-out',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#991b1b', fontWeight: 700, marginBottom: '8px' }}>
-                        <span>⚠️ 기존 어드민의 비효율 및 작업 병목 (개선 전)</span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-                        <div style={{ background: '#ffffff', padding: '12px', borderRadius: '6px', border: '1px solid #fca5a5', fontSize: '12.5px', color: '#7f1d1d' }}>
-                          <strong>• 상품 등록 방식:</strong> 건별 수기 입력 비중이 높고 대량 엑셀 업로드 시 오류 확인이 번거로움
-                        </div>
-                        <div style={{ background: '#ffffff', padding: '12px', borderRadius: '6px', border: '1px solid #fca5a5', fontSize: '12.5px', color: '#7f1d1d' }}>
-                          <strong>• 기획전 세팅:</strong> 상품 일괄 추가 시 페이징 지연 및 시작 시간 수동 배포 대기
-                        </div>
-                        <div style={{ background: '#ffffff', padding: '12px', borderRadius: '6px', border: '1px solid #fca5a5', fontSize: '12.5px', color: '#7f1d1d' }}>
-                          <strong>• 오류 검증 불가:</strong> 등록 버튼 클릭 후 뒤늦게 옵션 불일치 팝업 발생
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        background: '#f0fdf4',
-                        border: '1px solid #bbf7d0',
-                        padding: '16px',
-                        borderRadius: '8px',
-                        animation: 'fadeIn 0.2s ease-out',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#166534', fontWeight: 700, marginBottom: '8px' }}>
-                        <span>🚀 서비스기획팀 개선 방향: 반복 수기 작업 자동화 및 운영 효율화</span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
-                        <div style={{ background: '#ffffff', padding: '12px', borderRadius: '6px', border: '1px solid #86efac', fontSize: '12.5px', color: '#14532d' }}>
-                          <strong>• 상품 일괄 등록:</strong> 스마트 일괄 파싱 및 사전 검증으로 <strong style={{ color: '#059669' }}>반복 등록 공수 절감</strong>
-                        </div>
-                        <div style={{ background: '#ffffff', padding: '12px', borderRadius: '6px', border: '1px solid #86efac', fontSize: '12.5px', color: '#14532d' }}>
-                          <strong>• 스마트 스케줄러:</strong> 타임세일 자동 온/오프 및 대용량 엑셀 드래그 앤 드롭
-                        </div>
-                        <div style={{ background: '#ffffff', padding: '12px', borderRadius: '6px', border: '1px solid #86efac', fontSize: '12.5px', color: '#14532d' }}>
-                          <strong>• 실시간 프리뷰:</strong> 업로드 즉시 오류 셀 하이라이트 표시로 재작업 방지
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {activePillar === 2 && (
-                /* Pillar 3: 이커머스 정책 & 프로세스 RACI 매트릭스 */
-                <div
-                  style={{
-                    background: '#ffffff',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 'var(--radius-lg)',
-                    padding: '20px',
-                    marginBottom: '20px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                    <BookOpen size={18} color="#7c3aed" />
-                    <strong style={{ fontSize: '14.5px', color: 'var(--text-main)' }}>
-                      시선인터내셔널 전사 이커머스 3대 핵심 정책 표준서
-                    </strong>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
-                    <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', padding: '14px', borderRadius: '8px' }}>
-                      <div style={{ fontWeight: 700, fontSize: '13px', color: '#6b21a8', marginBottom: '4px' }}>
-                        1. 온·오프라인 옴니 멤버십 규정
-                      </div>
-                      <p style={{ fontSize: '12px', color: '#475569', lineHeight: 1.5 }}>
-                        오프라인 백화점/아울렛 매장 포인트와 시선닷컴 온라인 마일리지의 통합 교차 사용 및 승급 기준 표준화
-                      </p>
-                    </div>
-
-                    <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', padding: '14px', borderRadius: '8px' }}>
-                      <div style={{ fontWeight: 700, fontSize: '13px', color: '#6b21a8', marginBottom: '4px' }}>
-                        2. 패션 상품 반품/교환 CS 규정
-                      </div>
-                      <p style={{ fontSize: '12px', color: '#475569', lineHeight: 1.5 }}>
-                        프리미엄 패션 특성에 따른 단순 변심 왕복 택배비, 불량 판정 검품 프로세스 및 반품 자동 환불 승인 기준
-                      </p>
-                    </div>
-
-                    <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', padding: '14px', borderRadius: '8px' }}>
-                      <div style={{ fontWeight: 700, fontSize: '13px', color: '#6b21a8', marginBottom: '4px' }}>
-                        3. 6대 부서별 RACI 책임 매트릭스
-                      </div>
-                      <p style={{ fontSize: '12px', color: '#475569', lineHeight: 1.5 }}>
-                        기획 승인(기획팀) ➔ 상품 세팅(MD) ➔ 비주얼 에셋(MN) ➔ API 연동(정보실) ➔ 홍보(마케팅) R&R 정의
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 3단계 파이프라인 프로세스 카드 */}
+              {/* 통합 3단계 핵심 과업 카드 그리드 */}
               <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
                   gap: '14px',
-                  marginBottom: '20px',
+                  marginBottom: '14px',
                 }}
               >
                 {selected.pipelineSteps.map((step, sIdx) => (
                   <div
                     key={sIdx}
-                    className="interactive-card"
                     style={{
                       background: '#ffffff',
                       border: '1px solid #e2e8f0',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '18px',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
+                      borderRadius: '10px',
+                      padding: '16px 18px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
                     }}
                   >
-                    <div style={{ fontSize: '13.5px', fontWeight: 700, color: selected.color, marginBottom: '6px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 800, color: selected.color }}>
                       {step.name}
                     </div>
-                    <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    <div style={{ fontSize: '12.5px', color: '#475569', lineHeight: 1.45 }}>
                       {step.desc}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: '4px',
+                        paddingTop: '10px',
+                        borderTop: '1px solid #f1f5f9',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                      }}
+                    >
+                      {step.points.map((pt, pIdx) => (
+                        <div
+                          key={pIdx}
+                          style={{
+                            fontSize: '12px',
+                            color: '#334155',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          • {pt}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* 핵심 기대 지표 바 (근거 없는 정량 수치 배제, 정성적 목표 방향만 표기) */}
+              {/* 핵심 기대 목표 바 (아이콘 및 정량 숫자 배제) */}
               <div
                 style={{
                   background: '#ffffff',
-                  padding: '14px 20px',
-                  borderRadius: 'var(--radius-md)',
+                  padding: '11px 16px',
+                  borderRadius: '8px',
                   border: '1px solid #e2e8f0',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
-                  fontSize: '13.5px',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                  gap: '8px',
+                  fontSize: '12.5px',
+                  flexWrap: 'wrap',
                 }}
               >
-                <TrendingUp size={18} color={selected.color} />
-                <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>핵심 기대 목표 지표:</span>
-                <strong style={{ color: 'var(--text-main)' }}>{selected.keyMetrics}</strong>
+                <span style={{ color: selected.color, fontWeight: 800 }}>핵심 추진 목표</span>
+                <span style={{ color: '#cbd5e1' }}>|</span>
+                <strong style={{ color: 'var(--text-main)', fontWeight: 700 }}>{selected.keyMetrics}</strong>
               </div>
             </div>
           );
