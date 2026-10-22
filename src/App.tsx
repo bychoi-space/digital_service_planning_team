@@ -52,12 +52,20 @@ function tabToHash(tab: NavTab): string {
   return `#/${tab}`;
 }
 
+const NAV_LABELS: Record<NavTab, string> = {
+  overview: '서비스기획팀 안내',
+  tasks: '서비스기획 업무 관리',
+  vacations: '팀 통합 일정',
+  kpi: 'KPI 목표 및 평가',
+  audit: '감사 로그 (Audit)',
+};
+
 const TAB_TITLES: Record<NavTab, string> = {
-  overview: '서비스기획팀 업무포털 | 안내',
-  tasks: '서비스기획팀 업무포털 | 업무 관리',
-  vacations: '서비스기획팀 업무포털 | 팀 통합 일정',
-  kpi: '서비스기획팀 업무포털 | KPI 목표 및 평가',
-  audit: '서비스기획팀 업무포털 | 감사 로그',
+  overview: `서비스기획팀 업무포털 | ${NAV_LABELS.overview}`,
+  tasks: `서비스기획팀 업무포털 | ${NAV_LABELS.tasks}`,
+  vacations: `서비스기획팀 업무포털 | ${NAV_LABELS.vacations}`,
+  kpi: `서비스기획팀 업무포털 | ${NAV_LABELS.kpi}`,
+  audit: `서비스기획팀 업무포털 | ${NAV_LABELS.audit}`,
 };
 
 const AUTH_TITLES: Record<AuthMode, string> = {
@@ -236,7 +244,7 @@ export function App() {
             }}
           >
             <Compass size={18} />
-            <span>서비스기획팀 안내</span>
+            <span>{NAV_LABELS.overview}</span>
           </a>
 
           <a
@@ -248,7 +256,7 @@ export function App() {
             }}
           >
             <CheckSquare size={18} />
-            <span>서비스기획 업무 관리</span>
+            <span>{NAV_LABELS.tasks}</span>
             <span className="nav-badge">Tasks</span>
           </a>
 
@@ -261,7 +269,7 @@ export function App() {
             }}
           >
             <Calendar size={18} />
-            <span>팀 통합 일정</span>
+            <span>{NAV_LABELS.vacations}</span>
             <span className="nav-badge">Schedule</span>
           </a>
 
@@ -274,7 +282,7 @@ export function App() {
             }}
           >
             <Target size={18} />
-            <span>KPI 목표 및 평가</span>
+            <span>{NAV_LABELS.kpi}</span>
             <span className="nav-badge">2026</span>
           </a>
 
@@ -289,7 +297,7 @@ export function App() {
             }}
           >
             <ShieldAlert size={18} />
-            <span>감사 로그 (Audit)</span>
+            <span>{NAV_LABELS.audit}</span>
           </a>
         </nav>
       </aside>
@@ -299,13 +307,7 @@ export function App() {
         {/* 상단 탑바 */}
         <header className="app-topbar">
           <div className="topbar-left">
-            <h1 className="page-title">
-              {activeTab === 'overview' && '서비스기획팀 업무 안내'}
-              {activeTab === 'tasks' && '서비스기획 업무 관리'}
-              {activeTab === 'vacations' && '팀 통합 일정'}
-              {activeTab === 'kpi' && 'KPI 목표 수립 및 평가 관리'}
-              {activeTab === 'audit' && '시스템 감사 로그 및 변경 이력'}
-            </h1>
+            <h1 className="page-title">{NAV_LABELS[activeTab]}</h1>
             {isViewer && (
               <div className="viewer-mode-alert">
                 <Eye size={14} /> 유관부서 읽기 전용 모드 적용 중 (등록/수정 제한)
