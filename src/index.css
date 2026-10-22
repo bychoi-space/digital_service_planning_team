@@ -1353,59 +1353,71 @@ button, input, select, textarea {
   padding: 28px 30px;
 }
 
-/* 2. 서비스기획팀 3대 집중 추진 영역 (탭 UI & 통합 상세 패널) */
+/* 2. 서비스기획 주요 업무 범위 (연결형 폴더 탭 UI & 통합 상세 패널) */
+.pillars-tabs-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
 .pillars-tablist {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  background: #f1f5f9;
-  padding: 6px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  margin-bottom: 16px;
+  align-items: end;
+  position: relative;
+  z-index: 3;
 }
 
 .pillar-tab {
   --pillar-color: #2563eb;
-  --pillar-shadow: rgba(37, 99, 235, 0.16);
-  background: transparent;
-  border: 1.5px solid transparent;
-  border-radius: 9px;
-  padding: 14px 18px;
+  --pillar-soft-bg: #eff6ff;
+  background: linear-gradient(180deg, #eef2f6 0%, #e2e8f0 100%);
+  border: 1.5px solid #cbd5e1;
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  padding: 14px 18px 15px;
+  margin-top: 6px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 5px;
+  gap: 6px;
   text-align: left;
   position: relative;
   overflow: hidden;
-  transition: all 0.15s ease;
-}
-
-.pillar-tab:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.6);
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
 .pillar-tab.pillar-theme-blue {
   --pillar-color: #2563eb;
-  --pillar-shadow: rgba(37, 99, 235, 0.16);
+  --pillar-soft-bg: #eff6ff;
 }
 
 .pillar-tab.pillar-theme-emerald {
   --pillar-color: #059669;
-  --pillar-shadow: rgba(5, 150, 105, 0.16);
+  --pillar-soft-bg: #ecfdf5;
 }
 
 .pillar-tab.pillar-theme-purple {
   --pillar-color: #7c3aed;
-  --pillar-shadow: rgba(124, 58, 237, 0.16);
+  --pillar-soft-bg: #f5f3ff;
+}
+
+.pillar-tab:hover:not(.active) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  transform: translateY(-2px);
 }
 
 .pillar-tab.active {
   background: #ffffff;
-  border-color: var(--pillar-color);
-  box-shadow: 0 4px 12px -2px var(--pillar-shadow);
+  border: 2px solid var(--pillar-color);
+  border-bottom: 2px solid #ffffff;
+  margin-top: 0;
+  margin-bottom: -2px;
+  padding-top: 18px;
+  padding-bottom: 17px;
+  z-index: 4;
 }
 
 .pillar-tab.active::before {
@@ -1414,19 +1426,73 @@ button, input, select, textarea {
   top: 0;
   left: 0;
   right: 0;
-  height: 3px;
+  height: 5px;
   background: var(--pillar-color);
 }
 
+.pillar-tab-top {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .pillar-tab-badge {
+  display: inline-flex;
+  align-items: center;
   font-size: 14px;
   font-weight: 800;
-  color: #64748b;
-  letter-spacing: 0.5px;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  letter-spacing: 0.4px;
+  transition: all 0.15s ease;
+}
+
+.pillar-tab:hover:not(.active) .pillar-tab-badge {
+  border-color: var(--pillar-color);
+  color: var(--pillar-color);
 }
 
 .pillar-tab.active .pillar-tab-badge {
-  color: var(--pillar-color);
+  background: var(--pillar-color);
+  color: #ffffff;
+  border-color: var(--pillar-color);
+}
+
+.pillar-tab-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #94a3b8;
+  background: #ffffff;
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.pillar-tab:hover:not(.active) .pillar-tab-radio {
+  border-color: var(--pillar-color);
+}
+
+.pillar-tab.active .pillar-tab-radio {
+  border-color: var(--pillar-color);
+  background: var(--pillar-color);
+}
+
+.pillar-tab.active .pillar-tab-radio::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translate(-50%, -50%);
 }
 
 .pillar-tab-title {
@@ -1434,6 +1500,10 @@ button, input, select, textarea {
   font-weight: 700;
   color: #475569;
   line-height: 1.4;
+}
+
+.pillar-tab:hover:not(.active) .pillar-tab-title {
+  color: #0f172a;
 }
 
 .pillar-tab.active .pillar-tab-title {
@@ -1453,27 +1523,34 @@ button, input, select, textarea {
 
 .pillar-panel {
   --pillar-color: #2563eb;
-  padding: 24px 26px;
-  box-shadow: var(--shadow-sm);
+  --pillar-soft-bg: #eff6ff;
+  --pillar-soft-border: #bfdbfe;
+  background: #ffffff;
+  border: 2px solid var(--pillar-color);
+  border-radius: 0 0 12px 12px;
+  padding: 26px 28px;
+  box-shadow: 0 8px 20px -6px rgba(15, 23, 42, 0.08);
+  position: relative;
+  z-index: 2;
   animation: fadeIn 0.2s ease-out;
 }
 
 .pillar-panel.pillar-theme-blue {
   --pillar-color: #2563eb;
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(37, 99, 235, 0.01) 100%);
-  border: 1.5px solid #bfdbfe;
+  --pillar-soft-bg: #eff6ff;
+  --pillar-soft-border: #bfdbfe;
 }
 
 .pillar-panel.pillar-theme-emerald {
   --pillar-color: #059669;
-  background: linear-gradient(135deg, rgba(5, 150, 105, 0.05) 0%, rgba(5, 150, 105, 0.01) 100%);
-  border: 1.5px solid #a7f3d0;
+  --pillar-soft-bg: #ecfdf5;
+  --pillar-soft-border: #a7f3d0;
 }
 
 .pillar-panel.pillar-theme-purple {
   --pillar-color: #7c3aed;
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.05) 0%, rgba(124, 58, 237, 0.01) 100%);
-  border: 1.5px solid #ddd6fe;
+  --pillar-soft-bg: #f5f3ff;
+  --pillar-soft-border: #ddd6fe;
 }
 
 .pillar-panel-desc {
@@ -1492,7 +1569,7 @@ button, input, select, textarea {
 }
 
 .pillar-step-card {
-  background: #ffffff;
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 18px 20px;
@@ -1517,7 +1594,7 @@ button, input, select, textarea {
 .pillar-step-points {
   margin-top: 4px;
   padding-top: 12px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1530,15 +1607,39 @@ button, input, select, textarea {
 }
 
 .pillar-goal-bar {
-  background: #ffffff;
+  background: var(--pillar-soft-bg);
   padding: 13px 18px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--pillar-soft-border);
   display: flex;
   align-items: center;
   gap: 10px;
   font-size: 14px;
   flex-wrap: wrap;
+}
+
+@media (max-width: 860px) {
+  .pillars-tablist {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .pillar-tab,
+  .pillar-tab.active {
+    border-radius: 10px;
+    margin-top: 0;
+    margin-bottom: 0;
+    border-bottom: 1.5px solid #cbd5e1;
+  }
+
+  .pillar-tab.active {
+    border: 2px solid var(--pillar-color);
+  }
+
+  .pillar-panel {
+    border-radius: 12px;
+  }
 }
 
 .pillar-goal-label {

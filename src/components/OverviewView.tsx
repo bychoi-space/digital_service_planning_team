@@ -145,71 +145,76 @@ export function OverviewView() {
       {/* 2. 3인 캐릭터 [시선닷컴 UI/UX 개편] 릴레이 애니메이션 쇼케이스 */}
       <SisunRenewalStoryStage />
 
-      {/* 3. 서비스기획팀 3대 집중 추진 영역 (탭 UI & 통합 상세 뷰) */}
+      {/* 3. 서비스기획 주요 업무 범위 (연결형 폴더 탭 UI & 통합 상세 뷰) */}
       <div id="pillars-section">
         <div className="overview-section-header">
           <Layers size={20} className="overview-section-icon" />
-          <h2 className="overview-section-title">서비스기획팀 3대 집중 추진 영역</h2>
+          <h2 className="overview-section-title">서비스기획 주요 업무 범위</h2>
         </div>
 
-        {/* 상단 3대 영역 TAB 바 */}
-        <div
-          role="tablist"
-          aria-label="서비스기획팀 3대 집중 추진 영역 탭"
-          className="pillars-tablist"
-        >
-          {PILLARS_DATA.map((pillar) => {
-            const isSelected = activePillar === pillar.id;
-            return (
-              <button
-                key={pillar.id}
-                type="button"
-                role="tab"
-                aria-selected={isSelected}
-                onClick={() => setActivePillar(pillar.id)}
-                className={`pillar-tab ${pillar.themeClass} ${isSelected ? 'active' : ''}`}
-              >
-                <span className="pillar-tab-badge">{pillar.badge}</span>
-                <div className="pillar-tab-title">{pillar.title}</div>
-                <div className="pillar-tab-subtitle">{pillar.subtitle}</div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* 선택된 영역의 통합 상세 패널 */}
-        {(() => {
-          const selected = PILLARS_DATA[activePillar];
-          return (
-            <div className={`card pillar-panel ${selected.themeClass}`}>
-              <p className="pillar-panel-desc">{selected.description}</p>
-
-              {/* 통합 3단계 핵심 과업 카드 그리드 */}
-              <div className="pillar-steps-grid">
-                {selected.pipelineSteps.map((step, sIdx) => (
-                  <div key={sIdx} className="pillar-step-card">
-                    <div className="pillar-step-name">{step.name}</div>
-                    <div className="pillar-step-desc">{step.desc}</div>
-                    <div className="pillar-step-points">
-                      {step.points.map((pt, pIdx) => (
-                        <div key={pIdx} className="pillar-step-point">
-                          • {pt}
-                        </div>
-                      ))}
-                    </div>
+        <div className="pillars-tabs-wrapper">
+          {/* 상단 3대 영역 연결형 TAB 바 */}
+          <div
+            role="tablist"
+            aria-label="서비스기획 주요 업무 범위 탭"
+            className="pillars-tablist"
+          >
+            {PILLARS_DATA.map((pillar) => {
+              const isSelected = activePillar === pillar.id;
+              return (
+                <button
+                  key={pillar.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isSelected}
+                  onClick={() => setActivePillar(pillar.id)}
+                  className={`pillar-tab ${pillar.themeClass} ${isSelected ? 'active' : ''}`}
+                >
+                  <div className="pillar-tab-top">
+                    <span className="pillar-tab-badge">{pillar.badge}</span>
+                    <span className="pillar-tab-radio" aria-hidden="true" />
                   </div>
-                ))}
-              </div>
+                  <div className="pillar-tab-title">{pillar.title}</div>
+                  <div className="pillar-tab-subtitle">{pillar.subtitle}</div>
+                </button>
+              );
+            })}
+          </div>
 
-              {/* 핵심 추진 목표 바 */}
-              <div className="pillar-goal-bar">
-                <span className="pillar-goal-label">핵심 추진 목표</span>
-                <span className="pillar-goal-divider">|</span>
-                <strong className="pillar-goal-text">{selected.keyMetrics}</strong>
+          {/* 선택된 탭과 하나로 이어지는 통합 상세 패널 */}
+          {(() => {
+            const selected = PILLARS_DATA[activePillar];
+            return (
+              <div role="tabpanel" className={`pillar-panel ${selected.themeClass}`}>
+                <p className="pillar-panel-desc">{selected.description}</p>
+
+                {/* 통합 3단계 핵심 과업 카드 그리드 */}
+                <div className="pillar-steps-grid">
+                  {selected.pipelineSteps.map((step, sIdx) => (
+                    <div key={sIdx} className="pillar-step-card">
+                      <div className="pillar-step-name">{step.name}</div>
+                      <div className="pillar-step-desc">{step.desc}</div>
+                      <div className="pillar-step-points">
+                        {step.points.map((pt, pIdx) => (
+                          <div key={pIdx} className="pillar-step-point">
+                            • {pt}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 핵심 추진 목표 바 */}
+                <div className="pillar-goal-bar">
+                  <span className="pillar-goal-label">핵심 추진 목표</span>
+                  <span className="pillar-goal-divider">|</span>
+                  <strong className="pillar-goal-text">{selected.keyMetrics}</strong>
+                </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
+        </div>
       </div>
 
       {/* 4. 시선닷컴 5단계 기획 & 릴리즈 스프린트 (중복 상세 박스 제거, 5단계 흐름만 직관적 표시) */}
