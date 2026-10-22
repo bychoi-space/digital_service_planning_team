@@ -2,12 +2,12 @@ import type { TeamGuideInfo } from '../types';
 
 export const TEAM_GUIDE_DATA: TeamGuideInfo = {
   vision: '시선인터내셔널의 디지털 커머스 혁신과 고객 경험을 리드하는 서비스기획팀',
-  mission: '시선닷컴(sisun.com)의 프리미엄 UI/UX 전면 개편, 어드민 운영 효율화, 그리고 전사 이커머스 표준 프로세스 정립을 통해 브랜드 가치와 비즈니스 성장을 견인합니다.',
+  mission: '시선닷컴(sisun.com) UI/UX 전면 개편, 어드민 운영 효율화, 전사 이커머스 표준 프로세스 정립을 통해 디지털 커머스 성장을 견인합니다.',
   domains: [
     {
       id: 'domain-1',
       title: '시선닷컴 (sisun.com) UI/UX 전면 개편',
-      description: '프리미엄 패션 브랜드 감성을 살린 기획서(스토리보드) 작성, 감각적인 비주얼 디자인, 완성도 높은 웹 퍼블리싱 파이프라인 총괄',
+      description: '사용자 경험 중심의 화면설계서(SB) 작성, 직관적인 UI/UX 디자인, 웹 표준 퍼블리싱 파이프라인 총괄',
       leadName: '서비스기획팀 UI/UX 파트',
       services: ['화면설계서(SB) 작성', '메인/기획전/상세 UI 디자인', '반응형 웹 퍼블리싱', '모바일 웹/앱 웹뷰 최적화'],
       tagColor: '#2563eb',
@@ -32,7 +32,7 @@ export const TEAM_GUIDE_DATA: TeamGuideInfo = {
   processSteps: [
     {
       step: 1,
-      title: '요구사항 접수 및 검토',
+      title: '요구사항 접수·검토',
       subtitle: 'Discovery & Feasibility',
       description: '유관부서 개편 니즈 및 VOC 수렴, 우선순위 검토',
       deliverables: ['기획 요구사항 정의서 (PRD)', '화면 개편 타당성 분석서'],
@@ -40,7 +40,7 @@ export const TEAM_GUIDE_DATA: TeamGuideInfo = {
     },
     {
       step: 2,
-      title: '화면설계(SB) 및 정책 수립',
+      title: '화면설계(SB)·정책 수립',
       subtitle: 'UX Planning & Policy',
       description: '정보 구조(IA), 화면 와이어프레임 및 예외 정책 정의',
       deliverables: ['화면설계서 (SB)', '이커머스 정책 명세서', 'IA 구조도'],
@@ -48,15 +48,15 @@ export const TEAM_GUIDE_DATA: TeamGuideInfo = {
     },
     {
       step: 3,
-      title: 'UI 디자인 & 반응형 퍼블리싱',
+      title: 'UI 디자인·웹 퍼블리싱',
       subtitle: 'Design & Publishing',
-      description: '브랜드 비주얼 UI 디자인 및 크로스 브라우징 퍼블리싱',
+      description: '비주얼 UI 디자인 및 크로스 브라우징 퍼블리싱',
       deliverables: ['디자인 컴포넌트 시스템', 'HTML/CSS/JS 퍼블리싱 산출물'],
       stakeholders: '서비스기획팀 디자인/퍼블리싱 파트',
     },
     {
       step: 4,
-      title: '개발 협의 & 연동 검수',
+      title: '개발 협의·통합 QA',
       subtitle: 'Development & QA Sync',
       description: 'API 연동 사양 협의 및 프론트엔드·어드민 통합 QA 검수',
       deliverables: ['개발 협의 명세서', '어드민 설정 가이드', 'QA 체크리스트'],
@@ -64,7 +64,7 @@ export const TEAM_GUIDE_DATA: TeamGuideInfo = {
     },
     {
       step: 5,
-      title: '배포 및 운영 모니터링',
+      title: '배포·운영 모니터링',
       subtitle: 'Release & Optimization',
       description: '운영 배포 후 사용성 모니터링 및 지속 고도화',
       deliverables: ['개편 런칭 성과 리포트', '어드민 VOC 개선 백로그'],

@@ -483,10 +483,6 @@ export function SisunRenewalStoryStage() {
       '--designer-body-transform',
       `translateY(${designerMotion.bounceY}px) scaleX(${designerMotion.scaleX}) scaleY(${designerMotion.scaleY}) rotate(${designerMotion.rotateDeg}deg)`
     );
-    el.style.setProperty(
-      '--designer-badge-transform',
-      `translateX(-50%) translateY(${Math.max(0, designerMotion.bounceY)}px)`
-    );
 
     el.style.setProperty('--publisher-left', `${publisherLeft}%`);
     el.style.setProperty('--publisher-opacity', publisherVisible ? '1' : '0');
@@ -515,19 +511,6 @@ export function SisunRenewalStoryStage() {
 
   return (
     <div ref={stageRef} className="story-stage-card">
-      {/* 우측 상단 미니 플레이/정지 아이콘 버튼 */}
-      <div className="story-stage-controls">
-        <button
-          type="button"
-          onClick={() => setIsPlaying((p) => !p)}
-          title={isPlaying ? '정지' : '재생'}
-          aria-label={isPlaying ? '정지' : '재생'}
-          className={`story-stage-play-btn ${isPlaying ? 'playing' : 'paused'}`}
-        >
-          {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-        </button>
-      </div>
-
       {/* 메인 애니메이션 무대 (상단 모던 다크 슬레이트 디스플레이 보드 + 하단 스튜디오 협업 무대) */}
       <div className="story-stage-body">
         {/* 1. 상단 풀와이드 모던 스튜디오 다크 슬레이트 보드 판넬 (높이 392px 고정) */}
@@ -827,11 +810,15 @@ export function SisunRenewalStoryStage() {
                   <span className="story-zone-title story-zone-title-purple">03. 웹 퍼블리싱</span>
                 </div>
 
-                <div className="story-zone-pins">
-                  <span className="story-zone-pin story-zone-dot-blue" />
-                  <span className="story-zone-pin story-zone-dot-emerald" />
-                  <span className="story-zone-pin story-zone-dot-purple" />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPlaying((p) => !p)}
+                  title={isPlaying ? '정지' : '재생'}
+                  aria-label={isPlaying ? '정지' : '재생'}
+                  className={`story-stage-play-btn ${isPlaying ? 'playing' : 'paused'}`}
+                >
+                  {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+                </button>
               </div>
 
               <div className="story-zone-canvas story-zone-fade-publisher">
@@ -1090,7 +1077,7 @@ export function SisunRenewalStoryStage() {
               />
             </div>
 
-            <div className="story-char-badge-wrap story-badge-wrap-designer">
+            <div className="story-char-badge-wrap">
               <div className="story-char-badge story-char-badge-designer">디자이너</div>
             </div>
           </div>

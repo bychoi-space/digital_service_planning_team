@@ -17,10 +17,9 @@ export function OverviewView() {
       id: 0,
       badge: '01',
       title: '시선닷컴 (sisun.com) UI/UX 전면 개편',
-      subtitle: '화면설계(SB) · 비주얼 UI 디자인 · 반응형 퍼블리싱',
       themeClass: 'pillar-theme-blue',
       description:
-        '미샤(MICHAA)·잇미샤(it MICHAA)·E.B.M 브랜드 감성을 온전히 전달하도록 화면설계부터 디자인·퍼블리싱까지 전 과정을 총괄합니다.',
+        '시선닷컴의 탐색 편의성과 쇼핑 몰입도를 높이기 위해 화면설계(SB)부터 UI 디자인·반응형 퍼블리싱까지 전 과정을 총괄합니다.',
       pipelineSteps: [
         {
           name: '1. 기획서(화면설계서/SB) 작성',
@@ -33,11 +32,11 @@ export function OverviewView() {
         },
         {
           name: '2. UI/UX 비주얼 디자인',
-          desc: '브랜드 아이덴티티를 극대화한 고해상도 비주얼 디자인 시스템',
+          desc: '가독성과 탐색 몰입도를 높이는 고해상도 UI/UX 디자인 시스템',
           points: [
-            '브랜드 무드: 미샤(클래식 모던)·잇미샤(영 페미닌)',
+            '레이아웃 체계: 메인·카테고리·상품 상세 시각적 위계 정립',
             '룩북 뷰어: 화보 내 착장 상품 인터랙티브 태깅',
-            '컴포넌트 표준: 왜곡 없는 컬러 재현 및 UI 일관성',
+            '컴포넌트 표준: 일관된 타이포그래피·컬러·UI 토큰 규격화',
           ],
         },
         {
@@ -56,7 +55,6 @@ export function OverviewView() {
       id: 1,
       badge: '02',
       title: '시선닷컴 어드민(백오피스) 운영 효율화',
-      subtitle: '상품·프로모션 세팅 자동화 · 운영 공수 절감',
       themeClass: 'pillar-theme-emerald',
       description:
         '온라인MD·운영팀의 반복 수기 작업을 줄이고, 대량 상품 등록과 기획전 세팅을 직관적으로 처리하도록 백오피스를 개선합니다.',
@@ -95,7 +93,6 @@ export function OverviewView() {
       id: 2,
       badge: '03',
       title: '시선인터내셔널 이커머스 정책 & 프로세스 정의',
-      subtitle: '온·오프라인 통합 정책 · 부서별 협업 R&R 표준화',
       themeClass: 'pillar-theme-purple',
       description:
         '브랜드 사업부·온라인몰·물류·마케팅·IT 간 업무 기준을 일원화하고 전사 이커머스 표준 운영 규정을 정립합니다.',
@@ -187,7 +184,6 @@ export function OverviewView() {
             return (
               <div role="tabpanel" className={`pillar-panel ${selected.themeClass}`}>
                 <div className="pillar-panel-header">
-                  <span className="pillar-panel-Scope-badge">{selected.subtitle}</span>
                   <p className="pillar-panel-desc">{selected.description}</p>
                 </div>
 

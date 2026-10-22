@@ -1296,7 +1296,7 @@ button, input, select, textarea {
   letter-spacing: -0.5px;
   line-height: 1.35;
   margin-bottom: 6px;
-  white-space: nowrap;
+  word-break: keep-all;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
@@ -1305,7 +1305,7 @@ button, input, select, textarea {
   color: #cbd5e1;
   line-height: 1.5;
   margin-bottom: 0;
-  white-space: nowrap;
+  word-break: keep-all;
 }
 
 /* 1-2. 3인 캐릭터 릴레이 애니메이션 쇼케이스 (SisunRenewalStoryStage - 모던 다크 슬레이트 톤) */
@@ -1323,54 +1323,53 @@ button, input, select, textarea {
   --planner-board-fade: 1;
   --designer-board-fade: 1;
   --publisher-board-fade: 1;
-  --planner-left: 9.5%;
+  --planner-left: 10.5%;
   --planner-opacity: 1;
   --planner-shadow-transform: translateX(-50%) scale(1);
   --planner-body-transform: none;
   --designer-left: 41.5%;
-  --designer-opacity: 0;
+  --designer-opacity: 1;
   --designer-shadow-transform: translateX(-50%) scale(1);
   --designer-body-transform: none;
-  --designer-badge-transform: translateX(-50%);
   --publisher-left: 73%;
-  --publisher-opacity: 0;
+  --publisher-opacity: 1;
   --publisher-shadow-transform: translateX(-50%) scale(1);
   --publisher-body-transform: none;
   background: #ffffff;
   border-radius: 20px;
   border: 1.5px solid #e2e8f0;
   box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.08);
-  padding: 12px 18px 16px;
+  padding: 14px 18px 16px;
   position: relative;
   overflow: hidden;
 }
 
-.story-stage-controls {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 6px;
-}
-
 .story-stage-play-btn {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
   color: #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.12);
-  transition: background 0.2s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
 .story-stage-play-btn.playing {
-  background: #0f172a;
+  background: rgba(30, 41, 59, 0.9);
+}
+
+.story-stage-play-btn.playing:hover {
+  background: #334155;
+  border-color: #94a3b8;
 }
 
 .story-stage-play-btn.paused {
   background: #2563eb;
+  border-color: #60a5fa;
 }
 
 .story-stage-body {
@@ -1501,18 +1500,6 @@ button, input, select, textarea {
 
 .story-zone-title-purple {
   color: #ede9fe;
-}
-
-.story-zone-pins {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.story-zone-pin {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
 }
 
 .story-zone-canvas {
@@ -1693,104 +1680,6 @@ button, input, select, textarea {
   transform: var(--publisher-body-transform);
 }
 
-.story-vfx-layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.story-vfx-question-lg {
-  position: absolute;
-  top: 26px;
-  font-size: 20px;
-  font-weight: 900;
-  color: #1e3a8a;
-  text-shadow: 0 2px 4px rgba(255, 255, 255, 0.9);
-  animation: charBob 1.2s ease-in-out infinite;
-}
-
-.story-vfx-question-lg.flip-right {
-  left: 28px;
-}
-
-.story-vfx-question-lg.flip-left {
-  left: 176px;
-}
-
-.story-vfx-question-sm {
-  position: absolute;
-  top: 12px;
-  font-size: 15px;
-  font-weight: 900;
-  color: #2563eb;
-  animation: charBob 1.4s ease-in-out infinite;
-}
-
-.story-vfx-question-sm.flip-right {
-  left: 52px;
-}
-
-.story-vfx-question-sm.flip-left {
-  left: 154px;
-}
-
-.story-vfx-bulb {
-  position: absolute;
-  top: 78px;
-  left: 26px;
-  filter: drop-shadow(0 3px 6px rgba(250, 204, 21, 0.4));
-  animation: ideaPop 1.6s ease-in-out infinite;
-}
-
-.story-vfx-swatch {
-  position: absolute;
-  top: 88px;
-  left: 20px;
-  animation: charBob 1.4s ease-in-out infinite;
-}
-
-.story-vfx-code-tag {
-  position: absolute;
-  top: 96px;
-  left: 24px;
-  font-size: 14px;
-  font-weight: 800;
-  font-family: monospace;
-  color: #1e293b;
-  background: rgba(255, 255, 255, 0.92);
-  padding: 2px 6px;
-  border-radius: 6px;
-  border: 1.5px solid #334155;
-  animation: charBob 1.3s ease-in-out infinite;
-}
-
-.story-vfx-brace-tag {
-  position: absolute;
-  top: 68px;
-  left: 44px;
-  font-size: 14px;
-  font-weight: 800;
-  font-family: monospace;
-  color: #7c3aed;
-  animation: charBob 1.5s ease-in-out infinite;
-}
-
-.story-vfx-html-badge {
-  position: absolute;
-  top: 74px;
-  left: 12px;
-  background: #ede9fe;
-  color: #5b21b6;
-  font-size: 14px;
-  font-weight: 800;
-  font-family: monospace;
-  padding: 3px 10px;
-  border-radius: 999px;
-  border: 1.5px solid #7c3aed;
-  box-shadow: 0 3px 8px rgba(109, 40, 217, 0.2);
-  animation: charBob 1.2s ease-in-out infinite;
-}
-
 .story-char-badge-wrap {
   position: absolute;
   bottom: 0;
@@ -1799,10 +1688,6 @@ button, input, select, textarea {
   display: flex;
   flex-direction: column;
   align-items: center;
-}
-
-.story-badge-wrap-designer {
-  transform: var(--designer-badge-transform);
 }
 
 .story-char-badge {
@@ -2044,22 +1929,7 @@ button, input, select, textarea {
 .pillar-panel-header {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 18px;
-}
-
-.pillar-panel-Scope-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--pillar-color);
-  background: var(--pillar-soft-bg);
-  border: 1px solid var(--pillar-soft-border);
-  padding: 4px 12px;
-  border-radius: 9999px;
-  flex-shrink: 0;
+  margin-bottom: 16px;
 }
 
 .pillar-panel-desc {
@@ -2145,13 +2015,13 @@ button, input, select, textarea {
 .sprint-stepper-flow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .sprint-step-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
   min-width: 0;
 }
@@ -2159,20 +2029,20 @@ button, input, select, textarea {
 .sprint-step-card {
   flex: 1;
   min-width: 0;
-  padding: 14px 16px;
+  padding: 13px 14px;
   border-radius: var(--radius-md);
   border: 1.5px solid #cbd5e1;
   background: #ffffff;
   color: var(--text-main);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   box-shadow: var(--shadow-sm);
 }
 
 .sprint-step-circle {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: #eff6ff;
   border: 1.5px solid #bfdbfe;
@@ -2186,12 +2056,10 @@ button, input, select, textarea {
 }
 
 .sprint-step-short-title {
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 700;
   color: var(--text-main);
   white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
   line-height: 1.4;
 }
 
