@@ -57,11 +57,10 @@ const LOGIN_EXCLUSIVE_SPRITES = [
 interface SpriteCanvasProps {
   fileName: string;
   fallbackFileName: string;
-  size: number;
   style?: React.CSSProperties;
 }
 
-function LoginSpriteCanvas({ fileName, fallbackFileName, size, style }: SpriteCanvasProps) {
+function LoginSpriteCanvas({ fileName, fallbackFileName, style }: SpriteCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastDrawnRef = useRef<string>('');
 
@@ -105,8 +104,8 @@ function LoginSpriteCanvas({ fileName, fallbackFileName, size, style }: SpriteCa
       width={560}
       height={560}
       style={{
-        width: `${size}px`,
-        height: `${size}px`,
+        width: '100%',
+        height: '100%',
         display: 'block',
         pointerEvents: 'none',
         userSelect: 'none',
@@ -270,21 +269,22 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
         <div className="login-char-publisher">
           <div
             style={{
+              width: '100%',
+              height: '100%',
               filter: 'drop-shadow(-10px 12px 18px rgba(0, 0, 0, 0.48))',
             }}
           >
             <LoginSpriteCanvas
               fileName={`login-publisher-lean-${frame8}.png`}
               fallbackFileName="login-publisher-lean.png"
-              size={228}
             />
           </div>
           {/* 바닥 접지 그림자 */}
           <div
             style={{
-              width: '124px',
-              height: '16px',
-              margin: '-14px auto 0',
+              width: '55%',
+              height: '14px',
+              margin: '-12px auto 0',
               borderRadius: '50%',
               background: 'radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 75%)',
             }}
@@ -321,13 +321,14 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
           <div
             style={{
               position: 'relative',
+              width: '100%',
+              height: '100%',
               filter: 'drop-shadow(0 14px 20px rgba(0, 0, 0, 0.48))',
             }}
           >
             <LoginSpriteCanvas
               fileName={`login-designer-hang-${frame8}.png`}
               fallbackFileName="login-designer-hang.png"
-              size={224}
             />
           </div>
         </div>
@@ -339,21 +340,22 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
         <div className="login-char-planner">
           <div
             style={{
+              width: '100%',
+              height: '100%',
               filter: 'drop-shadow(0 12px 20px rgba(0, 0, 0, 0.5))',
             }}
           >
             <LoginSpriteCanvas
               fileName={`login-planner-sit-${frame8}.png`}
               fallbackFileName="login-planner-sit.png"
-              size={232}
             />
           </div>
           {/* 구석 바닥 접지 그림자 */}
           <div
             style={{
-              width: '176px',
-              height: '18px',
-              margin: '-16px auto 0',
+              width: '75%',
+              height: '16px',
+              margin: '-14px auto 0',
               borderRadius: '50%',
               background: 'radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 75%)',
             }}
