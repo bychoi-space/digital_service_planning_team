@@ -323,8 +323,12 @@ export class PlanningStorageService {
       return { success: false, message: '등록되지 않은 이름입니다. [회원가입]을 진행해 주세요.' };
     }
 
+    if (!password) {
+      return { success: false, message: '비밀번호를 입력해 주세요.' };
+    }
+
     // 비밀번호가 설정되어 있는 경우 검증
-    if (found.password && password && found.password !== password) {
+    if (found.password && found.password !== password) {
       return { success: false, message: '비밀번호가 일치하지 않습니다.' };
     }
 

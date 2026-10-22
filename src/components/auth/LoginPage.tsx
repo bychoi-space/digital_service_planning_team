@@ -9,10 +9,7 @@ import {
   Building2,
   KeyRound,
   ArrowRight,
-  ShieldCheck,
   CheckCircle2,
-  Users,
-  Compass,
   AlertCircle,
 } from 'lucide-react';
 
@@ -25,17 +22,7 @@ interface LoginPageProps {
 export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange }: LoginPageProps) {
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
 
-  useEffect(() => {
-    setMode(initialMode);
-  }, [initialMode]);
-
-  const handleModeSwitch = (nextMode: 'login' | 'register') => {
-    setMode(nextMode);
-    setErrorMessage('');
-    onModeChange?.(nextMode);
-  };
-
-  // 로그인 상태
+  // 로그인 상태 (초기값 항상 빈 값 유지)
   const [loginName, setLoginName] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
@@ -48,6 +35,22 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
   // 에러 및 안내 메시지
   const [errorMessage, setErrorMessage] = useState('');
 
+  useEffect(() => {
+    setMode(initialMode);
+    setLoginPassword('');
+    setRegPassword('');
+    setRegPasswordConfirm('');
+  }, [initialMode]);
+
+  const handleModeSwitch = (nextMode: 'login' | 'register') => {
+    setMode(nextMode);
+    setLoginPassword('');
+    setRegPassword('');
+    setRegPasswordConfirm('');
+    setErrorMessage('');
+    onModeChange?.(nextMode);
+  };
+
   // 1. 로그인 제출 핸들러
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +58,11 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
 
     if (!loginName.trim()) {
       setErrorMessage('이름을 입력해 주세요.');
+      return;
+    }
+
+    if (!loginPassword) {
+      setErrorMessage('비밀번호를 입력해 주세요.');
       return;
     }
 
@@ -102,14 +110,6 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
     } else {
       setErrorMessage(result.message || '회원가입에 실패했습니다.');
     }
-  };
-
-  // 기존 등록된 사용자 퀵 선택
-  const existingUsers = PlanningStorageService.getUsers();
-  const handleQuickSelect = (u: User) => {
-    setLoginName(u.name);
-    setLoginPassword(u.password || '');
-    setErrorMessage('');
   };
 
   return (
@@ -207,68 +207,9 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
               서비스 기획과 협업의 모든 것,<br />하나의 포털에서
             </h2>
 
-            <p style={{ fontSize: '14px', color: '#e0e7ff', lineHeight: 1.6, marginBottom: '32px' }}>
+            <p style={{ fontSize: '14px', color: '#e0e7ff', lineHeight: 1.6, marginBottom: 0 }}>
               일상 기획 업무(Task), 팀원 휴가 일정, 분기/연간 KPI 목표 및 달성 평가를 투명하게 공유하고 관리합니다.
             </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '8px',
-                    background: 'rgba(255, 255, 255, 0.12)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Compass size={17} color="#93c5fd" />
-                </div>
-                <div style={{ fontSize: '13.5px', color: '#f8fafc' }}>
-                  <strong>5단계 기획 프로세스</strong> & 도메인별 R&R 가이드
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '8px',
-                    background: 'rgba(255, 255, 255, 0.12)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Users size={17} color="#6ee7b7" />
-                </div>
-                <div style={{ fontSize: '13.5px', color: '#f8fafc' }}>
-                  <strong>유관부서 읽기 전용 모드</strong> (타부서 협업 지원)
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '8px',
-                    background: 'rgba(255, 255, 255, 0.12)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <ShieldCheck size={17} color="#fcd34d" />
-                </div>
-                <div style={{ fontSize: '13.5px', color: '#f8fafc' }}>
-                  <strong>데이터 무결성 감사 로그</strong> (Audit Trail)
-                </div>
-              </div>
-            </div>
           </div>
 
           <div style={{ marginTop: '36px', paddingTop: '20px', borderTop: '1px solid rgba(255, 255, 255, 0.15)', fontSize: '12px', color: '#bfdbfe' }}>
@@ -351,7 +292,11 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
 
           {/* A. 로그인 폼 */}
           {mode === 'login' ? (
-            <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form
+              onSubmit={handleLoginSubmit}
+              autoComplete="off"
+              style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+            >
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <UserIcon size={14} color="#64748b" /> 이름 (사용자명) *
@@ -359,7 +304,8 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                 <input
                   type="text"
                   required
-                  placeholder="예: 최범열 또는 등록된 성명 입력"
+                  autoComplete="off"
+                  placeholder="등록된 성명 입력"
                   value={loginName}
                   onChange={(e) => setLoginName(e.target.value)}
                   className="form-input"
@@ -369,11 +315,15 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Lock size={14} color="#64748b" /> 비밀번호
+                  <Lock size={14} color="#64748b" /> 비밀번호 *
                 </label>
                 <input
                   type="password"
-                  placeholder="비밀번호 입력 (초기 계정은 생략 가능)"
+                  required
+                  readOnly
+                  onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
+                  autoComplete="new-password"
+                  placeholder="비밀번호를 입력해 주세요"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
                   className="form-input"
@@ -394,34 +344,6 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
               >
                 포털 접속하기 <ArrowRight size={16} />
               </button>
-
-              {/* 퀵 데모 계정 선택 칩 */}
-              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
-                <div style={{ fontSize: '11.5px', color: '#94a3b8', fontWeight: 600, marginBottom: '8px' }}>
-                  빠른 계정 선택 (클릭 시 자동 입력):
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {existingUsers.slice(0, 4).map((u) => (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => handleQuickSelect(u)}
-                      style={{
-                        padding: '4px 8px',
-                        background: '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '4px',
-                        fontSize: '11.5px',
-                        color: '#334155',
-                        cursor: 'pointer',
-                        fontWeight: 500,
-                      }}
-                    >
-                      {u.name.split(' ')[0]} ({u.role === 'admin' ? '팀장' : u.role === 'member' ? '기획팀' : '유관부서'})
-                    </button>
-                  ))}
-                </div>
-              </div>
             </form>
           ) : (
             /* B. 신규 등록 (회원가입) 폼 */
