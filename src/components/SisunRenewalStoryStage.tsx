@@ -520,6 +520,16 @@ export function SisunRenewalStoryStage() {
 
           {/* 보드 내부 다크 네이비/슬레이트 모눈(Grid) 3분할 영역 */}
           <div className="story-board-grid">
+            <button
+              type="button"
+              onClick={() => setIsPlaying((p) => !p)}
+              title={isPlaying ? '정지' : '재생'}
+              aria-label={isPlaying ? '정지' : '재생'}
+              className={`story-stage-play-btn ${isPlaying ? 'playing' : 'paused'}`}
+            >
+              {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+            </button>
+
             {/* [ZONE 1 · 좌측] 화면설계 (SB) */}
             <div className="story-board-zone story-board-zone-divider">
               <div className="story-zone-header">
@@ -804,21 +814,9 @@ export function SisunRenewalStoryStage() {
 
             {/* [ZONE 3 · 우측] 웹 퍼블리싱 */}
             <div className="story-board-zone">
-              <div className="story-zone-header story-zone-header-between">
-                <div className="story-zone-title-wrap">
-                  <span className="story-zone-dot story-zone-dot-purple" />
-                  <span className="story-zone-title story-zone-title-purple">03. 웹 퍼블리싱</span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsPlaying((p) => !p)}
-                  title={isPlaying ? '정지' : '재생'}
-                  aria-label={isPlaying ? '정지' : '재생'}
-                  className={`story-stage-play-btn ${isPlaying ? 'playing' : 'paused'}`}
-                >
-                  {isPlaying ? <Pause size={14} /> : <Play size={14} />}
-                </button>
+              <div className="story-zone-header">
+                <span className="story-zone-dot story-zone-dot-purple" />
+                <span className="story-zone-title story-zone-title-purple">03. 웹 퍼블리싱</span>
               </div>
 
               <div className="story-zone-canvas story-zone-fade-publisher">

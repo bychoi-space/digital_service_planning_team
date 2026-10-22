@@ -1345,6 +1345,10 @@ button, input, select, textarea {
 }
 
 .story-stage-play-btn {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 10;
   width: 28px;
   height: 28px;
   border-radius: 7px;
@@ -1612,7 +1616,8 @@ button, input, select, textarea {
 .story-char-slot {
   position: absolute;
   bottom: 6px;
-  width: 236px;
+  width: 21.5%;
+  max-width: 236px;
   height: 268px;
 }
 
@@ -2068,7 +2073,41 @@ button, input, select, textarea {
   flex-shrink: 0;
 }
 
-@media (max-width: 1100px) {
+/* ============================================================================
+   포털 앱 쉘 & 서비스기획팀 안내(Overview) 반응형 아키텍처
+   - 1) 노트북 / 중소형 데스크톱 (max-width: 1279px)
+   - 2) 태블릿 가로·세로 (max-width: 1023px)
+   - 3) 모바일 디바이스 (max-width: 767px)
+   - 모든 텍스트 요소 최소 폰트 14px 이상 유지 & transform: scale() 미사용 원칙 준수
+   ============================================================================ */
+
+/* 1) 노트북 / 중소형 데스크톱 (1024px ~ 1279px) */
+@media (max-width: 1279px) {
+  .story-board-frame {
+    height: 336px;
+  }
+
+  .story-floor-stage {
+    height: 218px;
+  }
+
+  .story-wall-svg {
+    height: 162px;
+  }
+
+  .story-baseboard {
+    bottom: 52px;
+  }
+
+  .story-floor-surface {
+    height: 52px;
+  }
+
+  .story-char-slot {
+    width: 22%;
+    height: 226px;
+  }
+
   .pillars-tablist {
     grid-template-columns: 1fr;
     gap: 6px;
@@ -2092,12 +2131,358 @@ button, input, select, textarea {
   }
 
   .sprint-stepper-flow {
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
   }
 
   .sprint-step-arrow {
     display: none;
+  }
+}
+
+/* 2) 태블릿 디바이스 (768px ~ 1023px) */
+@media (max-width: 1023px) {
+  .app-container {
+    flex-direction: column;
+  }
+
+  .app-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .sidebar-header {
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .brand-sub {
+    margin-top: 0;
+  }
+
+  .sidebar-nav {
+    padding: 10px 16px;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sidebar-divider {
+    display: none;
+  }
+
+  .nav-item {
+    width: auto;
+    flex-shrink: 0;
+    padding: 9px 14px;
+    white-space: nowrap;
+  }
+
+  .nav-item:hover {
+    transform: none;
+  }
+
+  .nav-badge {
+    margin-left: 6px;
+  }
+
+  .app-topbar {
+    height: auto;
+    min-height: 56px;
+    padding: 12px 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .topbar-left,
+  .topbar-right {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .content-body {
+    padding: 20px;
+  }
+
+  .overview-container {
+    gap: 28px;
+  }
+
+  .overview-hero {
+    padding: 20px 22px;
+    border-radius: 16px;
+  }
+
+  .overview-hero-title {
+    font-size: 19px;
+    line-height: 1.4;
+  }
+
+  .overview-hero-mission {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .story-stage-card {
+    padding: 12px 14px 14px;
+    border-radius: 16px;
+  }
+
+  .story-board-frame {
+    height: 276px;
+    padding: 10px 12px 12px;
+  }
+
+  .story-board-zone {
+    padding: 10px 12px;
+  }
+
+  .story-zone-header {
+    height: 26px;
+    margin-bottom: 6px;
+  }
+
+  .story-floor-stage {
+    height: 192px;
+  }
+
+  .story-wall-svg {
+    height: 144px;
+  }
+
+  .story-baseboard {
+    bottom: 46px;
+    height: 6px;
+  }
+
+  .story-floor-surface {
+    height: 46px;
+  }
+
+  .story-char-slot {
+    width: 22.5%;
+    height: 184px;
+    bottom: 4px;
+  }
+
+  .story-char-shadow {
+    width: 72px;
+    height: 12px;
+    bottom: 10px;
+  }
+
+  .story-char-badge {
+    padding: 2px 11px;
+  }
+
+  .pillar-tab-title {
+    white-space: normal;
+    word-break: keep-all;
+  }
+
+  .pillar-panel {
+    padding: 20px;
+  }
+
+  .pillar-steps-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .sprint-stepper-flow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+/* 3) 모바일 디바이스 (767px 이하) */
+@media (max-width: 767px) {
+  .sidebar-header {
+    padding: 12px 16px;
+  }
+
+  .brand-title {
+    font-size: 16.5px;
+  }
+
+  .brand-sub {
+    font-size: 14px;
+  }
+
+  .sidebar-nav {
+    padding: 8px 12px;
+    gap: 6px;
+  }
+
+  .nav-item {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .nav-badge {
+    display: none;
+  }
+
+  .app-topbar {
+    padding: 10px 16px;
+    gap: 8px;
+  }
+
+  .page-title {
+    font-size: 17px;
+  }
+
+  .topbar-db-badge {
+    display: none;
+  }
+
+  .content-body {
+    padding: 16px 14px;
+  }
+
+  .overview-container {
+    gap: 24px;
+  }
+
+  .overview-hero {
+    padding: 16px 18px;
+    border-radius: 14px;
+  }
+
+  .overview-hero-title {
+    font-size: 17px;
+    line-height: 1.4;
+    margin-bottom: 6px;
+  }
+
+  .overview-hero-mission {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .overview-section-title {
+    font-size: 18px;
+  }
+
+  /* 모바일: 상단 3분할 디스플레이 보드를 1열 수직 스택으로 전환하여 도면·디자인·코드 가독성 100% 확보 */
+  .story-stage-card {
+    padding: 10px 10px 12px;
+    border-radius: 14px;
+  }
+
+  .story-board-frame {
+    height: auto;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .story-board-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .story-stage-play-btn {
+    top: 10px;
+    right: 12px;
+  }
+
+  .story-board-zone {
+    height: 182px;
+    padding: 10px 12px;
+  }
+
+  .story-board-zone-divider {
+    border-right: none;
+    border-bottom: 1.5px dashed rgba(148, 163, 184, 0.22);
+  }
+
+  /* 모바일: 하단 캐릭터 협업 무대를 모바일 가로폭(100%)에 맞춰 실측 비율로 정밀 배치 */
+  .story-floor-stage {
+    height: 148px;
+    margin-top: -6px;
+    border-radius: 0 0 12px 12px;
+  }
+
+  .story-wall-svg {
+    height: 112px;
+  }
+
+  .story-baseboard {
+    bottom: 36px;
+    height: 5px;
+  }
+
+  .story-floor-surface {
+    height: 36px;
+  }
+
+  .story-char-slot {
+    width: 24.5%;
+    height: 118px;
+    bottom: 2px;
+  }
+
+  .story-char-shadow {
+    width: 48px;
+    height: 8px;
+    bottom: 8px;
+  }
+
+  .story-char-badge {
+    font-size: 14px;
+    padding: 1px 8px;
+  }
+
+  /* 모바일: 주요 업무 범위 탭 & 카드 */
+  .pillar-tab,
+  .pillar-tab.active {
+    padding: 12px 14px;
+  }
+
+  .pillar-tab-title {
+    font-size: 14.5px;
+    line-height: 1.4;
+  }
+
+  .pillar-panel {
+    padding: 16px 14px;
+  }
+
+  .pillar-panel-desc {
+    font-size: 14.5px;
+  }
+
+  .pillar-step-card {
+    padding: 15px 16px;
+  }
+
+  .pillar-goal-bar {
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .pillar-goal-divider {
+    display: none;
+  }
+
+  /* 모바일: 5단계 표준 프로세스 1열 리스트 */
+  .sprint-stepper-flow {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .sprint-step-card {
+    padding: 12px 14px;
   }
 }
 
