@@ -470,6 +470,17 @@ export class PlanningStorageService {
     };
 
     try {
+      // 먼저 동일 성명(name)으로 등록된 원격 레코드가 있으면 비밀번호·부서·역할을 즉시 업데이트
+      await client
+        .from('users')
+        .update({
+          password: user.password || '',
+          department: user.department,
+          role: user.role,
+          position: user.position || (user.role === 'viewer' ? '유관부서 담당자' : '서비스기획자'),
+        })
+        .eq('name', user.name.trim());
+
       const { error } = await client.from('users').upsert(payloadFull);
       if (error) {
         if (error.message.includes('username')) {
@@ -676,6 +687,166 @@ export class PlanningStorageService {
       action: 'LOGIN',
       summary: `${current.name} 포털 로그아웃`,
     });
+  }
+
+  // [비밀번호 관리 1] 비로그인 상태: 이름 + 가입 소속 부서 일치 검증 후 즉시 새 비밀번호 재설정
+  public static async resetPasswordByIdentity(params: {
+    name: string;
+    department: string;
+    newPassword: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const users = this.getUsers();
+    const trimmedName = params.name.trim();
+    const trimmedDept = params.department.trim();
+
+    if (!trimmedName) {
+      return { success: false, message: '이름(성명)을 입력해 주세요.' };
+    }
+    if (!trimmedDept) {
+      return { success: false, message: '가입 시 선택한 소속 부서를 선택해 주세요.' };
+    }
+    if (!params.newPassword) {
+      return { success: false, message: '새 비밀번호를 입력해 주세요.' };
+    }
+
+    const found = users.find((u) => u.name.trim() === trimmedName);
+    if (!found) {
+      return {
+        success: false,
+        message: '등록되지 않은 이름입니다. 성명을 다시 확인하거나 [회원가입]을 진행해 주세요.',
+      };
+    }
+
+    if (found.department.trim() !== trimmedDept) {
+      return {
+        success: false,
+        message: '가입 시 등록된 소속 부서와 일치하지 않습니다. 소속 부서를 다시 확인해 주세요.',
+      };
+    }
+
+    found.password = params.newPassword;
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+
+    const currentSnapshot = safeJsonParse<User | null>(
+      localStorage.getItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT),
+      null
+    );
+    if (currentSnapshot && currentSnapshot.name.trim() === found.name.trim()) {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(found));
+    }
+
+    await this.pushUserToRemote(found);
+
+    this.recordAuditLog({
+      entityType: 'auth',
+      entityId: found.id,
+      entityTitle: found.name,
+      action: 'UPDATE',
+      summary: `[비밀번호 재설정] ${found.name} (${found.department}) 본인 확인(성명+소속부서)을 통한 비밀번호 재설정 완료`,
+      actorOverride: { id: found.id, name: found.name, role: found.role },
+    });
+
+    return {
+      success: true,
+      message: `${found.name}님의 비밀번호가 성공적으로 재설정되었습니다. 새 비밀번호로 로그인해 주세요.`,
+    };
+  }
+
+  // [비밀번호 관리 2] 로그인 상태: 내 비밀번호 변경 (현재 비밀번호 검증 -> 새 비밀번호 저장)
+  public static async changeMyPassword(params: {
+    userId: string;
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const users = this.getUsers();
+    const currentUser = this.getCurrentUser();
+    const found =
+      users.find((u) => String(u.id) === String(params.userId)) ||
+      users.find((u) => u.name.trim() === currentUser.name.trim());
+
+    if (!found) {
+      return { success: false, message: '현재 로그인된 계정 정보를 찾을 수 없습니다.' };
+    }
+
+    if (!params.currentPassword) {
+      return { success: false, message: '현재 비밀번호를 입력해 주세요.' };
+    }
+
+    if (found.password && found.password !== params.currentPassword) {
+      return { success: false, message: '현재 비밀번호가 일치하지 않습니다.' };
+    }
+
+    if (!params.newPassword) {
+      return { success: false, message: '새 비밀번호를 입력해 주세요.' };
+    }
+
+    if (found.password && found.password === params.newPassword) {
+      return { success: false, message: '새 비밀번호는 기존 비밀번호와 다르게 입력해 주세요.' };
+    }
+
+    found.password = params.newPassword;
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(found));
+
+    await this.pushUserToRemote(found);
+
+    this.recordAuditLog({
+      entityType: 'auth',
+      entityId: found.id,
+      entityTitle: found.name,
+      action: 'UPDATE',
+      summary: `[내 비밀번호 변경] ${found.name} (${found.department}) 본인이 직접 비밀번호를 변경함`,
+      actorOverride: { id: found.id, name: found.name, role: found.role },
+    });
+
+    return {
+      success: true,
+      message: '비밀번호가 안전하게 변경되었습니다.',
+    };
+  }
+
+  // [비밀번호 관리 3] 관리자(최범열) 전용: 특정 회원의 비밀번호 강제 초기화 또는 임시 비밀번호 지정
+  public static async adminResetUserPassword(params: {
+    targetUserId: string;
+    newPassword: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const currentUser = this.getCurrentUser();
+    const isAdmin = currentUser.role === 'admin' || currentUser.name?.trim() === '최범열';
+    if (!isAdmin) {
+      return { success: false, message: '관리자만 회원의 비밀번호를 초기화할 수 있습니다.' };
+    }
+
+    const users = this.getUsers();
+    const target = users.find((u) => String(u.id) === String(params.targetUserId));
+    if (!target) {
+      return { success: false, message: '대상 회원 정보를 찾을 수 없습니다.' };
+    }
+
+    target.password = params.newPassword;
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+
+    if (target.name.trim() === currentUser.name.trim()) {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(target));
+    }
+
+    await this.pushUserToRemote(target);
+
+    this.recordAuditLog({
+      entityType: 'auth',
+      entityId: target.id,
+      entityTitle: target.name,
+      action: 'UPDATE',
+      summary: params.newPassword
+        ? `[관리자 비밀번호 지정] 관리자(${currentUser.name})가 ${target.name} (${target.department}) 계정의 비밀번호를 재설정함`
+        : `[관리자 비밀번호 초기화] 관리자(${currentUser.name})가 ${target.name} (${target.department}) 계정을 최초 로그인 시 비밀번호 재설정 상태로 초기화함`,
+    });
+
+    return {
+      success: true,
+      message: params.newPassword
+        ? `${target.name}님의 비밀번호가 지정한 비밀번호로 변경되었습니다.`
+        : `${target.name}님의 비밀번호가 초기화되었습니다. (다음 로그인 시 입력하는 비밀번호로 자동 설정됩니다)`,
+    };
   }
 
   public static isViewer(): boolean {

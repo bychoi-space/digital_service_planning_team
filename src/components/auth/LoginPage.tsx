@@ -11,6 +11,7 @@ import {
   ArrowRight,
   CheckCircle2,
   AlertCircle,
+  X,
 } from 'lucide-react';
 
 // ============================================================================
@@ -129,6 +130,15 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
 
   // 에러 및 안내 메시지
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // 비밀번호 재설정 모달 상태 (항상 비밀번호 초기값은 빈 값 유지)
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetName, setResetName] = useState('');
+  const [resetDepartment, setResetDepartment] = useState(COMPANY_DEPARTMENTS[0].name);
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetNewPasswordConfirm, setResetNewPasswordConfirm] = useState('');
+  const [resetErrorMessage, setResetErrorMessage] = useState('');
 
   // 로그인 화면 전용 8프레임 루프 틱
   const [frameTick, setFrameTick] = useState(0);
@@ -164,13 +174,67 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
     setRegPassword('');
     setRegPasswordConfirm('');
     setErrorMessage('');
+    setSuccessMessage('');
     onModeChange?.(nextMode);
+  };
+
+  // 비밀번호 재설정 모달 열기
+  const handleOpenResetModal = () => {
+    setResetName(loginName.trim());
+    setResetDepartment(COMPANY_DEPARTMENTS[0].name);
+    setResetNewPassword('');
+    setResetNewPasswordConfirm('');
+    setResetErrorMessage('');
+    setIsResetModalOpen(true);
+  };
+
+  // 3. 비밀번호 재설정 제출 핸들러 (이름 + 소속부서 일치 검증 후 재설정)
+  const handleResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetErrorMessage('');
+
+    if (!resetName.trim()) {
+      setResetErrorMessage('가입된 이름(성명)을 입력해 주세요.');
+      return;
+    }
+
+    if (!resetDepartment) {
+      setResetErrorMessage('가입 시 선택한 소속 부서를 선택해 주세요.');
+      return;
+    }
+
+    if (!resetNewPassword) {
+      setResetErrorMessage('새 비밀번호를 입력해 주세요.');
+      return;
+    }
+
+    if (resetNewPassword !== resetNewPasswordConfirm) {
+      setResetErrorMessage('새 비밀번호와 비밀번호 확인이 일치하지 않습니다.');
+      return;
+    }
+
+    const result = await PlanningStorageService.resetPasswordByIdentity({
+      name: resetName.trim(),
+      department: resetDepartment,
+      newPassword: resetNewPassword,
+    });
+
+    if (result.success) {
+      setIsResetModalOpen(false);
+      setLoginName(resetName.trim());
+      setLoginPassword('');
+      setErrorMessage('');
+      setSuccessMessage(result.message);
+    } else {
+      setResetErrorMessage(result.message);
+    }
   };
 
   // 1. 로그인 제출 핸들러
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
+    setSuccessMessage('');
 
     if (!loginName.trim()) {
       setErrorMessage('이름을 입력해 주세요.');
@@ -327,6 +391,14 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
               </div>
             )}
 
+            {/* 성공 메시지 알림 박스 */}
+            {successMessage && (
+              <div className="login-success-alert">
+                <CheckCircle2 size={15} />
+                <span>{successMessage}</span>
+              </div>
+            )}
+
             {/* A. 로그인 폼 */}
             {mode === 'login' ? (
               <form
@@ -350,9 +422,18 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                 </div>
 
                 <div className="form-group login-form-group">
-                  <label className="form-label login-form-label">
-                    <Lock size={14} className="login-label-icon" /> 비밀번호 *
-                  </label>
+                  <div className="login-pw-label-row">
+                    <label className="form-label login-form-label">
+                      <Lock size={14} className="login-label-icon" /> 비밀번호 *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleOpenResetModal}
+                      className="login-forgot-pw-btn"
+                    >
+                      비밀번호 재설정
+                    </button>
+                  </div>
                   <input
                     type="password"
                     required
@@ -463,6 +544,136 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
           </div>
         </div>
       </div>
+
+      {/* 비밀번호 재설정 모달 (성명 + 가입 소속 부서 일치 검증) */}
+      {isResetModalOpen && (
+        <div
+          className="modal-overlay login-reset-modal-overlay"
+          onClick={() => setIsResetModalOpen(false)}
+        >
+          <div
+            className="modal-box login-reset-modal-box"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 className="modal-title">비밀번호 재설정 (본인 확인)</h3>
+              <button
+                type="button"
+                onClick={() => setIsResetModalOpen(false)}
+                className="tasks-modal-close-btn"
+                aria-label="모달 닫기"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleResetSubmit}
+              autoComplete="off"
+              className="tasks-modal-form"
+            >
+              <div className="modal-body">
+                <div className="kpi-modal-target-summary">
+                  <strong>가입 정보 확인 후 즉시 새 비밀번호로 변경합니다.</strong>
+                  <span>
+                    회원가입 시 등록한 성명과 소속 부서가 일치하면 새 비밀번호로 즉시 재설정됩니다.
+                  </span>
+                </div>
+
+                {resetErrorMessage && (
+                  <div className="login-error-alert">
+                    <AlertCircle size={15} />
+                    <span>{resetErrorMessage}</span>
+                  </div>
+                )}
+
+                <div className="tasks-form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label login-form-label">
+                      <UserIcon size={14} className="login-label-icon" /> 성명 (이름) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      autoComplete="off"
+                      placeholder="가입한 성명 입력"
+                      value={resetName}
+                      onChange={(e) => setResetName(e.target.value)}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label login-form-label">
+                      <Building2 size={14} className="login-label-icon" /> 가입 소속 부서 *
+                    </label>
+                    <select
+                      value={resetDepartment}
+                      onChange={(e) => setResetDepartment(e.target.value)}
+                      className="form-select"
+                    >
+                      {COMPANY_DEPARTMENTS.map((dept) => (
+                        <option key={dept.id} value={dept.name}>
+                          {dept.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="tasks-form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label login-form-label">
+                      <KeyRound size={14} className="login-label-icon" /> 새 비밀번호 *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      readOnly
+                      onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
+                      autoComplete="new-password"
+                      placeholder="새 비밀번호 입력"
+                      value={resetNewPassword}
+                      onChange={(e) => setResetNewPassword(e.target.value)}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label login-form-label">
+                      <CheckCircle2 size={14} className="login-label-icon" /> 새 비밀번호 확인 *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      readOnly
+                      onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
+                      autoComplete="new-password"
+                      placeholder="새 비밀번호 재입력"
+                      value={resetNewPasswordConfirm}
+                      onChange={(e) => setResetNewPasswordConfirm(e.target.value)}
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  onClick={() => setIsResetModalOpen(false)}
+                  className="btn btn-secondary"
+                >
+                  취소
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  비밀번호 재설정 완료
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

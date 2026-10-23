@@ -7040,6 +7040,147 @@ button, input, select, textarea {
   }
 }
 
+/* ============================================================================
+   비밀번호 재설정 / 내 비밀번호 변경 / 관리자 회원 비밀번호 관리 스타일
+   ============================================================================ */
+
+.login-success-alert {
+  padding: 9px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.login-pw-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.login-pw-label-row .form-label {
+  margin-bottom: 0;
+}
+
+.login-forgot-pw-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #2563eb;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.login-forgot-pw-btn:hover {
+  color: #1d4ed8;
+}
+
+.login-reset-modal-overlay {
+  z-index: 1000;
+}
+
+.login-reset-modal-box,
+.app-pw-modal-box {
+  max-width: 520px;
+}
+
+.topbar-pw-btn {
+  padding: 6px 11px;
+  font-size: 14px;
+}
+
+.sidebar-mobile-pw-btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+.audit-users-card {
+  overflow: hidden;
+  padding: 0;
+}
+
+.audit-users-header {
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.audit-header-icon.is-users {
+  background: #f0fdf4;
+  color: #059669;
+}
+
+.audit-col-user-actions {
+  width: 240px;
+}
+
+.audit-pw-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.audit-pw-status.is-set {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.audit-pw-status.is-reset {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.audit-user-action-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.audit-user-action-btns.is-mobile {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.audit-user-action-btns.is-mobile .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (max-width: 767px) {
+  .topbar-pw-btn {
+    display: none;
+  }
+
+  .audit-users-header {
+    padding: 16px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+
 
 
 

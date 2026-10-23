@@ -22,6 +22,8 @@ import {
   Info,
   Database,
   LogOut,
+  KeyRound,
+  Lock,
   Menu,
   X,
 } from 'lucide-react';
@@ -196,6 +198,50 @@ export function App() {
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3500);
+  };
+
+  // 내 비밀번호 변경 모달 상태 (초기값 항상 빈 값 유지)
+  const [isPwChangeModalOpen, setIsPwChangeModalOpen] = useState(false);
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [newPasswordConfirmInput, setNewPasswordConfirmInput] = useState('');
+
+  const handleOpenPwChangeModal = () => {
+    setCurrentPasswordInput('');
+    setNewPasswordInput('');
+    setNewPasswordConfirmInput('');
+    setIsMobileMenuOpen(false);
+    setIsPwChangeModalOpen(true);
+  };
+
+  const handleSavePwChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPasswordInput) {
+      showToast('현재 비밀번호를 입력해 주세요.', 'error');
+      return;
+    }
+    if (!newPasswordInput) {
+      showToast('새 비밀번호를 입력해 주세요.', 'error');
+      return;
+    }
+    if (newPasswordInput !== newPasswordConfirmInput) {
+      showToast('새 비밀번호와 비밀번호 확인이 일치하지 않습니다.', 'error');
+      return;
+    }
+
+    const result = await PlanningStorageService.changeMyPassword({
+      userId: currentUser.id,
+      currentPassword: currentPasswordInput,
+      newPassword: newPasswordInput,
+    });
+
+    if (result.success) {
+      setCurrentUser(PlanningStorageService.getCurrentUser());
+      setIsPwChangeModalOpen(false);
+      showToast(result.message, 'success');
+    } else {
+      showToast(result.message, 'error');
+    }
   };
 
   // 로그인 성공 콜백
@@ -375,6 +421,13 @@ export function App() {
               <Eye size={14} /> 읽기 전용 모드
             </div>
           )}
+          <button
+            type="button"
+            onClick={handleOpenPwChangeModal}
+            className="btn btn-secondary sidebar-mobile-pw-btn"
+          >
+            <KeyRound size={14} /> 내 비밀번호 변경
+          </button>
         </div>
       </aside>
 
@@ -385,8 +438,8 @@ export function App() {
           <div className="topbar-mobile-left">
             <button
               type="button"
-              className="mobile-hamburger-btn"
               onClick={() => setIsMobileMenuOpen(true)}
+              className="mobile-hamburger-btn"
               aria-label="메뉴 열기"
               title="메뉴 열기"
             >
@@ -412,6 +465,14 @@ export function App() {
             <span className="topbar-user-info">
               접속자: <strong className="topbar-user-name">{currentUser.name}</strong> ({currentUser.department})
             </span>
+            <button
+              type="button"
+              onClick={handleOpenPwChangeModal}
+              className="btn btn-secondary topbar-pw-btn"
+              title="내 비밀번호 변경"
+            >
+              <KeyRound size={14} /> 비밀번호 변경
+            </button>
             <button
               onClick={handleLogout}
               className="btn btn-secondary topbar-logout-btn"
@@ -454,9 +515,118 @@ export function App() {
               onShowToast={showToast}
             />
           )}
-          {activeTab === 'audit' && (isAdmin ? <AuditLogsView /> : <OverviewView />)}
+          {activeTab === 'audit' &&
+            (isAdmin ? <AuditLogsView onShowToast={showToast} /> : <OverviewView />)}
         </div>
       </main>
+
+      {/* 내 비밀번호 변경 모달 */}
+      {isPwChangeModalOpen && (
+        <div
+          className="modal-overlay"
+          onClick={() => setIsPwChangeModalOpen(false)}
+        >
+          <div
+            className="modal-box app-pw-modal-box"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 className="modal-title">내 비밀번호 변경</h3>
+              <button
+                type="button"
+                onClick={() => setIsPwChangeModalOpen(false)}
+                className="tasks-modal-close-btn"
+                aria-label="모달 닫기"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleSavePwChange}
+              autoComplete="off"
+              className="tasks-modal-form"
+            >
+              <div className="modal-body">
+                <div className="kpi-modal-target-summary">
+                  <strong>
+                    접속 계정: {currentUser.name} ({currentUser.department})
+                  </strong>
+                  <span>
+                    현재 사용 중인 비밀번호를 확인한 후 새로운 비밀번호로 안전하게 변경합니다.
+                  </span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label login-form-label">
+                    <Lock size={14} className="login-label-icon" /> 현재 비밀번호 *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    readOnly
+                    onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
+                    autoComplete="new-password"
+                    placeholder="현재 비밀번호 입력"
+                    value={currentPasswordInput}
+                    onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                    className="form-input"
+                  />
+                </div>
+
+                <div className="tasks-form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label login-form-label">
+                      <KeyRound size={14} className="login-label-icon" /> 새 비밀번호 *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      readOnly
+                      onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
+                      autoComplete="new-password"
+                      placeholder="새 비밀번호 입력"
+                      value={newPasswordInput}
+                      onChange={(e) => setNewPasswordInput(e.target.value)}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label login-form-label">
+                      <Check size={14} className="login-label-icon" /> 새 비밀번호 확인 *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      readOnly
+                      onFocus={(e) => e.currentTarget.removeAttribute('readonly')}
+                      autoComplete="new-password"
+                      placeholder="새 비밀번호 재입력"
+                      value={newPasswordConfirmInput}
+                      onChange={(e) => setNewPasswordConfirmInput(e.target.value)}
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  onClick={() => setIsPwChangeModalOpen(false)}
+                  className="btn btn-secondary"
+                >
+                  취소
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  비밀번호 변경 저장
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* 3. 플로팅 토스트 알림 컨테이너 */}
       <div className="toast-container">
