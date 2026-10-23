@@ -27,13 +27,22 @@ interface TasksViewProps {
 }
 
 // 업무 파트 (트랙) 설정
-export const TRACK_CONFIG: Record<
+const TRACK_CONFIG: Record<
   TaskTrack,
-  { label: string; enLabel: string; color: string; bg: string; border: string; icon: any }
+  {
+    label: string;
+    enLabel: string;
+    classKey: string;
+    color: string;
+    bg: string;
+    border: string;
+    icon: React.FC<{ size?: number; className?: string }>;
+  }
 > = {
   기획: {
     label: '기획',
     enLabel: 'Planning',
+    classKey: 'track-planning',
     color: '#2563eb',
     bg: '#eff6ff',
     border: '#bfdbfe',
@@ -42,6 +51,7 @@ export const TRACK_CONFIG: Record<
   디자인: {
     label: '디자인',
     enLabel: 'Design',
+    classKey: 'track-design',
     color: '#9333ea',
     bg: '#faf5ff',
     border: '#e9d5ff',
@@ -50,6 +60,7 @@ export const TRACK_CONFIG: Record<
   퍼블리싱: {
     label: '퍼블리싱',
     enLabel: 'Publishing',
+    classKey: 'track-publishing',
     color: '#059669',
     bg: '#f0fdf4',
     border: '#bbf7d0',
@@ -60,19 +71,20 @@ export const TRACK_CONFIG: Record<
 const TRACK_LIST: TaskTrack[] = ['기획', '디자인', '퍼블리싱'];
 
 const CATEGORIES: TaskCategory[] = ['신규기획', '기능개선', '서비스운영', '데이터분석', '협업지원', '정책수립'];
-const PRIORITIES: { key: TaskPriority; label: string; color: string; bg: string }[] = [
-  { key: 'urgent', label: '긴급', color: '#ef4444', bg: '#fee2e2' },
-  { key: 'high', label: '높음', color: '#f59e0b', bg: '#fef3c7' },
-  { key: 'medium', label: '보통', color: '#3b82f6', bg: '#dbeafe' },
-  { key: 'low', label: '낮음', color: '#64748b', bg: '#f1f5f9' },
+
+const PRIORITIES: { key: TaskPriority; label: string; classKey: string }[] = [
+  { key: 'urgent', label: '긴급', classKey: 'priority-urgent' },
+  { key: 'high', label: '높음', classKey: 'priority-high' },
+  { key: 'medium', label: '보통', classKey: 'priority-medium' },
+  { key: 'low', label: '낮음', classKey: 'priority-low' },
 ];
 
-const STATUSES: { key: TaskStatus; label: string; color: string }[] = [
-  { key: 'backlog', label: '대기 (Backlog)', color: '#64748b' },
-  { key: 'in_progress', label: '진행중 (In Progress)', color: '#2563eb' },
-  { key: 'review', label: '검토/QA (Review)', color: '#7c3aed' },
-  { key: 'done', label: '완료 (Done)', color: '#059669' },
-  { key: 'on_hold', label: '보류 (On Hold)', color: '#d97706' },
+const STATUSES: { key: TaskStatus; label: string; shortLabel: string; classKey: string }[] = [
+  { key: 'backlog', label: '대기 (Backlog)', shortLabel: '대기', classKey: 'status-backlog' },
+  { key: 'in_progress', label: '진행중 (In Progress)', shortLabel: '진행중', classKey: 'status-in_progress' },
+  { key: 'review', label: '검토/QA (Review)', shortLabel: '검토/QA', classKey: 'status-review' },
+  { key: 'done', label: '완료 (Done)', shortLabel: '완료', classKey: 'status-done' },
+  { key: 'on_hold', label: '보류 (On Hold)', shortLabel: '보류', classKey: 'status-on_hold' },
 ];
 
 export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) => {
@@ -83,13 +95,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [mobileKanbanStatus, setMobileKanbanStatus] = useState<'all' | TaskStatus>('all');
 
   // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
 
   // 폼 입력 상태
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => ({
     title: '',
     category: '신규기획' as TaskCategory,
     track: '기획' as TaskTrack,
@@ -104,7 +117,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
     linkTitle: '',
     linkUrl: '',
     links: [] as { title: string; url: string }[],
-  });
+  }));
 
   const teamMembers = PlanningStorageService.getUsers().filter((u) => u.role !== 'viewer');
 
@@ -156,7 +169,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
       description: task.description,
       linkTitle: '',
       linkUrl: '',
-      links: [...task.links],
+      links: [...(task.links ?? [])],
     });
     setIsModalOpen(true);
   };
@@ -198,7 +211,6 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
 
     try {
       if (editingTask) {
-        // 수정
         PlanningStorageService.updateTask(editingTask.id, {
           title: formData.title.trim(),
           category: formData.category,
@@ -215,7 +227,6 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
         });
         onShowToast(`[${formData.track}] 업무 정보가 성공적으로 수정되었습니다.`, 'success');
       } else {
-        // 등록
         PlanningStorageService.createTask({
           title: formData.title.trim(),
           category: formData.category,
@@ -264,7 +275,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
       status: newStatus,
       progress: newStatus === 'done' ? 100 : undefined,
     });
-    onShowToast(`상태가 변경되었습니다.`, 'success');
+    onShowToast('상태가 변경되었습니다.', 'success');
     refreshTasks();
   };
 
@@ -289,291 +300,182 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
     return matchesSearch && matchesTrack && matchesCategory && matchesAssignee && matchesStatus;
   });
 
+  const renderProgressSvg = (progress: number) => {
+    const clamped = Math.max(0, Math.min(100, Number(progress) || 0));
+    const isDone = clamped === 100;
+    return (
+      <svg className="tasks-progress-svg" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true">
+        <rect className="tasks-progress-track-bg" x="0" y="0" width="100" height="6" rx="3" />
+        <rect
+          className={`tasks-progress-fill ${isDone ? 'is-done' : ''}`}
+          x="0"
+          y="0"
+          width={clamped}
+          height="6"
+          rx="3"
+        />
+      </svg>
+    );
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div className="tasks-container">
       {/* 1. 상단 컨트롤 바 (검색, 파트 필터, 세부 필터, 뷰 전환, 등록 버튼) */}
-      <div
-        className="card"
-        style={{
-          padding: '16px 20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
-        }}
-      >
+      <div className="card tasks-control-card">
         {/* 1-A. 파트 퀵 필터 탭 (기획 / 디자인 / 퍼블리싱 한눈에 구분) */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '10px',
-            paddingBottom: '14px',
-            borderBottom: '1px solid #f1f5f9',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginRight: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Layers size={14} color="#64748b" /> 업무 파트:
+        <div className="tasks-track-bar">
+          <div className="tasks-track-filter-group">
+            <span className="tasks-track-label">
+              <Layers size={15} className="tasks-track-label-icon" /> 업무 파트:
             </span>
 
-            {/* 전체 파트 */}
-            <button
-              onClick={() => setSelectedTrack('all')}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: selectedTrack === 'all' ? '1.5px solid #0f172a' : '1px solid #e2e8f0',
-                background: selectedTrack === 'all' ? '#0f172a' : '#ffffff',
-                color: selectedTrack === 'all' ? '#ffffff' : '#475569',
-                fontSize: '12.5px',
-                fontWeight: selectedTrack === 'all' ? 700 : 500,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                transition: 'all 0.15s ease',
-                boxShadow: selectedTrack === 'all' ? '0 2px 4px rgba(15, 23, 42, 0.15)' : 'none',
-              }}
-            >
-              <span>전체 파트</span>
-              <span
-                style={{
-                  background: selectedTrack === 'all' ? 'rgba(255,255,255,0.2)' : '#f1f5f9',
-                  color: selectedTrack === 'all' ? '#ffffff' : '#64748b',
-                  padding: '1px 6px',
-                  borderRadius: '9999px',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                }}
+            <div className="tasks-track-tabs">
+              {/* 전체 파트 */}
+              <button
+                type="button"
+                onClick={() => setSelectedTrack('all')}
+                className={`tasks-track-tab track-all ${selectedTrack === 'all' ? 'active' : ''}`}
               >
-                {trackCounts.all}
-              </span>
-            </button>
+                <span>전체 파트</span>
+                <span className="tasks-track-count">{trackCounts.all}</span>
+              </button>
 
-            {/* 개별 파트: 기획, 디자인, 퍼블리싱 */}
-            {TRACK_LIST.map((trackKey) => {
-              const config = TRACK_CONFIG[trackKey];
-              const isSelected = selectedTrack === trackKey;
-              const IconComponent = config.icon;
-              return (
-                <button
-                  key={trackKey}
-                  onClick={() => setSelectedTrack(trackKey)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '8px',
-                    border: isSelected ? `1.5px solid ${config.color}` : '1px solid #e2e8f0',
-                    background: isSelected ? config.bg : '#ffffff',
-                    color: isSelected ? config.color : '#475569',
-                    fontSize: '12.5px',
-                    fontWeight: isSelected ? 700 : 500,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'all 0.15s ease',
-                    boxShadow: isSelected ? `0 2px 6px ${config.color}25` : 'none',
-                  }}
-                >
-                  <IconComponent size={14} color={isSelected ? config.color : '#64748b'} />
-                  <span>{config.label}</span>
-                  <span
-                    style={{
-                      background: isSelected ? config.color : '#f1f5f9',
-                      color: isSelected ? '#ffffff' : '#64748b',
-                      padding: '1px 6px',
-                      borderRadius: '9999px',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                    }}
+              {/* 개별 파트: 기획, 디자인, 퍼블리싱 */}
+              {TRACK_LIST.map((trackKey) => {
+                const config = TRACK_CONFIG[trackKey];
+                const isSelected = selectedTrack === trackKey;
+                const IconComponent = config.icon;
+                return (
+                  <button
+                    key={trackKey}
+                    type="button"
+                    onClick={() => setSelectedTrack(trackKey)}
+                    className={`tasks-track-tab ${config.classKey} ${isSelected ? 'active' : ''}`}
                   >
-                    {trackCounts[trackKey]}
-                  </span>
-                </button>
-              );
-            })}
+                    <IconComponent size={15} className="tasks-track-tab-icon" />
+                    <span>{config.label}</span>
+                    <span className="tasks-track-count">{trackCounts[trackKey]}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* 파트별 빠른 등록 버튼 세트 */}
+          {/* 파트별 빠른 등록 버튼 세트 (데스크톱/태블릿 노출) */}
           {!isViewer && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>빠른 등록:</span>
+            <div className="tasks-quick-create-group">
+              <span className="tasks-quick-create-label">빠른 등록:</span>
               <button
+                type="button"
                 onClick={() => handleOpenCreateModal('기획')}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '11.5px',
-                  borderRadius: '6px',
-                  border: '1px solid #bfdbfe',
-                  background: '#eff6ff',
-                  color: '#2563eb',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                }}
+                className="tasks-quick-btn track-planning"
               >
-                <Plus size={12} /> 기획
+                <Plus size={14} /> 기획
               </button>
               <button
+                type="button"
                 onClick={() => handleOpenCreateModal('디자인')}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '11.5px',
-                  borderRadius: '6px',
-                  border: '1px solid #e9d5ff',
-                  background: '#faf5ff',
-                  color: '#9333ea',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                }}
+                className="tasks-quick-btn track-design"
               >
-                <Plus size={12} /> 디자인
+                <Plus size={14} /> 디자인
               </button>
               <button
+                type="button"
                 onClick={() => handleOpenCreateModal('퍼블리싱')}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '11.5px',
-                  borderRadius: '6px',
-                  border: '1px solid #bbf7d0',
-                  background: '#f0fdf4',
-                  color: '#059669',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                }}
+                className="tasks-quick-btn track-publishing"
               >
-                <Plus size={12} /> 퍼블리싱
+                <Plus size={14} /> 퍼블리싱
               </button>
             </div>
           )}
         </div>
 
         {/* 1-B. 검색, 상세 필터 및 뷰 전환 */}
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '12px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: '280px', flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
-              <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '11px' }} />
+        <div className="tasks-filter-bar">
+          <div className="tasks-search-and-selects">
+            <div className="tasks-search-box">
+              <Search size={16} className="tasks-search-icon" />
               <input
                 type="text"
                 placeholder="업무명, 상세 내용, 담당자 검색..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="form-input"
-                style={{ paddingLeft: '36px' }}
+                className="form-input tasks-search-input"
               />
             </div>
 
-            {/* 카테고리 필터 */}
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="form-select"
-              style={{ width: '130px' }}
-            >
-              <option value="all">전체 도메인</option>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            <div className="tasks-selects-group">
+              {/* 카테고리 필터 */}
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="form-select tasks-filter-select"
+                aria-label="도메인 필터"
+              >
+                <option value="all">전체 도메인</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
 
-            {/* 담당자 필터 */}
-            <select
-              value={selectedAssignee}
-              onChange={(e) => setSelectedAssignee(e.target.value)}
-              className="form-select"
-              style={{ width: '130px' }}
-            >
-              <option value="all">전체 담당자</option>
-              {teamMembers.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
+              {/* 담당자 필터 */}
+              <select
+                value={selectedAssignee}
+                onChange={(e) => setSelectedAssignee(e.target.value)}
+                className="form-select tasks-filter-select"
+                aria-label="담당자 필터"
+              >
+                <option value="all">전체 담당자</option>
+                {teamMembers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
 
-            {/* 상태 필터 */}
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="form-select"
-              style={{ width: '130px' }}
-            >
-              <option value="all">전체 상태</option>
-              {STATUSES.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label.split(' ')[0]}
-                </option>
-              ))}
-            </select>
+              {/* 상태 필터 */}
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="form-select tasks-filter-select"
+                aria-label="진행 상태 필터"
+              >
+                <option value="all">전체 상태</option>
+                {STATUSES.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.shortLabel}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="tasks-actions-group">
             {/* 뷰 전환 탭 */}
-            <div style={{ display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: 'var(--radius-md)' }}>
+            <div className="tasks-view-toggle">
               <button
+                type="button"
                 onClick={() => setViewMode('kanban')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '6px 12px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  background: viewMode === 'kanban' ? '#ffffff' : 'transparent',
-                  color: viewMode === 'kanban' ? '#1e293b' : '#64748b',
-                  fontWeight: 600,
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  boxShadow: viewMode === 'kanban' ? 'var(--shadow-sm)' : 'none',
-                }}
+                className={`tasks-view-btn ${viewMode === 'kanban' ? 'active' : ''}`}
               >
-                <Kanban size={14} /> 칸반 보드
+                <Kanban size={15} /> 칸반 보드
               </button>
               <button
+                type="button"
                 onClick={() => setViewMode('list')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '6px 12px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  background: viewMode === 'list' ? '#ffffff' : 'transparent',
-                  color: viewMode === 'list' ? '#1e293b' : '#64748b',
-                  fontWeight: 600,
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  boxShadow: viewMode === 'list' ? 'var(--shadow-sm)' : 'none',
-                }}
+                className={`tasks-view-btn ${viewMode === 'list' ? 'active' : ''}`}
               >
-                <ListIcon size={14} /> 리스트 뷰
+                <ListIcon size={15} /> 리스트 뷰
               </button>
             </div>
 
             {/* 메인 업무 등록 버튼 */}
             <button
+              type="button"
               onClick={() => handleOpenCreateModal()}
-              className="btn btn-primary"
+              className="btn btn-primary tasks-create-main-btn"
               disabled={isViewer}
               title={isViewer ? '유관부서(읽기 전용) 모드에서는 등록이 제한됩니다' : '새 기획/디자인/퍼블리싱 업무 등록'}
             >
@@ -582,221 +484,136 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
           </div>
         </div>
       </div>
+
+      {/* 2. 업무 목록 본문 (칸반 보드 vs 리스트 뷰) */}
       {viewMode === 'kanban' ? (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(5, minmax(280px, 1fr))',
-            gap: '16px',
-            alignItems: 'start',
-            overflowX: 'auto',
-            paddingBottom: '16px',
-          }}
-        >
-          {STATUSES.map((statusObj) => {
-            const columnTasks = filteredTasks.filter((t) => t.status === statusObj.key);
-            return (
-              <div
-                key={statusObj.key}
-                style={{
-                  background: '#f8fafc',
-                  border: '1px solid var(--border-light)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '14px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                  minHeight: '400px',
-                }}
-              >
-                {/* 컬럼 헤더 */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span
-                      style={{
-                        width: '9px',
-                        height: '9px',
-                        borderRadius: '50%',
-                        backgroundColor: statusObj.color,
-                      }}
-                    />
-                    <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-main)' }}>
-                      {statusObj.label}
-                    </span>
-                  </div>
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      background: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      padding: '1px 7px',
-                      borderRadius: '9999px',
-                      color: 'var(--text-secondary)',
-                    }}
-                  >
-                    {columnTasks.length}
-                  </span>
-                </div>
+        <>
+          {/* 모바일 전용 상태 스포트라이트 바 (767px 이하 노출) */}
+          <div className="tasks-mobile-status-bar" role="tablist" aria-label="칸반 상태별 보기">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mobileKanbanStatus === 'all'}
+              onClick={() => setMobileKanbanStatus('all')}
+              className={`tasks-mobile-status-tab ${mobileKanbanStatus === 'all' ? 'active' : ''}`}
+            >
+              <span>전체</span>
+              <span className="tasks-mobile-status-count">{filteredTasks.length}</span>
+            </button>
+            {STATUSES.map((statusObj) => {
+              const count = filteredTasks.filter((t) => t.status === statusObj.key).length;
+              const isSelected = mobileKanbanStatus === statusObj.key;
+              return (
+                <button
+                  key={statusObj.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={isSelected}
+                  onClick={() => setMobileKanbanStatus(statusObj.key)}
+                  className={`tasks-mobile-status-tab ${isSelected ? 'active' : ''}`}
+                >
+                  <span className={`tasks-status-dot ${statusObj.classKey}`} />
+                  <span>{statusObj.shortLabel}</span>
+                  <span className="tasks-mobile-status-count">{count}</span>
+                </button>
+              );
+            })}
+          </div>
 
-                {/* 카드 목록 */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {columnTasks.map((task) => {
-                    const priorityCfg = PRIORITIES.find((p) => p.key === task.priority) || PRIORITIES[2];
-                    const trackCfg = TRACK_CONFIG[task.track || '기획'] || TRACK_CONFIG['기획'];
-                    const TrackIcon = trackCfg.icon;
-                    return (
-                      <div
-                        key={task.id}
-                        className="card"
-                        onClick={() => handleOpenEditModal(task)}
-                        style={{
-                          padding: '14px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '10px',
-                          borderLeft: `4px solid ${trackCfg.color}`,
-                          transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
-                            {/* 파트 배지 (기획 / 디자인 / 퍼블리싱) */}
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                background: trackCfg.bg,
-                                color: trackCfg.color,
-                                border: `1px solid ${trackCfg.border}`,
-                                padding: '2px 7px',
-                                borderRadius: '6px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px',
-                              }}
-                            >
-                              <TrackIcon size={11} /> {trackCfg.label}
-                            </span>
-                            {/* 도메인 카테고리 */}
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                background: '#f1f5f9',
-                                color: '#475569',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                              }}
-                            >
-                              {task.category}
-                            </span>
-                          </div>
-
-                          <span
-                            style={{
-                              fontSize: '10.5px',
-                              fontWeight: 700,
-                              background: priorityCfg.bg,
-                              color: priorityCfg.color,
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {priorityCfg.label}
-                          </span>
-                        </div>
-
-                        <h4
-                          style={{
-                            fontSize: '13.5px',
-                            fontWeight: 700,
-                            color: 'var(--text-main)',
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          {task.title}
-                        </h4>
-
-                        {/* 진척률 바 */}
-                        <div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                            <span>진척률</span>
-                            <span style={{ fontWeight: 700, color: task.progress === 100 ? '#059669' : '#2563eb' }}>
-                              {task.progress}%
-                            </span>
-                          </div>
-                          <div style={{ width: '100%', height: '5px', background: '#e2e8f0', borderRadius: '9999px', overflow: 'hidden' }}>
-                            <div
-                              style={{
-                                width: `${task.progress}%`,
-                                height: '100%',
-                                background: task.progress === 100 ? '#10b981' : 'linear-gradient(90deg, #3b82f6, #2563eb)',
-                                borderRadius: '9999px',
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* 카드 하단 메타 */}
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            paddingTop: '8px',
-                            borderTop: '1px solid #f1f5f9',
-                            fontSize: '11.5px',
-                            color: 'var(--text-muted)',
-                          }}
-                        >
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <UserCheck size={13} /> {task.assigneeName}
-                          </span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Clock size={13} /> ~{task.dueDate.substring(5)}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {columnTasks.length === 0 && (
-                    <div
-                      style={{
-                        padding: '30px 10px',
-                        textAlign: 'center',
-                        color: '#94a3b8',
-                        fontSize: '12.5px',
-                        border: '1px dashed #cbd5e1',
-                        borderRadius: 'var(--radius-md)',
-                      }}
-                    >
-                      업무가 없습니다
+          <div className="tasks-kanban-grid">
+            {STATUSES.map((statusObj) => {
+              const columnTasks = filteredTasks.filter((t) => t.status === statusObj.key);
+              const isMobileHidden = mobileKanbanStatus !== 'all' && mobileKanbanStatus !== statusObj.key;
+              return (
+                <div
+                  key={statusObj.key}
+                  className={`tasks-kanban-col ${isMobileHidden ? 'mobile-hidden' : ''}`}
+                >
+                  {/* 컬럼 헤더 */}
+                  <div className="tasks-kanban-col-header">
+                    <div className="tasks-kanban-col-title-wrap">
+                      <span className={`tasks-status-dot ${statusObj.classKey}`} />
+                      <span className="tasks-kanban-col-title">{statusObj.label}</span>
                     </div>
-                  )}
+                    <span className="tasks-kanban-col-count">{columnTasks.length}</span>
+                  </div>
+
+                  {/* 카드 목록 */}
+                  <div className="tasks-kanban-cards">
+                    {columnTasks.map((task) => {
+                      const priorityCfg = PRIORITIES.find((p) => p.key === task.priority) || PRIORITIES[2];
+                      const trackCfg = TRACK_CONFIG[task.track || '기획'] || TRACK_CONFIG['기획'];
+                      const TrackIcon = trackCfg.icon;
+                      return (
+                        <div
+                          key={task.id}
+                          className={`card tasks-kanban-card ${trackCfg.classKey}`}
+                          onClick={() => handleOpenEditModal(task)}
+                        >
+                          <div className="tasks-card-top">
+                            <div className="tasks-card-badges">
+                              <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                                <TrackIcon size={13} /> {trackCfg.label}
+                              </span>
+                              <span className="tasks-badge-category">{task.category}</span>
+                            </div>
+
+                            <span className={`tasks-badge-priority ${priorityCfg.classKey}`}>
+                              {priorityCfg.label}
+                            </span>
+                          </div>
+
+                          <h4 className="tasks-card-title">{task.title}</h4>
+
+                          {/* 진척률 바 */}
+                          <div className="tasks-progress-wrap">
+                            <div className="tasks-progress-header">
+                              <span>진척률</span>
+                              <span className={`tasks-progress-val ${task.progress === 100 ? 'is-done' : ''}`}>
+                                {task.progress}%
+                              </span>
+                            </div>
+                            {renderProgressSvg(task.progress)}
+                          </div>
+
+                          {/* 카드 하단 메타 */}
+                          <div className="tasks-card-footer">
+                            <span className="tasks-card-meta-item">
+                              <UserCheck size={14} /> {task.assigneeName}
+                            </span>
+                            <span className="tasks-card-meta-item">
+                              <Clock size={14} /> ~{task.dueDate.substring(5)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {columnTasks.length === 0 && (
+                      <div className="tasks-empty-col">업무가 없습니다</div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </>
       ) : (
-        /* 2-B. 리스트 뷰 */
-        <div className="card" style={{ overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+        /* 2-B. 리스트 뷰 (데스크톱/태블릿 테이블 & 모바일 전용 카드 리스트) */
+        <div className="card tasks-list-card">
+          {/* 데스크톱 & 태블릿 테이블 */}
+          <div className="tasks-table-scroll">
+            <table className="tasks-table">
               <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>우선순위</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>파트</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>도메인</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>업무명</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>담당자</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>상태</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>진척률</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>일정 (시작~마감)</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600, textAlign: 'center' }}>관리</th>
+                <tr>
+                  <th>우선순위</th>
+                  <th>파트</th>
+                  <th>도메인</th>
+                  <th>업무명</th>
+                  <th>담당자</th>
+                  <th>상태</th>
+                  <th>진척률</th>
+                  <th>일정 (시작~마감)</th>
+                  <th className="th-center">관리</th>
                 </tr>
               </thead>
               <tbody>
@@ -806,77 +623,40 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                   const trackCfg = TRACK_CONFIG[task.track || '기획'] || TRACK_CONFIG['기획'];
                   const TrackIcon = trackCfg.icon;
                   return (
-                    <tr
-                      key={task.id}
-                      style={{ borderBottom: '1px solid var(--border-light)', transition: 'background-color 0.15s' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                    >
-                      <td style={{ padding: '14px 18px' }}>
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            background: priorityCfg.bg,
-                            color: priorityCfg.color,
-                            padding: '3px 7px',
-                            borderRadius: '4px',
-                          }}
-                        >
+                    <tr key={task.id}>
+                      <td>
+                        <span className={`tasks-badge-priority ${priorityCfg.classKey}`}>
                           {priorityCfg.label}
                         </span>
                       </td>
-                      <td style={{ padding: '14px 18px' }}>
-                        <span
-                          style={{
-                            fontSize: '11.5px',
-                            fontWeight: 700,
-                            background: trackCfg.bg,
-                            color: trackCfg.color,
-                            border: `1px solid ${trackCfg.border}`,
-                            padding: '3px 8px',
-                            borderRadius: '6px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          <TrackIcon size={12} /> {trackCfg.label}
+                      <td>
+                        <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                          <TrackIcon size={13} /> {trackCfg.label}
                         </span>
                       </td>
-                      <td style={{ padding: '14px 18px' }}>
-                        <span style={{ fontSize: '12px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', whiteSpace: 'nowrap' }}>
-                          {task.category}
-                        </span>
+                      <td>
+                        <span className="tasks-badge-category">{task.category}</span>
                       </td>
-                      <td style={{ padding: '14px 18px' }}>
+                      <td>
                         <div
                           onClick={() => handleOpenEditModal(task)}
-                          style={{ fontWeight: 600, color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                          className="tasks-table-title-cell"
                         >
-                          {task.title}
-                          {task.links?.length > 0 && <LinkIcon size={13} color="#3b82f6" />}
+                          <span>{task.title}</span>
+                          {(task.links?.length ?? 0) > 0 && (
+                            <LinkIcon size={14} className="tasks-link-indicator" />
+                          )}
                         </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px', maxWidth: '380px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {task.description}
-                        </div>
+                        <div className="tasks-table-desc">{task.description}</div>
                       </td>
-                      <td style={{ padding: '14px 18px', fontWeight: 500 }}>{task.assigneeName}</td>
-                      <td style={{ padding: '14px 18px' }}>
+                      <td className="tasks-table-assignee">{task.assigneeName}</td>
+                      <td>
                         <select
                           disabled={isViewer}
                           value={task.status}
                           onChange={(e) => handleQuickStatusChange(task.id, e.target.value as TaskStatus)}
-                          style={{
-                            padding: '4px 8px',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            borderRadius: '6px',
-                            border: `1px solid ${statusCfg.color}80`,
-                            backgroundColor: '#ffffff',
-                            cursor: isViewer ? 'not-allowed' : 'pointer',
-                          }}
+                          className={`tasks-status-select ${statusCfg.classKey}`}
+                          aria-label={`${task.title} 상태 변경`}
                         >
                           {STATUSES.map((s) => (
                             <option key={s.key} value={s.key}>
@@ -885,35 +665,35 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                           ))}
                         </select>
                       </td>
-                      <td style={{ padding: '14px 18px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ width: '60px', height: '6px', background: '#e2e8f0', borderRadius: '9999px', overflow: 'hidden' }}>
-                            <div style={{ width: `${task.progress}%`, height: '100%', background: '#2563eb' }} />
+                      <td>
+                        <div className="tasks-table-progress">
+                          <div className="tasks-table-progress-bar">
+                            {renderProgressSvg(task.progress)}
                           </div>
-                          <span style={{ fontSize: '12px', fontWeight: 600 }}>{task.progress}%</span>
+                          <span className="tasks-table-progress-text">{task.progress}%</span>
                         </div>
                       </td>
-                      <td style={{ padding: '14px 18px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      <td className="tasks-table-schedule">
                         {task.startDate} ~ {task.dueDate}
                       </td>
-                      <td style={{ padding: '14px 18px', textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', gap: '6px' }}>
+                      <td className="td-center">
+                        <div className="tasks-row-actions">
                           <button
+                            type="button"
                             onClick={() => handleOpenEditModal(task)}
-                            className="btn btn-secondary"
-                            style={{ padding: '4px 8px', fontSize: '12px' }}
+                            className="btn btn-secondary tasks-action-btn"
                             title={isViewer ? '상세 조회' : '업무 수정'}
                           >
-                            <Edit2 size={13} /> {isViewer ? '조회' : '수정'}
+                            <Edit2 size={14} /> {isViewer ? '조회' : '수정'}
                           </button>
                           {!isViewer && (
                             <button
+                              type="button"
                               onClick={() => handleDeleteTask(task.id, task.title)}
-                              className="btn btn-secondary"
-                              style={{ padding: '4px 8px', fontSize: '12px', color: '#ef4444' }}
+                              className="btn btn-secondary tasks-delete-icon-btn"
                               title="업무 삭제"
                             >
-                              <Trash2 size={13} />
+                              <Trash2 size={14} />
                             </button>
                           )}
                         </div>
@@ -921,8 +701,113 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                     </tr>
                   );
                 })}
+                {filteredTasks.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="td-center">
+                      조건에 해당하는 업무가 없습니다.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
+          </div>
+
+          {/* 모바일 전용 카드 리스트 뷰 (767px 이하 노출) */}
+          <div className="tasks-mobile-list">
+            {filteredTasks.map((task) => {
+              const priorityCfg = PRIORITIES.find((p) => p.key === task.priority) || PRIORITIES[2];
+              const statusCfg = STATUSES.find((s) => s.key === task.status) || STATUSES[0];
+              const trackCfg = TRACK_CONFIG[task.track || '기획'] || TRACK_CONFIG['기획'];
+              const TrackIcon = trackCfg.icon;
+              return (
+                <div
+                  key={task.id}
+                  className={`tasks-mobile-list-card ${trackCfg.classKey}`}
+                >
+                  <div className="tasks-mobile-list-top">
+                    <div className="tasks-card-badges">
+                      <span className={`tasks-badge-priority ${priorityCfg.classKey}`}>
+                        {priorityCfg.label}
+                      </span>
+                      <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                        <TrackIcon size={13} /> {trackCfg.label}
+                      </span>
+                      <span className="tasks-badge-category">{task.category}</span>
+                    </div>
+
+                    <select
+                      disabled={isViewer}
+                      value={task.status}
+                      onChange={(e) => handleQuickStatusChange(task.id, e.target.value as TaskStatus)}
+                      className={`tasks-status-select ${statusCfg.classKey}`}
+                      aria-label={`${task.title} 상태 변경`}
+                    >
+                      {STATUSES.map((s) => (
+                        <option key={s.key} value={s.key}>
+                          {s.shortLabel}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div
+                    onClick={() => handleOpenEditModal(task)}
+                    className="tasks-mobile-list-title"
+                  >
+                    <span>{task.title}</span>
+                    {(task.links?.length ?? 0) > 0 && (
+                      <LinkIcon size={14} className="tasks-link-indicator" />
+                    )}
+                  </div>
+
+                  {task.description && (
+                    <div className="tasks-mobile-list-desc">{task.description}</div>
+                  )}
+
+                  <div className="tasks-progress-wrap">
+                    <div className="tasks-progress-header">
+                      <span>진척률</span>
+                      <span className={`tasks-progress-val ${task.progress === 100 ? 'is-done' : ''}`}>
+                        {task.progress}%
+                      </span>
+                    </div>
+                    {renderProgressSvg(task.progress)}
+                  </div>
+
+                  <div className="tasks-mobile-list-meta">
+                    <span className="tasks-card-meta-item">
+                      <UserCheck size={14} /> {task.assigneeName}
+                    </span>
+                    <span className="tasks-card-meta-item">
+                      <Clock size={14} /> {task.startDate} ~ {task.dueDate}
+                    </span>
+                  </div>
+
+                  <div className="tasks-mobile-list-actions">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditModal(task)}
+                      className="btn btn-secondary tasks-action-btn"
+                    >
+                      <Edit2 size={14} /> {isViewer ? '상세 조회' : '상세 및 수정'}
+                    </button>
+                    {!isViewer && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTask(task.id, task.title)}
+                        className="btn btn-secondary tasks-delete-icon-btn"
+                        title="업무 삭제"
+                      >
+                        <Trash2 size={14} /> 삭제
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {filteredTasks.length === 0 && (
+              <div className="tasks-empty-col">조건에 해당하는 업무가 없습니다.</div>
+            )}
           </div>
         </div>
       )}
@@ -932,7 +817,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="tasks-modal-header-left">
                 <h3 className="modal-title">
                   {editingTask
                     ? isViewer
@@ -940,29 +825,24 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                       : '서비스기획 업무 상세 및 수정'
                     : '새로운 서비스기획 업무 등록'}
                 </h3>
-                {isViewer && (
-                  <span style={{ fontSize: '11px', background: '#fef3c7', color: '#b45309', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
-                    조회 전용
-                  </span>
-                )}
+                {isViewer && <span className="tasks-viewer-chip">조회 전용</span>}
               </div>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                className="tasks-modal-close-btn"
+                aria-label="모달 닫기"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveTask} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <form onSubmit={handleSaveTask} className="tasks-modal-form">
               <div className="modal-body">
                 {/* 0. 파트 구분 (기획 / 디자인 / 퍼블리싱 3단 세그먼트 버튼) */}
-                <div className="form-group" style={{ marginBottom: '18px' }}>
-                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span style={{ fontWeight: 700, fontSize: '13px' }}>업무 파트 구분 *</span>
-                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 400 }}>기획 / 디자인 / 퍼블리싱 중 선택</span>
-                  </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                <div className="form-group tasks-modal-track-group">
+                  <label className="form-label">업무 파트 구분 *</label>
+                  <div className="tasks-modal-track-grid">
                     {TRACK_LIST.map((trackKey) => {
                       const config = TRACK_CONFIG[trackKey];
                       const isSelected = formData.track === trackKey;
@@ -973,44 +853,18 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                           type="button"
                           disabled={isViewer}
                           onClick={() => setFormData({ ...formData, track: trackKey })}
-                          style={{
-                            padding: '10px 12px',
-                            borderRadius: '10px',
-                            border: isSelected ? `2px solid ${config.color}` : '1px solid #e2e8f0',
-                            background: isSelected ? config.bg : '#ffffff',
-                            cursor: isViewer ? 'not-allowed' : 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            transition: 'all 0.15s ease',
-                            boxShadow: isSelected ? `0 2px 8px ${config.color}25` : 'none',
-                          }}
+                          className={`tasks-modal-track-btn ${config.classKey} ${isSelected ? 'active' : ''}`}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div
-                              style={{
-                                width: '30px',
-                                height: '30px',
-                                borderRadius: '8px',
-                                background: isSelected ? config.color : '#f1f5f9',
-                                color: isSelected ? '#ffffff' : '#64748b',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
+                          <div className="tasks-modal-track-info">
+                            <div className="tasks-modal-track-icon-box">
                               <IconComponent size={16} />
                             </div>
-                            <div style={{ textAlign: 'left' }}>
-                              <div style={{ fontSize: '13px', fontWeight: 700, color: isSelected ? config.color : 'var(--text-main)' }}>
-                                {config.label}
-                              </div>
-                              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                                {config.enLabel}
-                              </div>
+                            <div className="tasks-modal-track-text">
+                              <div className="tasks-modal-track-name">{config.label}</div>
+                              <div className="tasks-modal-track-en">{config.enLabel}</div>
                             </div>
                           </div>
-                          {isSelected && <CheckCircle2 size={16} color={config.color} />}
+                          {isSelected && <CheckCircle2 size={16} className="tasks-modal-track-check" />}
                         </button>
                       );
                     })}
@@ -1026,13 +880,13 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                     required
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="예: VIP 통합 멤버십 등급 개편안 설계"
+                    placeholder="예: 통합 멤버십 등급 개편안 설계"
                     className="form-input"
                   />
                 </div>
 
                 {/* 2. 카테고리 & 담당자 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div className="tasks-form-grid-2">
                   <div className="form-group">
                     <label className="form-label">카테고리</label>
                     <select
@@ -1074,7 +928,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                 </div>
 
                 {/* 3. 우선순위 & 상태 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div className="tasks-form-grid-2">
                   <div className="form-group">
                     <label className="form-label">우선순위</label>
                     <select
@@ -1109,7 +963,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                 </div>
 
                 {/* 4. 일정 & 진척률 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '14px' }}>
+                <div className="tasks-form-grid-3">
                   <div className="form-group">
                     <label className="form-label">시작일</label>
                     <input
@@ -1132,7 +986,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                     />
                   </div>
 
-                  <div className="form-group">
+                  <div className="form-group tasks-form-progress-group">
                     <label className="form-label">진척률 ({formData.progress}%)</label>
                     <input
                       type="range"
@@ -1142,7 +996,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                       disabled={isViewer}
                       value={formData.progress}
                       onChange={(e) => setFormData({ ...formData, progress: Number(e.target.value) })}
-                      style={{ width: '100%', marginTop: '10px' }}
+                      className="tasks-range-input"
                     />
                   </div>
                 </div>
@@ -1164,99 +1018,71 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                 <div className="form-group">
                   <label className="form-label">관련 기획서 및 산출물 링크</label>
                   {!isViewer && (
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                    <div className="tasks-link-input-row">
                       <input
                         type="text"
                         placeholder="문서명 (예: 화면설계서 SB)"
                         value={formData.linkTitle}
                         onChange={(e) => setFormData({ ...formData, linkTitle: e.target.value })}
-                        className="form-input"
-                        style={{ flex: 1 }}
+                        className="form-input tasks-link-title-input"
                       />
-                      <input
-                        type="url"
-                        placeholder="https://..."
-                        value={formData.linkUrl}
-                        onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
-                        className="form-input"
-                        style={{ flex: 1.5 }}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddLink}
-                        className="btn btn-secondary"
-                        style={{ padding: '8px 12px' }}
-                      >
-                        추가
-                      </button>
+                      <div className="tasks-link-url-group">
+                        <input
+                          type="url"
+                          placeholder="https://..."
+                          value={formData.linkUrl}
+                          onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
+                          className="form-input tasks-link-url-input"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddLink}
+                          className="btn btn-secondary tasks-link-add-btn"
+                        >
+                          추가
+                        </button>
+                      </div>
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div className="tasks-links-list">
                     {formData.links.map((link, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '6px 10px',
-                          background: '#f8fafc',
-                          borderRadius: 'var(--radius-sm)',
-                          border: '1px solid #e2e8f0',
-                          fontSize: '12.5px',
-                        }}
-                      >
+                      <div key={idx} className="tasks-link-item">
                         <a
                           href={link.url}
                           target="_blank"
                           rel="noreferrer"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            color: '#2563eb',
-                            textDecoration: 'none',
-                            fontWeight: 600,
-                          }}
+                          className="tasks-link-anchor"
                         >
-                          <ExternalLink size={13} /> {link.title}
+                          <ExternalLink size={14} /> {link.title}
                         </a>
                         {!isViewer && (
                           <button
                             type="button"
                             onClick={() => handleRemoveLink(idx)}
-                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8' }}
+                            className="tasks-link-remove-btn"
+                            aria-label="링크 삭제"
                           >
-                            <X size={14} />
+                            <X size={15} />
                           </button>
                         )}
                       </div>
                     ))}
                     {formData.links.length === 0 && (
-                      <div style={{ fontSize: '12px', color: '#94a3b8', padding: '4px 0' }}>
-                        등록된 첨부 문서 링크가 없습니다.
-                      </div>
+                      <div className="tasks-links-empty">등록된 첨부 문서 링크가 없습니다.</div>
                     )}
                   </div>
                 </div>
 
                 {/* 감사 정보 표시 (기존 데이터인 경우) */}
                 {editingTask && (
-                  <div
-                    style={{
-                      background: '#f8fafc',
-                      padding: '10px 14px',
-                      borderRadius: 'var(--radius-md)',
-                      fontSize: '11.5px',
-                      color: 'var(--text-muted)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      marginTop: '12px',
-                    }}
-                  >
-                    <span>최초 등록: {editingTask.createdBy} ({new Date(editingTask.createdAt).toLocaleDateString()})</span>
-                    <span>최종 수정: {editingTask.updatedBy} ({new Date(editingTask.updatedAt).toLocaleTimeString()})</span>
+                  <div className="tasks-audit-bar">
+                    <span>
+                      최초 등록: {editingTask.createdBy} ({new Date(editingTask.createdAt).toLocaleDateString()})
+                    </span>
+                    <span>
+                      최종 수정: {editingTask.updatedBy} ({new Date(editingTask.updatedAt).toLocaleTimeString()})
+                    </span>
                   </div>
                 )}
               </div>
@@ -1266,8 +1092,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                   <button
                     type="button"
                     onClick={() => handleDeleteTask(editingTask.id, editingTask.title)}
-                    className="btn btn-danger"
-                    style={{ marginRight: 'auto' }}
+                    className="btn btn-danger tasks-modal-delete-btn"
                   >
                     <Trash2 size={15} /> 삭제
                   </button>
