@@ -71,16 +71,16 @@ const NAV_LABELS: Record<NavTab, string> = {
   vacations: '팀 통합 일정',
   kpi: 'KPI 목표 및 평가',
   work_info: '업무 관련 정보',
-  audit: '감사 로그 (Audit)',
+  audit: '감사 로그',
 };
 
 const TAB_TITLES: Record<NavTab, string> = {
-  overview: `서비스기획팀 업무포털 | ${NAV_LABELS.overview}`,
-  tasks: `서비스기획팀 업무포털 | ${NAV_LABELS.tasks}`,
-  vacations: `서비스기획팀 업무포털 | ${NAV_LABELS.vacations}`,
-  kpi: `서비스기획팀 업무포털 | ${NAV_LABELS.kpi}`,
-  work_info: `서비스기획팀 업무포털 | ${NAV_LABELS.work_info}`,
-  audit: `서비스기획팀 업무포털 | ${NAV_LABELS.audit}`,
+  overview: NAV_LABELS.overview,
+  tasks: NAV_LABELS.tasks,
+  vacations: NAV_LABELS.vacations,
+  kpi: NAV_LABELS.kpi,
+  work_info: NAV_LABELS.work_info,
+  audit: NAV_LABELS.audit,
 };
 
 const AUTH_TITLES: Record<AuthMode, string> = {

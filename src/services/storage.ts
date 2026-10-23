@@ -238,7 +238,6 @@ export class PlanningStorageService {
           links: row.links || [],
           workspaceProjectId: row.workspace_project_id || undefined,
           period: row.period || undefined,
-          figmaUrl: row.figma_url || undefined,
           notionUrl: row.notion_url || undefined,
           jiraUrl: row.jira_url || undefined,
           artifactUrl: row.artifact_url || undefined,
@@ -776,7 +775,6 @@ export class PlanningStorageService {
       links: task.links,
       workspace_project_id: task.workspaceProjectId || null,
       period: task.period || null,
-      figma_url: task.figmaUrl || null,
       notion_url: task.notionUrl || null,
       jira_url: task.jiraUrl || null,
       artifact_url: task.artifactUrl || null,
@@ -1491,7 +1489,7 @@ export class PlanningStorageService {
     this.pushWorkInfosToRemote(updated);
 
     this.recordAuditLog({
-      entityType: 'task',
+      entityType: 'work_info',
       entityId: newItem.id,
       entityTitle: newItem.title,
       action: 'CREATE',
@@ -1533,7 +1531,7 @@ export class PlanningStorageService {
     this.pushWorkInfosToRemote(updatedList);
 
     this.recordAuditLog({
-      entityType: 'task',
+      entityType: 'work_info',
       entityId: updatedItem.id,
       entityTitle: updatedItem.title,
       action: 'UPDATE',
@@ -1557,7 +1555,7 @@ export class PlanningStorageService {
     this.pushWorkInfosToRemote(filtered);
 
     this.recordAuditLog({
-      entityType: 'task',
+      entityType: 'work_info',
       entityId: target.id,
       entityTitle: target.title,
       action: 'DELETE',

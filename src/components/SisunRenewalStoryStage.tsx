@@ -231,7 +231,6 @@ export function SisunRenewalStoryStage() {
     if (typeof window === 'undefined') return;
     const mql = window.matchMedia('(max-width: 767px)');
     const onChange = (e: MediaQueryListEvent) => setIsMobileView(e.matches);
-    setIsMobileView(mql.matches);
     mql.addEventListener('change', onChange);
     return () => mql.removeEventListener('change', onChange);
   }, []);

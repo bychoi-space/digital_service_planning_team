@@ -49,7 +49,6 @@ export interface TaskItem extends AuditBase {
   // 개인 업무공간(bychoi workspace) 연동 필드
   workspaceProjectId?: string;
   period?: string;
-  figmaUrl?: string;
   notionUrl?: string;
   jiraUrl?: string;
   artifactUrl?: string;

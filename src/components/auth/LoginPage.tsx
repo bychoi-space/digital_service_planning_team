@@ -57,10 +57,9 @@ const LOGIN_EXCLUSIVE_SPRITES = [
 interface SpriteCanvasProps {
   fileName: string;
   fallbackFileName: string;
-  style?: React.CSSProperties;
 }
 
-function LoginSpriteCanvas({ fileName, fallbackFileName, style }: SpriteCanvasProps) {
+function LoginSpriteCanvas({ fileName, fallbackFileName }: SpriteCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const lastDrawnRef = useRef<string>('');
 
@@ -103,14 +102,7 @@ function LoginSpriteCanvas({ fileName, fallbackFileName, style }: SpriteCanvasPr
       ref={canvasRef}
       width={560}
       height={560}
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'block',
-        pointerEvents: 'none',
-        userSelect: 'none',
-        ...style,
-      }}
+      className="login-sprite-canvas"
     />
   );
 }
@@ -123,6 +115,7 @@ interface LoginPageProps {
 
 export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange }: LoginPageProps) {
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
+  const [prevInitialMode, setPrevInitialMode] = useState<'login' | 'register'>(initialMode);
 
   // 로그인 상태 (초기값 항상 빈 값 유지)
   const [loginName, setLoginName] = useState('');
@@ -140,6 +133,14 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
   // 로그인 화면 전용 8프레임 루프 틱
   const [frameTick, setFrameTick] = useState(0);
 
+  if (initialMode !== prevInitialMode) {
+    setPrevInitialMode(initialMode);
+    setMode(initialMode);
+    setLoginPassword('');
+    setRegPassword('');
+    setRegPasswordConfirm('');
+  }
+
   useEffect(() => {
     const meta = document.querySelector('meta[name="viewport"]');
     if (meta) {
@@ -156,13 +157,6 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
     }, 150);
     return () => window.clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    setMode(initialMode);
-    setLoginPassword('');
-    setRegPassword('');
-    setRegPasswordConfirm('');
-  }, [initialMode]);
 
   const handleModeSwitch = (nextMode: 'login' | 'register') => {
     setMode(nextMode);
@@ -235,99 +229,34 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
   };
 
   const frame8 = (frameTick % 8) + 1;
-  const studioBgUrl = `${BASE_URL.endsWith('/') ? BASE_URL : `${BASE_URL}/`}images/login-studio-bg.jpg`;
 
   return (
     <div className="login-page-shell">
       {/* 배경 전용 클리핑 래퍼 (가로/세로 스크롤 오버플로우 원천 차단) */}
       <div className="login-bg-clip">
-        {/* 1. 서비스기획팀 크리에이티브 스튜디오 & 라운지 아웃포커싱(Depth-of-Field) 배경 레이어 */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage: `url("${studioBgUrl}")`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center center',
-            backgroundRepeat: 'no-repeat',
-            filter: 'blur(5px) brightness(0.76) saturate(1.08)',
-          }}
-        />
-
-        {/* 2. 공간감 비네팅 & 컬러 톤 매칭 오버레이 */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background:
-              'radial-gradient(ellipse at center, rgba(15, 23, 42, 0.14) 0%, rgba(11, 17, 32, 0.52) 100%)',
-          }}
-        />
+        <div className="login-studio-bg-layer" />
+        <div className="login-studio-vignette-layer" />
       </div>
 
-      {/* =====================================================================
-          중앙 스테이지 래퍼 (메인 로그인 카드 + 로그인 전용 신규 캐릭터 3종 반응형 배치)
-          ===================================================================== */}
+      {/* 중앙 스테이지 래퍼 (메인 로그인 카드 + 로그인 전용 신규 캐릭터 3종 반응형 배치) */}
       <div className="login-stage">
-        {/* -----------------------------------------------------------------
-            1. [웹 퍼블리셔 - 신규 전용 일러스트]
-               - 로그인 카드 좌측 바깥 벽면에 오른쪽 어깨·등을 기대고 발목을 교차해 서 있는 포즈
-            ----------------------------------------------------------------- */}
+        {/* 1. [웹 퍼블리셔 - 신규 전용 일러스트] */}
         <div className="login-char-publisher">
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              filter: 'drop-shadow(-10px 12px 18px rgba(0, 0, 0, 0.48))',
-            }}
-          >
+          <div className="login-char-sprite-wrap is-publisher">
             <LoginSpriteCanvas
               fileName={`login-publisher-lean-${frame8}.png`}
               fallbackFileName="login-publisher-lean.png"
             />
           </div>
-          {/* 바닥 접지 그림자 */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '2px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: '55%',
-              height: '12px',
-              borderRadius: '50%',
-              background: 'radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 75%)',
-            }}
-          />
+          <div className="login-char-shadow is-publisher" />
         </div>
 
-        {/* -----------------------------------------------------------------
-            2. [UI 디자이너 - 신규 전용 일러스트]
-               - 정면을 바라보며 상단 가로바를 두 손으로 잡고 대롱대롱 매달려 있는 포즈
-            ----------------------------------------------------------------- */}
+        {/* 2. [UI 디자이너 - 신규 전용 일러스트] */}
         <div className="login-char-designer">
-          {/* 화면 천장에서 가로바 양손 위치(좌/우 30.5%, 상단 8.6% 지점)로 내려오는 2줄 와이어 */}
-          <div
-            className="login-designer-wire"
-            style={{
-              left: '30.5%',
-            }}
-          />
-          <div
-            className="login-designer-wire"
-            style={{
-              right: '30.5%',
-            }}
-          />
+          <div className="login-designer-wire is-left" />
+          <div className="login-designer-wire is-right" />
 
-          <div
-            style={{
-              position: 'relative',
-              width: '100%',
-              height: '100%',
-              filter: 'drop-shadow(0 14px 20px rgba(0, 0, 0, 0.48))',
-            }}
-          >
+          <div className="login-char-sprite-wrap is-designer">
             <LoginSpriteCanvas
               fileName={`login-designer-hang-${frame8}.png`}
               fallbackFileName="login-designer-hang.png"
@@ -335,47 +264,24 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
           </div>
         </div>
 
-        {/* -----------------------------------------------------------------
-            3. [서비스기획자 - 신규 전용 일러스트]
-               - 우측 하단 구석 여백 바닥에 태블릿을 내려놓고 한 손으로 턱을 괴고 귀찮은 듯 앉아 있는 포즈
-            ----------------------------------------------------------------- */}
+        {/* 3. [서비스기획자 - 신규 전용 일러스트] */}
         <div className="login-char-planner">
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              filter: 'drop-shadow(0 12px 20px rgba(0, 0, 0, 0.5))',
-            }}
-          >
+          <div className="login-char-sprite-wrap is-planner">
             <LoginSpriteCanvas
               fileName={`login-planner-sit-${frame8}.png`}
               fallbackFileName="login-planner-sit.png"
             />
           </div>
-          {/* 구석 바닥 접지 그림자 */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: '2px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: '75%',
-              height: '14px',
-              borderRadius: '50%',
-              background: 'radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 75%)',
-            }}
-          />
+          <div className="login-char-shadow is-planner" />
         </div>
 
-        {/* =================================================================
-            메인 로그인 카드 본체 (PC/노트북 2단 · 태블릿/모바일 1단 자동 전환)
-            ================================================================= */}
+        {/* 메인 로그인 카드 본체 (PC/노트북 2단 · 태블릿/모바일 1단 자동 전환) */}
         <div className="login-card">
           {/* 좌측(태블릿/모바일 상단): 서비스기획팀 브랜딩 영역 */}
           <div className="login-brand-panel">
             <div>
               <div className="login-brand-badge">
-                <Sparkles size={13} /> 서비스기획팀 업무 포털
+                <Sparkles size={14} /> 서비스기획팀 업무 포털
               </div>
 
               <h2 className="login-brand-title">
@@ -399,24 +305,14 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
               <button
                 type="button"
                 onClick={() => handleModeSwitch('login')}
-                className="login-tab-btn"
-                style={{
-                  background: mode === 'login' ? '#ffffff' : 'transparent',
-                  color: mode === 'login' ? '#1e293b' : '#64748b',
-                  boxShadow: mode === 'login' ? 'var(--shadow-sm)' : 'none',
-                }}
+                className={`login-tab-btn ${mode === 'login' ? 'active' : ''}`}
               >
                 로그인
               </button>
               <button
                 type="button"
                 onClick={() => handleModeSwitch('register')}
-                className="login-tab-btn"
-                style={{
-                  background: mode === 'register' ? '#ffffff' : 'transparent',
-                  color: mode === 'register' ? '#1e293b' : '#64748b',
-                  boxShadow: mode === 'register' ? 'var(--shadow-sm)' : 'none',
-                }}
+                className={`login-tab-btn ${mode === 'register' ? 'active' : ''}`}
               >
                 신규 등록 (회원가입)
               </button>
@@ -424,20 +320,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
 
             {/* 에러 메시지 알림 박스 */}
             {errorMessage && (
-              <div
-                style={{
-                  padding: '9px 12px',
-                  background: '#fef2f2',
-                  border: '1px solid #fecaca',
-                  color: '#b91c1c',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: '12.5px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginBottom: '12px',
-                }}
-              >
+              <div className="login-error-alert">
                 <AlertCircle size={15} />
                 <span>{errorMessage}</span>
               </div>
@@ -450,9 +333,9 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                 autoComplete="off"
                 className="login-form"
               >
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <UserIcon size={14} color="#64748b" /> 이름 (사용자명) *
+                <div className="form-group login-form-group">
+                  <label className="form-label login-form-label">
+                    <UserIcon size={14} className="login-label-icon" /> 이름 (사용자명) *
                   </label>
                   <input
                     type="text"
@@ -465,9 +348,9 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                   />
                 </div>
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Lock size={14} color="#64748b" /> 비밀번호 *
+                <div className="form-group login-form-group">
+                  <label className="form-label login-form-label">
+                    <Lock size={14} className="login-label-icon" /> 비밀번호 *
                   </label>
                   <input
                     type="password"
@@ -496,9 +379,9 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                 autoComplete="off"
                 className="login-form login-form-register"
               >
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <UserIcon size={14} color="#64748b" /> 성명 (이름) *
+                <div className="form-group login-form-group">
+                  <label className="form-label login-form-label">
+                    <UserIcon size={14} className="login-label-icon" /> 성명 (이름) *
                   </label>
                   <input
                     type="text"
@@ -512,9 +395,9 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                 </div>
 
                 {/* 소속 부서 선택 (Selectbox 구조) */}
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Building2 size={14} color="#64748b" /> 소속 부서 선택 *
+                <div className="form-group login-form-group">
+                  <label className="form-label login-form-label">
+                    <Building2 size={14} className="login-label-icon" /> 소속 부서 선택 *
                   </label>
                   <select
                     value={regDepartment}
@@ -533,9 +416,9 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                 </div>
 
                 <div className="login-pw-grid">
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <KeyRound size={14} color="#64748b" /> 비밀번호 *
+                  <div className="form-group login-form-group">
+                    <label className="form-label login-form-label">
+                      <KeyRound size={14} className="login-label-icon" /> 비밀번호 *
                     </label>
                     <input
                       type="password"
@@ -550,9 +433,9 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                     />
                   </div>
 
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <CheckCircle2 size={14} color="#64748b" /> 비밀번호 확인 *
+                  <div className="form-group login-form-group">
+                    <label className="form-label login-form-label">
+                      <CheckCircle2 size={14} className="login-label-icon" /> 비밀번호 확인 *
                     </label>
                     <input
                       type="password"
