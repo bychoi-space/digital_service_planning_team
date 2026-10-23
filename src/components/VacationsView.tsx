@@ -20,6 +20,7 @@ import {
   Sparkles,
   ArrowUpRight,
   Eye,
+  Clock,
 } from 'lucide-react';
 
 interface VacationsViewProps {
@@ -29,41 +30,55 @@ interface VacationsViewProps {
   onNavigateToTasks?: () => void;
 }
 
-const VACATION_TYPES: { key: VacationType; label: string; color: string; bg: string }[] = [
-  { key: 'annual', label: '연차', color: '#2563eb', bg: '#eff6ff' },
-  { key: 'morning_half', label: '오전반차', color: '#059669', bg: '#ecfdf5' },
-  { key: 'afternoon_half', label: '오후반차', color: '#d97706', bg: '#fffbeb' },
-  { key: 'special', label: '경조사', color: '#7c3aed', bg: '#f5f3ff' },
-  { key: 'substitute', label: '대체휴가', color: '#0891b2', bg: '#ecfeff' },
-  { key: 'other', label: '기타/공가', color: '#475569', bg: '#f8fafc' },
+const VACATION_TYPES: { key: VacationType; label: string; classKey: string }[] = [
+  { key: 'annual', label: '연차', classKey: 'vac-annual' },
+  { key: 'morning_half', label: '오전반차', classKey: 'vac-morning-half' },
+  { key: 'afternoon_half', label: '오후반차', classKey: 'vac-afternoon-half' },
+  { key: 'special', label: '경조사', classKey: 'vac-special' },
+  { key: 'substitute', label: '대체휴가', classKey: 'vac-substitute' },
+  { key: 'other', label: '기타/공가', classKey: 'vac-other' },
 ];
 
 const TRACK_CONFIG: Record<
   TaskTrack,
-  { label: string; color: string; bg: string; border: string; icon: React.FC<{ size?: number }> }
+  {
+    label: string;
+    classKey: string;
+    icon: React.FC<{ size?: number; className?: string }>;
+  }
 > = {
-  '기획': {
+  기획: {
     label: '기획',
-    color: '#2563eb',
-    bg: '#eff6ff',
-    border: '#bfdbfe',
+    classKey: 'track-planning',
     icon: FileText,
   },
-  '디자인': {
+  디자인: {
     label: '디자인',
-    color: '#7c3aed',
-    bg: '#f5f3ff',
-    border: '#ddd6fe',
+    classKey: 'track-design',
     icon: Palette,
   },
-  '퍼블리싱': {
+  퍼블리싱: {
     label: '퍼블리싱',
-    color: '#059669',
-    bg: '#ecfdf5',
-    border: '#a7f3d0',
+    classKey: 'track-publishing',
     icon: Code,
   },
 };
+
+const WEEKDAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
+
+function formatLocalDate(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getWeekdayLabel(dateStr: string): string {
+  const parts = dateStr.split('-').map(Number);
+  if (parts.length !== 3) return '';
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  return WEEKDAY_NAMES[d.getDay()] || '';
+}
 
 export const VacationsView: React.FC<VacationsViewProps> = ({
   currentUser,
@@ -71,9 +86,20 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
   onShowToast,
   onNavigateToTasks,
 }) => {
+  const [todayStr] = useState<string>(() => formatLocalDate(new Date()));
+
   const [vacations, setVacations] = useState<VacationItem[]>(() => PlanningStorageService.getVacations());
   const [tasks, setTasks] = useState<TaskItem[]>(() => PlanningStorageService.getTasks());
-  const [currentDate, setCurrentDate] = useState<Date>(new Date(2026, 9, 1)); // 2026년 10월 기준
+  const [teamMembers, setTeamMembers] = useState<User[]>(() =>
+    PlanningStorageService.getServicePlanningMembers()
+  );
+
+  const [currentDate, setCurrentDate] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [selectedMobileDate, setSelectedMobileDate] = useState<string>(todayStr);
+
   const [viewTab, setViewTab] = useState<'calendar' | 'list'>('calendar');
   const [listSubTab, setListSubTab] = useState<'vacation' | 'task'>('vacation');
 
@@ -88,7 +114,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
   // 업무 상세 보기 모달 상태
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
 
-  // 일자별 전체 일정 더보기 모달
+  // 일자별 전체 일정 더보기 모달 (데스크톱/태블릿용)
   const [selectedDayDetail, setSelectedDayDetail] = useState<{
     dateStr: string;
     dayNum: number;
@@ -96,24 +122,44 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     tasks: TaskItem[];
   } | null>(null);
 
-  const teamMembers = PlanningStorageService.getServicePlanningMembers();
+  const resolveDefaultMember = (members: User[]): User => {
+    const matched = members.find(
+      (m) => String(m.id) === String(currentUser.id) || m.name.trim() === currentUser.name.trim()
+    );
+    if (matched) return matched;
+    if (currentUser.role !== 'viewer') return currentUser;
+    return members[0] || currentUser;
+  };
 
-  const [formData, setFormData] = useState({
-    userId: '',
-    userName: '',
-    department: '서비스기획팀',
-    type: 'annual' as VacationType,
-    startDate: '2026-10-25',
-    endDate: '2026-10-25',
-    deputyId: '',
-    deputyName: '',
-    contact: '',
-    notes: '',
+  const [formData, setFormData] = useState(() => {
+    const initialMembers = PlanningStorageService.getServicePlanningMembers();
+    const defaultUser =
+      initialMembers.find(
+        (m) => String(m.id) === String(currentUser.id) || m.name.trim() === currentUser.name.trim()
+      ) ||
+      (currentUser.role !== 'viewer' ? currentUser : initialMembers[0]) ||
+      currentUser;
+    const defaultDeputy =
+      initialMembers.find((m) => String(m.id) !== String(defaultUser.id)) || defaultUser;
+
+    return {
+      userId: defaultUser.id,
+      userName: defaultUser.name,
+      department: '서비스기획팀',
+      type: 'annual' as VacationType,
+      startDate: todayStr,
+      endDate: todayStr,
+      deputyId: defaultDeputy.id,
+      deputyName: defaultDeputy.name,
+      contact: '',
+      notes: '',
+    };
   });
 
   const refreshAll = () => {
     setVacations(PlanningStorageService.getVacations());
     setTasks(PlanningStorageService.getTasks());
+    setTeamMembers(PlanningStorageService.getServicePlanningMembers());
   };
 
   // 모달 열기 (신규 휴가 신청 - 기본 대상자를 현재 로그인된 서비스기획팀원으로 지정)
@@ -122,15 +168,13 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       onShowToast('유관부서(읽기 전용) 모드에서는 휴가를 등록할 수 없습니다.', 'error');
       return;
     }
-    const defaultUser =
-      teamMembers.find(
-        (m) => String(m.id) === String(currentUser.id) || m.name.trim() === currentUser.name.trim()
-      ) ||
-      teamMembers[0] ||
-      currentUser;
+    const latestMembers = PlanningStorageService.getServicePlanningMembers();
+    setTeamMembers(latestMembers);
+
+    const defaultUser = resolveDefaultMember(latestMembers);
     const defaultDeputy =
-      teamMembers.find((m) => String(m.id) !== String(defaultUser.id)) || defaultUser;
-    const targetDate = presetDate || new Date().toISOString().split('T')[0];
+      latestMembers.find((m) => String(m.id) !== String(defaultUser.id)) || defaultUser;
+    const targetDate = presetDate || todayStr;
 
     setEditingVacation(null);
     setFormData({
@@ -146,20 +190,34 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       notes: '',
     });
     setIsVacationModalOpen(true);
+
+    PlanningStorageService.syncFromSupabase().then(() => {
+      setTeamMembers(PlanningStorageService.getServicePlanningMembers());
+    });
   };
 
   // 모달 열기 (휴가 수정 or 상세)
   const handleOpenEditModal = (item: VacationItem) => {
+    const latestMembers = PlanningStorageService.getServicePlanningMembers();
+    setTeamMembers(latestMembers);
+
+    const matchedUser = latestMembers.find(
+      (m) => String(m.id) === String(item.userId) || m.name.trim() === item.userName?.trim()
+    );
+    const matchedDeputy = latestMembers.find(
+      (m) => String(m.id) === String(item.deputyId) || m.name.trim() === item.deputyName?.trim()
+    );
+
     setEditingVacation(item);
     setFormData({
-      userId: item.userId,
-      userName: item.userName,
-      department: item.department,
+      userId: matchedUser ? matchedUser.id : item.userId,
+      userName: matchedUser ? matchedUser.name : item.userName,
+      department: item.department || '서비스기획팀',
       type: item.type,
       startDate: item.startDate,
       endDate: item.endDate,
-      deputyId: item.deputyId,
-      deputyName: item.deputyName,
+      deputyId: matchedDeputy ? matchedDeputy.id : item.deputyId,
+      deputyName: matchedDeputy ? matchedDeputy.name : item.deputyName,
       contact: item.contact,
       notes: item.notes,
     });
@@ -220,7 +278,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
   // 휴가 삭제 처리
   const handleDeleteVacation = (id: string, name: string) => {
     if (isViewer) return;
-    if (window.confirm(`정말 ${name}의 휴가 일정을 취소하시겠습니까?`)) {
+    if (window.confirm(`정말 ${name} 님의 휴가 일정을 취소하시겠습니까?`)) {
       PlanningStorageService.deleteVacation(id);
       onShowToast('휴가 일정이 취소되었습니다.', 'info');
       setIsVacationModalOpen(false);
@@ -230,13 +288,44 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
 
   // 캘린더 네비게이션
   const handlePrevMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+    const nextMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    setCurrentDate(nextMonthDate);
+    setSelectedMobileDate(formatLocalDate(nextMonthDate));
   };
+
   const handleNextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+    const nextMonthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+    setCurrentDate(nextMonthDate);
+    setSelectedMobileDate(formatLocalDate(nextMonthDate));
   };
+
   const handleSetToday = () => {
-    setCurrentDate(new Date(2026, 9, 1)); // 데모 기준 2026년 10월
+    const now = new Date();
+    setCurrentDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    setSelectedMobileDate(formatLocalDate(now));
+  };
+
+  // 특정 일자의 필터링된 휴가/업무 반환 헬퍼
+  const getDaySchedules = (dateStr: string) => {
+    const dayVacations =
+      filterType === 'all' || filterType === 'vacation'
+        ? vacations.filter((v) => dateStr >= v.startDate && dateStr <= v.endDate)
+        : [];
+
+    let dayTasks =
+      filterType === 'vacation'
+        ? []
+        : tasks.filter((t) => dateStr >= t.startDate && dateStr <= t.dueDate);
+
+    if (filterType === '기획' || filterType === '디자인' || filterType === '퍼블리싱') {
+      dayTasks = dayTasks.filter((t) => t.track === filterType);
+    }
+
+    if (onlyActiveTasks) {
+      dayTasks = dayTasks.filter((t) => ['in_progress', 'review'].includes(t.status));
+    }
+
+    return { dayVacations, dayTasks };
   };
 
   // 캘린더 날짜 매트릭스 계산
@@ -255,7 +344,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       const d = prevMonthDays - i;
       const prevDate = new Date(year, month - 1, d);
       days.push({
-        dateStr: prevDate.toISOString().split('T')[0],
+        dateStr: formatLocalDate(prevDate),
         dayNum: d,
         isCurrentMonth: false,
       });
@@ -278,7 +367,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     for (let d = 1; d <= remaining; d++) {
       const nextDate = new Date(year, month + 1, d);
       days.push({
-        dateStr: nextDate.toISOString().split('T')[0],
+        dateStr: formatLocalDate(nextDate),
         dayNum: d,
         isCurrentMonth: false,
       });
@@ -287,9 +376,10 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     return days;
   }, [currentDate]);
 
-  // 오늘 날짜 및 오늘 부재자 계산 (시스템 시간 또는 2026-10-19 기준)
-  const todayStr = '2026-10-19';
-  const todayAbsentList = vacations.filter((v) => todayStr >= v.startDate && todayStr <= v.endDate);
+  // 오늘 부재자 계산
+  const todayAbsentList = vacations.filter(
+    (v) => todayStr >= v.startDate && todayStr <= v.endDate
+  );
 
   // 실시간 진행 업무 통계 계산
   const activeTasks = useMemo(() => {
@@ -300,61 +390,54 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
   const designActiveTasksCount = activeTasks.filter((t) => t.track === '디자인').length;
   const publishingActiveTasksCount = activeTasks.filter((t) => t.track === '퍼블리싱').length;
 
+  // 모바일 선택 일자 상세 데이터
+  const { dayVacations: mobileSelectedVacations, dayTasks: mobileSelectedTasks } =
+    getDaySchedules(selectedMobileDate);
+  const mobileSelectedData = {
+    dateStr: selectedMobileDate,
+    weekday: getWeekdayLabel(selectedMobileDate),
+    vacations: mobileSelectedVacations,
+    tasks: mobileSelectedTasks,
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+    <div className="schedule-container">
       {/* 1. 상단 2열 대시보드 위젯 (부재 현황 + 진행 업무 현황) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '16px' }}>
+      <div className="schedule-summary-grid">
         {/* 카드 1: 오늘의 팀원 부재 현황 */}
         <div
-          className="card"
-          style={{
-            padding: '18px 20px',
-            background: todayAbsentList.length > 0 ? '#fffbeb' : '#f0fdf4',
-            borderColor: todayAbsentList.length > 0 ? '#fde68a' : '#bbf7d0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '14px',
-          }}
+          className={`card schedule-summary-card ${
+            todayAbsentList.length > 0 ? 'is-absent' : 'is-present'
+          }`}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div className="schedule-summary-main">
             <div
-              style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
-                background: todayAbsentList.length > 0 ? '#f59e0b' : '#10b981',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
+              className={`schedule-summary-icon ${
+                todayAbsentList.length > 0 ? 'is-absent' : 'is-present'
+              }`}
             >
               {todayAbsentList.length > 0 ? <UserX size={22} /> : <UserCheck size={22} />}
             </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)' }}>
-                  오늘의 팀원 부재 현황
-                </h3>
+            <div className="schedule-summary-info">
+              <div className="schedule-summary-title-row">
+                <h3 className="schedule-summary-title">오늘의 팀원 부재 현황</h3>
                 <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '2px 7px',
-                    borderRadius: '9999px',
-                    background: todayAbsentList.length > 0 ? '#fef3c7' : '#dcfce7',
-                    color: todayAbsentList.length > 0 ? '#b45309' : '#15803d',
-                  }}
+                  className={`schedule-summary-pill ${
+                    todayAbsentList.length > 0 ? 'is-absent' : 'is-present'
+                  }`}
                 >
                   {todayAbsentList.length}명 부재
                 </span>
               </div>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '3px' }}>
+              <p className="schedule-summary-desc">
                 {todayAbsentList.length > 0
                   ? `${todayAbsentList
-                      .map((v) => `${v.userName} (${VACATION_TYPES.find((t) => t.key === v.type)?.label})`)
+                      .map(
+                        (v) =>
+                          `${v.userName} (${
+                            VACATION_TYPES.find((t) => t.key === v.type)?.label || '휴가'
+                          })`
+                      )
                       .join(', ')} 부재 중입니다.`
                   : '오늘 부재 중인 팀원이 없습니다. 전원 정상 근무 중입니다.'}
               </p>
@@ -362,99 +445,38 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={() => handleOpenCreateModal()}
-            className="btn btn-primary"
-            style={{ padding: '6px 12px', fontSize: '12.5px', whiteSpace: 'nowrap' }}
+            className="btn btn-primary schedule-summary-action-btn"
             disabled={isViewer}
             title={isViewer ? '유관부서 모드에서는 등록이 제한됩니다' : '휴가 등록'}
           >
-            <Plus size={15} /> 휴가 신청
+            <Plus size={16} /> 휴가 신청
           </button>
         </div>
 
         {/* 카드 2: 실시간 진행 업무 현황 (기획 · 디자인 · 퍼블리싱) */}
-        <div
-          className="card"
-          style={{
-            padding: '18px 20px',
-            background: 'linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)',
-            borderColor: 'var(--border-light)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '14px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div
-              style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
+        <div className="card schedule-summary-card is-tasks">
+          <div className="schedule-summary-main">
+            <div className="schedule-summary-icon is-tasks">
               <Sparkles size={22} />
             </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h3 style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)' }}>
-                  진행 중인 기획·디자인·퍼블 업무
-                </h3>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '2px 7px',
-                    borderRadius: '9999px',
-                    background: '#dbeafe',
-                    color: '#1d4ed8',
-                  }}
-                >
+            <div className="schedule-summary-info">
+              <div className="schedule-summary-title-row">
+                <h3 className="schedule-summary-title">진행 중인 기획·디자인·퍼블 업무</h3>
+                <span className="schedule-summary-pill is-tasks">
                   총 {activeTasks.length}건 진행중
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
-                <span
-                  style={{
-                    fontSize: '11.5px',
-                    color: '#2563eb',
-                    fontWeight: 600,
-                    background: '#eff6ff',
-                    padding: '1px 6px',
-                    borderRadius: '4px',
-                  }}
-                >
-                  📌 기획 {planningActiveTasksCount}건
+              <div className="schedule-summary-tracks">
+                <span className="schedule-track-chip track-planning">
+                  <FileText size={14} /> 기획 {planningActiveTasksCount}건
                 </span>
-                <span
-                  style={{
-                    fontSize: '11.5px',
-                    color: '#7c3aed',
-                    fontWeight: 600,
-                    background: '#f5f3ff',
-                    padding: '1px 6px',
-                    borderRadius: '4px',
-                  }}
-                >
-                  🎨 디자인 {designActiveTasksCount}건
+                <span className="schedule-track-chip track-design">
+                  <Palette size={14} /> 디자인 {designActiveTasksCount}건
                 </span>
-                <span
-                  style={{
-                    fontSize: '11.5px',
-                    color: '#059669',
-                    fontWeight: 600,
-                    background: '#ecfdf5',
-                    padding: '1px 6px',
-                    borderRadius: '4px',
-                  }}
-                >
-                  💻 퍼블리싱 {publishingActiveTasksCount}건
+                <span className="schedule-track-chip track-publishing">
+                  <Code size={14} /> 퍼블리싱 {publishingActiveTasksCount}건
                 </span>
               </div>
             </div>
@@ -462,250 +484,137 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
 
           {onNavigateToTasks && (
             <button
+              type="button"
               onClick={onNavigateToTasks}
-              className="btn btn-secondary"
-              style={{ padding: '6px 12px', fontSize: '12.5px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}
+              className="btn btn-secondary schedule-summary-action-btn"
               title="서비스기획 업무 관리 메뉴로 이동"
             >
-              업무 관리 <ArrowUpRight size={14} />
+              업무 관리 <ArrowUpRight size={15} />
             </button>
           )}
         </div>
       </div>
 
       {/* 2. 캘린더 네비게이션 & 파트 필터 바 */}
-      <div
-        className="card"
-        style={{
-          padding: '16px 20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
-        }}
-      >
+      <div className="card schedule-control-card">
         {/* 상단 컨트롤 라인: 월 이동 + 뷰 모드 전환 */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '12px',
-          }}
-        >
-          {/* 월 이동 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="schedule-nav-bar">
+          <div className="schedule-month-nav">
             <button
+              type="button"
               onClick={handlePrevMonth}
-              className="btn btn-secondary"
-              style={{ padding: '6px 10px' }}
+              className="btn btn-secondary schedule-month-arrow-btn"
               title="이전 달"
+              aria-label="이전 달"
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={18} />
             </button>
-            <h2 style={{ fontSize: '19px', fontWeight: 800, minWidth: '150px', textAlign: 'center', letterSpacing: '-0.3px' }}>
+            <h2 className="schedule-month-title">
               {currentDate.getFullYear()}년 {currentDate.getMonth() + 1}월
             </h2>
             <button
+              type="button"
               onClick={handleNextMonth}
-              className="btn btn-secondary"
-              style={{ padding: '6px 10px' }}
+              className="btn btn-secondary schedule-month-arrow-btn"
               title="다음 달"
+              aria-label="다음 달"
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={18} />
             </button>
             <button
+              type="button"
               onClick={handleSetToday}
-              className="btn btn-secondary"
-              style={{ padding: '5px 10px', fontSize: '12px', marginLeft: '4px' }}
+              className="btn btn-secondary schedule-today-btn"
             >
               이번 달
             </button>
           </div>
 
           {/* 뷰 모드 탭 (월간 캘린더 vs 목록) */}
-          <div style={{ display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: 'var(--radius-md)' }}>
+          <div className="schedule-view-toggle">
             <button
+              type="button"
               onClick={() => setViewTab('calendar')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                border: 'none',
-                borderRadius: '6px',
-                background: viewTab === 'calendar' ? '#ffffff' : 'transparent',
-                color: viewTab === 'calendar' ? '#1e293b' : '#64748b',
-                fontWeight: 700,
-                fontSize: '13px',
-                cursor: 'pointer',
-                boxShadow: viewTab === 'calendar' ? 'var(--shadow-sm)' : 'none',
-              }}
+              className={`schedule-view-btn ${viewTab === 'calendar' ? 'active' : ''}`}
             >
-              <CalendarIcon size={14} /> 월간 종합 캘린더
+              <CalendarIcon size={15} /> 월간 종합 캘린더
             </button>
             <button
+              type="button"
               onClick={() => setViewTab('list')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                border: 'none',
-                borderRadius: '6px',
-                background: viewTab === 'list' ? '#ffffff' : 'transparent',
-                color: viewTab === 'list' ? '#1e293b' : '#64748b',
-                fontWeight: 700,
-                fontSize: '13px',
-                cursor: 'pointer',
-                boxShadow: viewTab === 'list' ? 'var(--shadow-sm)' : 'none',
-              }}
+              className={`schedule-view-btn ${viewTab === 'list' ? 'active' : ''}`}
             >
-              <Layers size={14} /> 통합 일정 목록
+              <Layers size={15} /> 통합 일정 목록
             </button>
           </div>
         </div>
 
         {/* 하단 필터 바: 파트별 토글 필터 칩 */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '10px',
-            paddingTop: '10px',
-            borderTop: '1px solid var(--border-light)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginRight: '4px' }}>
-              일정 필터:
-            </span>
+        <div className="schedule-filter-bar">
+          <div className="schedule-filter-group">
+            <span className="schedule-filter-label">일정 필터:</span>
 
-            {/* 전체 일정 */}
-            <button
-              onClick={() => setFilterType('all')}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '9999px',
-                border: filterType === 'all' ? '1.5px solid #1e293b' : '1px solid #e2e8f0',
-                background: filterType === 'all' ? '#1e293b' : '#ffffff',
-                color: filterType === 'all' ? '#ffffff' : 'var(--text-secondary)',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              전체 일정
-            </button>
+            <div className="schedule-filter-chips">
+              <button
+                type="button"
+                onClick={() => setFilterType('all')}
+                className={`schedule-filter-chip chip-all ${filterType === 'all' ? 'active' : ''}`}
+              >
+                <span>전체 일정</span>
+              </button>
 
-            {/* 🏖️ 휴가 */}
-            <button
-              onClick={() => setFilterType('vacation')}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '9999px',
-                border: filterType === 'vacation' ? '1.5px solid #d97706' : '1px solid #fde68a',
-                background: filterType === 'vacation' ? '#f59e0b' : '#fffbeb',
-                color: filterType === 'vacation' ? '#ffffff' : '#b45309',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <span>🏖️ 휴가 일정 ({vacations.length})</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setFilterType('vacation')}
+                className={`schedule-filter-chip chip-vacation ${
+                  filterType === 'vacation' ? 'active' : ''
+                }`}
+              >
+                <CalendarIcon size={14} />
+                <span>휴가 일정 ({vacations.length})</span>
+              </button>
 
-            {/* 📌 기획 업무 */}
-            <button
-              onClick={() => setFilterType('기획')}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '9999px',
-                border: filterType === '기획' ? '1.5px solid #2563eb' : '1px solid #bfdbfe',
-                background: filterType === '기획' ? '#2563eb' : '#eff6ff',
-                color: filterType === '기획' ? '#ffffff' : '#1d4ed8',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <FileText size={13} />
-              <span>기획 업무 ({tasks.filter((t) => t.track === '기획').length})</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setFilterType('기획')}
+                className={`schedule-filter-chip chip-planning ${
+                  filterType === '기획' ? 'active' : ''
+                }`}
+              >
+                <FileText size={14} />
+                <span>기획 업무 ({tasks.filter((t) => t.track === '기획').length})</span>
+              </button>
 
-            {/* 🎨 디자인 업무 */}
-            <button
-              onClick={() => setFilterType('디자인')}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '9999px',
-                border: filterType === '디자인' ? '1.5px solid #7c3aed' : '1px solid #ddd6fe',
-                background: filterType === '디자인' ? '#7c3aed' : '#f5f3ff',
-                color: filterType === '디자인' ? '#ffffff' : '#6d28d9',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Palette size={13} />
-              <span>디자인 업무 ({tasks.filter((t) => t.track === '디자인').length})</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setFilterType('디자인')}
+                className={`schedule-filter-chip chip-design ${
+                  filterType === '디자인' ? 'active' : ''
+                }`}
+              >
+                <Palette size={14} />
+                <span>디자인 업무 ({tasks.filter((t) => t.track === '디자인').length})</span>
+              </button>
 
-            {/* 💻 퍼블리싱 업무 */}
-            <button
-              onClick={() => setFilterType('퍼블리싱')}
-              style={{
-                padding: '5px 12px',
-                borderRadius: '9999px',
-                border: filterType === '퍼블리싱' ? '1.5px solid #059669' : '1px solid #a7f3d0',
-                background: filterType === '퍼블리싱' ? '#059669' : '#ecfdf5',
-                color: filterType === '퍼블리싱' ? '#ffffff' : '#047857',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Code size={13} />
-              <span>퍼블리싱 업무 ({tasks.filter((t) => t.track === '퍼블리싱').length})</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setFilterType('퍼블리싱')}
+                className={`schedule-filter-chip chip-publishing ${
+                  filterType === '퍼블리싱' ? 'active' : ''
+                }`}
+              >
+                <Code size={14} />
+                <span>퍼블리싱 업무 ({tasks.filter((t) => t.track === '퍼블리싱').length})</span>
+              </button>
+            </div>
           </div>
 
           {/* 진행/검토 중 업무만 보기 토글 체크박스 */}
-          <label
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12.5px',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              fontWeight: 600,
-            }}
-          >
+          <label className="schedule-active-only-toggle">
             <input
               type="checkbox"
               checked={onlyActiveTasks}
               onChange={(e) => setOnlyActiveTasks(e.target.checked)}
-              style={{ cursor: 'pointer' }}
             />
             <span>진행·검토 중 업무만 캘린더에 표시</span>
           </label>
@@ -714,518 +623,544 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
 
       {/* 3-A. 캘린더 뷰 (월간 종합 캘린더) */}
       {viewTab === 'calendar' ? (
-        <div className="card" style={{ padding: '16px', overflow: 'hidden' }}>
-          {/* 요일 헤더 (일: 레드, 토: 블루) */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-              textAlign: 'center',
-              fontWeight: 800,
-              fontSize: '13px',
-              paddingBottom: '10px',
-              borderBottom: '1px solid var(--border-light)',
-              boxSizing: 'border-box',
-              width: '100%',
-              gap: '1px',
-            }}
-          >
-            <div style={{ color: '#ef4444', background: '#fef2f2', padding: '6px 0', borderRadius: '4px' }}>일 (Sun)</div>
-            <div style={{ color: '#334155', padding: '6px 0' }}>월</div>
-            <div style={{ color: '#334155', padding: '6px 0' }}>화</div>
-            <div style={{ color: '#334155', padding: '6px 0' }}>수</div>
-            <div style={{ color: '#334155', padding: '6px 0' }}>목</div>
-            <div style={{ color: '#334155', padding: '6px 0' }}>금</div>
-            <div style={{ color: '#2563eb', background: '#eff6ff', padding: '6px 0', borderRadius: '4px' }}>토 (Sat)</div>
+        <div className="schedule-calendar-section">
+          <div className="card schedule-calendar-card">
+            {/* 요일 헤더 (일: 레드, 토: 블루) */}
+            <div className="schedule-weekdays">
+              <div className="schedule-weekday is-sun">
+                <span className="weekday-full">일 (Sun)</span>
+                <span className="weekday-short">일</span>
+              </div>
+              <div className="schedule-weekday">월</div>
+              <div className="schedule-weekday">화</div>
+              <div className="schedule-weekday">수</div>
+              <div className="schedule-weekday">목</div>
+              <div className="schedule-weekday">금</div>
+              <div className="schedule-weekday is-sat">
+                <span className="weekday-full">토 (Sat)</span>
+                <span className="weekday-short">토</span>
+              </div>
+            </div>
+
+            {/* 달력 날짜 그리드 (7열 균등 분할) */}
+            <div className="schedule-calendar-grid">
+              {calendarDays.map((cell, idx) => {
+                const dayOfWeek = idx % 7;
+                const isSunday = dayOfWeek === 0;
+                const isSaturday = dayOfWeek === 6;
+                const isToday = cell.dateStr === todayStr;
+                const isMobileSelected = cell.dateStr === selectedMobileDate;
+
+                const { dayVacations: cellVacations, dayTasks: cellTasks } = getDaySchedules(
+                  cell.dateStr
+                );
+                const totalItemsCount = cellVacations.length + cellTasks.length;
+
+                // 최대 3개 항목만 노출하고 초과분은 '+N개 더보기' 버튼으로 처리
+                const MAX_DISPLAY = 3;
+                const displayVacations = cellVacations.slice(0, MAX_DISPLAY);
+                const remainingSlots = Math.max(0, MAX_DISPLAY - displayVacations.length);
+                const displayTasks = cellTasks.slice(0, remainingSlots);
+                const overflowCount =
+                  totalItemsCount - (displayVacations.length + displayTasks.length);
+
+                const cellClasses = [
+                  'schedule-day-cell',
+                  !cell.isCurrentMonth ? 'is-outside' : '',
+                  cell.isCurrentMonth && isSunday ? 'is-sunday' : '',
+                  cell.isCurrentMonth && isSaturday ? 'is-saturday' : '',
+                  isToday ? 'is-today' : '',
+                  isMobileSelected ? 'is-mobile-selected' : '',
+                  isViewer ? 'is-viewer' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ');
+
+                return (
+                  <div
+                    key={idx}
+                    className={cellClasses}
+                    onClick={() => {
+                      setSelectedMobileDate(cell.dateStr);
+                      if (typeof window !== 'undefined' && window.innerWidth > 767 && !isViewer) {
+                        handleOpenCreateModal(cell.dateStr);
+                      }
+                    }}
+                  >
+                    {/* 날짜 상단 헤더 */}
+                    <div className="schedule-day-header">
+                      <span
+                        className={`schedule-day-num ${isToday ? 'is-today' : ''} ${
+                          isSunday ? 'is-sun' : isSaturday ? 'is-sat' : ''
+                        }`}
+                      >
+                        {cell.dayNum}
+                      </span>
+
+                      {totalItemsCount > 0 && (
+                        <span className="schedule-day-count">{totalItemsCount}건</span>
+                      )}
+                    </div>
+
+                    {/* 데스크톱 & 태블릿용 일정 배지 목록 */}
+                    <div className="schedule-day-events">
+                      {/* A. 휴가 배지 노출 */}
+                      {displayVacations.map((v) => {
+                        const typeConfig =
+                          VACATION_TYPES.find((t) => t.key === v.type) || VACATION_TYPES[0];
+                        return (
+                          <div
+                            key={`vac-${v.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEditModal(v);
+                            }}
+                            className={`schedule-event-badge is-vacation ${typeConfig.classKey}`}
+                            title={`[휴가] ${v.userName} (${typeConfig.label}) / 대리: ${v.deputyName}`}
+                          >
+                            <span className="schedule-event-text">
+                              {v.userName.split(' ')[0]} ({typeConfig.label})
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                      {/* B. 업무 배지 노출 */}
+                      {displayTasks.map((t) => {
+                        const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
+                        const TrackIcon = trackCfg.icon;
+                        const isDueDay = cell.dateStr === t.dueDate;
+                        const isStartDay = cell.dateStr === t.startDate;
+
+                        return (
+                          <div
+                            key={`task-${t.id}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTask(t);
+                            }}
+                            className={`schedule-event-badge is-task ${trackCfg.classKey} ${
+                              isDueDay ? 'is-due' : ''
+                            }`}
+                            title={`[${t.track}] ${t.title} (${t.assigneeName}) / 마감일: ${t.dueDate}`}
+                          >
+                            <TrackIcon size={13} className="schedule-event-icon" />
+                            <span className="schedule-event-text">
+                              {isDueDay && <strong>[마감] </strong>}
+                              {isStartDay && !isDueDay && <strong>[착수] </strong>}
+                              {t.title}
+                            </span>
+                          </div>
+                        );
+                      })}
+
+                      {/* C. 3개 초과 시 '+N개 더보기' 버튼 */}
+                      {overflowCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedDayDetail({
+                              dateStr: cell.dateStr,
+                              dayNum: cell.dayNum,
+                              vacations: cellVacations,
+                              tasks: cellTasks,
+                            });
+                          }}
+                          className="schedule-more-btn"
+                        >
+                          +{overflowCount}개 더보기
+                        </button>
+                      )}
+                    </div>
+
+                    {/* 모바일 전용 컬러 인디케이터 도트 */}
+                    {totalItemsCount > 0 && (
+                      <div className="schedule-mobile-dots" aria-hidden="true">
+                        {cellVacations.slice(0, 2).map((v) => (
+                          <span key={`mdot-v-${v.id}`} className="schedule-dot is-vacation" />
+                        ))}
+                        {cellTasks.slice(0, 3).map((t) => {
+                          const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
+                          const isDueDay = cell.dateStr === t.dueDate;
+                          return (
+                            <span
+                              key={`mdot-t-${t.id}`}
+                              className={`schedule-dot ${
+                                isDueDay ? 'is-due' : trackCfg.classKey
+                              }`}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
-          {/* 달력 날짜 그리드 (7열 균등 분할 minmax(0, 1fr)로 토요일 컬럼 잘림 원천 방지) */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-              gridAutoRows: 'minmax(125px, auto)',
-              gap: '1px',
-              background: 'var(--border-light)',
-              marginTop: '4px',
-              width: '100%',
-              boxSizing: 'border-box',
-              overflow: 'hidden',
-              borderRadius: '6px',
-            }}
-          >
-            {calendarDays.map((cell, idx) => {
-              const dayOfWeek = idx % 7; // 0: 일요일, 6: 토요일
-              const isSunday = dayOfWeek === 0;
-              const isSaturday = dayOfWeek === 6;
-              const isToday = cell.dateStr === todayStr;
+          {/* 모바일 전용: 선택된 날짜의 상세 일정 패널 (767px 이하 노출) */}
+          <div className="card schedule-mobile-day-panel">
+            <div className="schedule-mobile-day-header">
+              <div className="schedule-mobile-day-title-wrap">
+                <CalendarIcon size={17} className="schedule-mobile-day-icon" />
+                <h3 className="schedule-mobile-day-title">
+                  {mobileSelectedData.dateStr} ({mobileSelectedData.weekday}) 일정
+                </h3>
+                <span className="schedule-mobile-day-badge">
+                  총 {mobileSelectedData.vacations.length + mobileSelectedData.tasks.length}건
+                </span>
+              </div>
 
-              // 주말 및 평일 배경 컬러 분기
-              let cellBg = '#ffffff';
-              if (!cell.isCurrentMonth) {
-                cellBg = '#f8fafc';
-              } else if (isSunday) {
-                cellBg = '#fff8f8'; // 은은한 일요일 로즈 틴트
-              } else if (isSaturday) {
-                cellBg = '#f4f8ff'; // 은은한 토요일 스카이 블루 틴트
-              }
-
-              // 날짜 숫자 폰트 컬러 분기
-              let dayNumColor = cell.isCurrentMonth ? 'var(--text-main)' : '#94a3b8';
-              if (cell.isCurrentMonth && !isToday) {
-                if (isSunday) dayNumColor = '#dc2626';
-                else if (isSaturday) dayNumColor = '#2563eb';
-              }
-
-              // 1. 해당 날짜의 휴가 항목 필터링
-              const cellVacations =
-                filterType === 'all' || filterType === 'vacation'
-                  ? vacations.filter((v) => cell.dateStr >= v.startDate && cell.dateStr <= v.endDate)
-                  : [];
-
-              // 2. 해당 날짜의 업무 항목 필터링
-              let cellTasks =
-                filterType === 'vacation'
-                  ? []
-                  : tasks.filter((t) => cell.dateStr >= t.startDate && cell.dateStr <= t.dueDate);
-
-              // 트랙 필터 (기획/디자인/퍼블리싱)
-              if (filterType === '기획' || filterType === '디자인' || filterType === '퍼블리싱') {
-                cellTasks = cellTasks.filter((t) => t.track === filterType);
-              }
-
-              // 진행중 업무만 표시 옵션 적용
-              if (onlyActiveTasks) {
-                cellTasks = cellTasks.filter((t) => ['in_progress', 'review'].includes(t.status));
-              }
-
-              const totalItemsCount = cellVacations.length + cellTasks.length;
-
-              // 최대 3개 항목만 노출하고 초과분은 '+N개 더보기' 칩으로 처리
-              const MAX_DISPLAY = 3;
-              const displayVacations = cellVacations.slice(0, MAX_DISPLAY);
-              const remainingSlots = Math.max(0, MAX_DISPLAY - displayVacations.length);
-              const displayTasks = cellTasks.slice(0, remainingSlots);
-              const overflowCount = totalItemsCount - (displayVacations.length + displayTasks.length);
-
-              return (
-                <div
-                  key={idx}
-                  onClick={() => !isViewer && handleOpenCreateModal(cell.dateStr)}
-                  style={{
-                    background: cellBg,
-                    padding: '8px 7px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px',
-                    cursor: isViewer ? 'default' : 'pointer',
-                    transition: 'background-color 0.15s ease',
-                    minHeight: '125px',
-                    minWidth: 0,
-                    width: '100%',
-                    overflow: 'hidden',
-                    boxSizing: 'border-box',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (cell.isCurrentMonth && !isViewer) {
-                      e.currentTarget.style.backgroundColor = isSunday
-                        ? '#fee2e2'
-                        : isSaturday
-                        ? '#e0edff'
-                        : '#f1f5f9';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (cell.isCurrentMonth && !isViewer) {
-                      e.currentTarget.style.backgroundColor = cellBg;
-                    }
-                  }}
+              {!isViewer && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenCreateModal(mobileSelectedData.dateStr)}
+                  className="btn btn-primary schedule-mobile-add-btn"
                 >
-                  {/* 날짜 상단 헤더 */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', minWidth: 0 }}>
-                    <span
-                      style={{
-                        fontSize: '12.5px',
-                        fontWeight: isToday ? 800 : (isSunday || isSaturday) ? 700 : cell.isCurrentMonth ? 600 : 400,
-                        color: isToday ? '#ffffff' : dayNumColor,
-                        background: isToday ? '#2563eb' : 'transparent',
-                        width: isToday ? '22px' : 'auto',
-                        height: isToday ? '22px' : 'auto',
-                        borderRadius: isToday ? '50%' : '0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
+                  <Plus size={15} /> 휴가 신청
+                </button>
+              )}
+            </div>
+
+            {mobileSelectedData.vacations.length === 0 &&
+            mobileSelectedData.tasks.length === 0 ? (
+              <div className="schedule-mobile-empty">
+                선택한 일자에 등록된 휴가나 진행 업무가 없습니다.
+              </div>
+            ) : (
+              <div className="schedule-mobile-agenda-list">
+                {/* 선택 일자 휴가 카드 */}
+                {mobileSelectedData.vacations.map((v) => {
+                  const typeConfig =
+                    VACATION_TYPES.find((t) => t.key === v.type) || VACATION_TYPES[0];
+                  return (
+                    <div
+                      key={`mob-vac-${v.id}`}
+                      onClick={() => handleOpenEditModal(v)}
+                      className={`schedule-mobile-agenda-item is-vacation ${typeConfig.classKey}`}
                     >
-                      {cell.dayNum}
-                    </span>
+                      <div className="schedule-mobile-agenda-top">
+                        <span className={`schedule-type-badge ${typeConfig.classKey}`}>
+                          휴가 · {typeConfig.label}
+                        </span>
+                        <span className="schedule-mobile-agenda-period">
+                          {v.startDate} ~ {v.endDate}
+                        </span>
+                      </div>
+                      <div className="schedule-mobile-agenda-main">
+                        <strong className="schedule-mobile-agenda-name">{v.userName}</strong>
+                        <span className="schedule-mobile-agenda-sub">
+                          업무 대행자: {v.deputyName || '-'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
 
-                    {totalItemsCount > 0 && (
-                      <span
-                        style={{
-                          fontSize: '10px',
-                          color: '#64748b',
-                          fontWeight: 700,
-                          background: 'rgba(0, 0, 0, 0.04)',
-                          padding: '1px 5px',
-                          borderRadius: '9999px',
-                        }}
-                      >
-                        {totalItemsCount}건
-                      </span>
-                    )}
-                  </div>
-
-                  {/* 날짜별 일정 뱃지 목록 컨테이너 */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px', width: '100%', minWidth: 0 }}>
-                    {/* A. 휴가 뱃지 노출 */}
-                    {displayVacations.map((v) => {
-                      const typeConfig = VACATION_TYPES.find((t) => t.key === v.type) || VACATION_TYPES[0];
-                      return (
-                        <div
-                          key={`vac-${v.id}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenEditModal(v);
-                          }}
-                          style={{
-                            padding: '3px 6px',
-                            borderRadius: '4px',
-                            background: typeConfig.bg,
-                            border: `1px solid ${typeConfig.color}40`,
-                            color: typeConfig.color,
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            cursor: 'pointer',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                            minWidth: 0,
-                            maxWidth: '100%',
-                            overflow: 'hidden',
-                            boxSizing: 'border-box',
-                          }}
-                          title={`[휴가] ${v.userName} (${typeConfig.label}) / 대리: ${v.deputyName}`}
-                        >
-                          <span style={{ fontSize: '10px', flexShrink: 0 }}>🏖️</span>
-                          <span
-                            style={{
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              minWidth: 0,
-                              flex: 1,
-                            }}
-                          >
-                            {v.userName.split(' ')[0]} ({typeConfig.label})
+                {/* 선택 일자 업무 카드 */}
+                {mobileSelectedData.tasks.map((t) => {
+                  const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
+                  const TrackIcon = trackCfg.icon;
+                  const isDueDay = mobileSelectedData.dateStr === t.dueDate;
+                  return (
+                    <div
+                      key={`mob-task-${t.id}`}
+                      onClick={() => setSelectedTask(t)}
+                      className={`schedule-mobile-agenda-item is-task ${trackCfg.classKey} ${
+                        isDueDay ? 'is-due' : ''
+                      }`}
+                    >
+                      <div className="schedule-mobile-agenda-top">
+                        <div className="schedule-mobile-agenda-badges">
+                          <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                            <TrackIcon size={13} /> {trackCfg.label}
                           </span>
+                          <span className="tasks-badge-category">{t.category}</span>
+                          {isDueDay && <span className="schedule-due-tag">마감일</span>}
                         </div>
-                      );
-                    })}
-
-                    {/* B. 업무 뱃지 노출 */}
-                    {displayTasks.map((t) => {
-                      const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
-                      const isDueDay = cell.dateStr === t.dueDate;
-                      const isStartDay = cell.dateStr === t.startDate;
-
-                      return (
-                        <div
-                          key={`task-${t.id}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedTask(t);
-                          }}
-                          style={{
-                            padding: '3px 6px',
-                            borderRadius: '4px',
-                            background: isDueDay ? '#fef2f2' : trackCfg.bg,
-                            border: `1px solid ${isDueDay ? '#fca5a5' : trackCfg.border}`,
-                            color: isDueDay ? '#dc2626' : trackCfg.color,
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            cursor: 'pointer',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
-                            minWidth: 0,
-                            maxWidth: '100%',
-                            overflow: 'hidden',
-                            boxSizing: 'border-box',
-                          }}
-                          title={`[${t.track}] ${t.title} (${t.assigneeName}) / 진척률 ${t.progress}% / 마감일: ${t.dueDate}`}
-                        >
-                          {isDueDay ? (
-                            <span style={{ color: '#dc2626', fontSize: '10px', fontWeight: 800, flexShrink: 0 }}>🚨</span>
-                          ) : (
-                            <span style={{ flexShrink: 0, display: 'inline-flex' }}>
-                              <trackCfg.icon size={11} />
-                            </span>
-                          )}
-                          <span
-                            style={{
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              minWidth: 0,
-                              flex: 1,
-                            }}
-                          >
-                            {isDueDay && <span style={{ fontWeight: 800 }}>[마감] </span>}
-                            {isStartDay && !isDueDay && <span style={{ fontWeight: 800 }}>[착수] </span>}
-                            [{t.track}] {t.title}
-                          </span>
-                        </div>
-                      );
-                    })}
-
-                    {/* C. 3개 초과 시 '+N개 더보기' 칩 */}
-                    {overflowCount > 0 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedDayDetail({
-                            dateStr: cell.dateStr,
-                            dayNum: cell.dayNum,
-                            vacations: cellVacations,
-                            tasks: cellTasks,
-                          });
-                        }}
-                        style={{
-                          marginTop: '2px',
-                          padding: '2px 5px',
-                          borderRadius: '4px',
-                          background: '#f1f5f9',
-                          border: 'none',
-                          color: '#475569',
-                          fontSize: '10.5px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          textAlign: 'center',
-                          display: 'block',
-                          width: '100%',
-                          minWidth: 0,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        +{overflowCount}개 더보기
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                        <span className="schedule-mobile-agenda-assignee">
+                          <UserCheck size={14} /> {t.assigneeName}
+                        </span>
+                      </div>
+                      <div className="schedule-mobile-agenda-title">{t.title}</div>
+                      <div className="schedule-mobile-agenda-period">
+                        <Clock size={14} /> {t.startDate} ~ {t.dueDate}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       ) : (
         /* 3-B. 통합 일정 목록 뷰 (탭 전환 가능) */
-        <div className="card" style={{ overflow: 'hidden' }}>
+        <div className="card schedule-list-card">
           {/* 목록 서브 헤더 */}
-          <div
-            style={{
-              padding: '14px 20px',
-              borderBottom: '1px solid var(--border-light)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: '#f8fafc',
-            }}
-          >
-            <div style={{ display: 'flex', gap: '8px' }}>
+          <div className="schedule-list-subbar">
+            <div className="schedule-list-subtabs">
               <button
+                type="button"
                 onClick={() => setListSubTab('vacation')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  border: listSubTab === 'vacation' ? '1px solid #d97706' : '1px solid #e2e8f0',
-                  background: listSubTab === 'vacation' ? '#fef3c7' : '#ffffff',
-                  color: listSubTab === 'vacation' ? '#92400e' : '#64748b',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
+                className={`schedule-subtab-btn is-vacation ${
+                  listSubTab === 'vacation' ? 'active' : ''
+                }`}
               >
-                🏖️ 팀원 휴가 일정 목록 ({vacations.length})
+                <CalendarIcon size={15} />
+                <span>팀원 휴가 일정 목록 ({vacations.length})</span>
               </button>
               <button
+                type="button"
                 onClick={() => setListSubTab('task')}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  border: listSubTab === 'task' ? '1px solid #2563eb' : '1px solid #e2e8f0',
-                  background: listSubTab === 'task' ? '#eff6ff' : '#ffffff',
-                  color: listSubTab === 'task' ? '#1e40af' : '#64748b',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
+                className={`schedule-subtab-btn is-task ${listSubTab === 'task' ? 'active' : ''}`}
               >
-                📌 진행 중인 기획/디자인/퍼블 업무 목록 ({activeTasks.length})
+                <Layers size={15} />
+                <span>진행 중인 기획·디자인·퍼블 업무 목록 ({activeTasks.length})</span>
               </button>
             </div>
           </div>
 
           {listSubTab === 'vacation' ? (
-            /* 휴가 테이블 */
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>대상자</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>휴가 유형</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>휴가 기간</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>업무 대행자</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>비상연락망</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>인수인계 및 비고</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600, textAlign: 'center' }}>관리</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vacations.map((item) => {
-                  const typeConfig = VACATION_TYPES.find((t) => t.key === item.type) || VACATION_TYPES[0];
-                  return (
-                    <tr key={item.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                      <td style={{ padding: '14px 18px', fontWeight: 700 }}>{item.userName}</td>
-                      <td style={{ padding: '14px 18px' }}>
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            background: typeConfig.bg,
-                            color: typeConfig.color,
-                            padding: '3px 8px',
-                            borderRadius: '4px',
-                          }}
-                        >
-                          {typeConfig.label}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 18px', fontWeight: 600 }}>
-                        {item.startDate} ~ {item.endDate}
-                      </td>
-                      <td style={{ padding: '14px 18px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <UserCheck size={14} color="#059669" /> {item.deputyName}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 18px', color: 'var(--text-secondary)' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <Phone size={13} /> {item.contact}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 18px', color: 'var(--text-muted)' }}>{item.notes || '-'}</td>
-                      <td style={{ padding: '14px 18px', textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', gap: '6px' }}>
-                          <button
-                            onClick={() => handleOpenEditModal(item)}
-                            className="btn btn-secondary"
-                            style={{ padding: '4px 8px', fontSize: '12px' }}
-                          >
-                            <Edit2 size={13} /> {isViewer ? '조회' : '수정'}
-                          </button>
-                          {!isViewer && (
-                            <button
-                              onClick={() => handleDeleteVacation(item.id, item.userName)}
-                              className="btn btn-secondary"
-                              style={{ padding: '4px 8px', fontSize: '12px', color: '#ef4444' }}
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
+            <>
+              {/* 데스크톱 & 태블릿 휴가 테이블 */}
+              <div className="schedule-table-scroll">
+                <table className="schedule-table">
+                  <thead>
+                    <tr>
+                      <th>대상자</th>
+                      <th>휴가 유형</th>
+                      <th>휴가 기간</th>
+                      <th>업무 대행자</th>
+                      <th>비상연락망</th>
+                      <th>인수인계 및 비고</th>
+                      <th className="th-center">관리</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : (
-            /* 업무 테이블 */
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>직무 파트</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>업무명</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>담당자</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>일정 기간</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600 }}>진척률</th>
-                  <th style={{ padding: '14px 18px', fontWeight: 600, textAlign: 'center' }}>상세</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeTasks.map((t) => {
-                  const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
+                  </thead>
+                  <tbody>
+                    {vacations.map((item) => {
+                      const typeConfig =
+                        VACATION_TYPES.find((t) => t.key === item.type) || VACATION_TYPES[0];
+                      return (
+                        <tr key={item.id}>
+                          <td className="td-bold">{item.userName}</td>
+                          <td>
+                            <span className={`schedule-type-badge ${typeConfig.classKey}`}>
+                              {typeConfig.label}
+                            </span>
+                          </td>
+                          <td className="td-period">
+                            {item.startDate} ~ {item.endDate}
+                          </td>
+                          <td>
+                            <span className="schedule-inline-icon-text">
+                              <UserCheck size={14} className="icon-emerald" /> {item.deputyName}
+                            </span>
+                          </td>
+                          <td className="td-secondary">
+                            <span className="schedule-inline-icon-text">
+                              <Phone size={14} /> {item.contact || '-'}
+                            </span>
+                          </td>
+                          <td className="td-muted">{item.notes || '-'}</td>
+                          <td className="td-center">
+                            <div className="schedule-row-actions">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditModal(item)}
+                                className="btn btn-secondary tasks-action-btn"
+                              >
+                                <Edit2 size={14} /> {isViewer ? '조회' : '수정'}
+                              </button>
+                              {!isViewer && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteVacation(item.id, item.userName)}
+                                  className="btn btn-secondary tasks-delete-icon-btn"
+                                  title="휴가 취소"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {vacations.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="td-center td-empty">
+                          등록된 휴가 일정이 없습니다.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 모바일 휴가 카드 리스트 */}
+              <div className="schedule-mobile-list">
+                {vacations.map((item) => {
+                  const typeConfig =
+                    VACATION_TYPES.find((t) => t.key === item.type) || VACATION_TYPES[0];
                   return (
-                    <tr key={t.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                      <td style={{ padding: '14px 18px' }}>
-                        <span
-                          style={{
-                            fontSize: '11.5px',
-                            fontWeight: 700,
-                            padding: '3px 8px',
-                            borderRadius: '4px',
-                            background: trackCfg.bg,
-                            color: trackCfg.color,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
-                          <trackCfg.icon size={12} /> {t.track}
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 18px', fontWeight: 700 }}>
-                        {t.title}
-                        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '8px' }}>
-                          ({t.category})
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 18px', fontWeight: 600 }}>{t.assigneeName}</td>
-                      <td style={{ padding: '14px 18px', color: 'var(--text-secondary)' }}>
-                        {t.startDate} ~ {t.dueDate}
-                      </td>
-                      <td style={{ padding: '14px 18px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div
-                            style={{
-                              flex: 1,
-                              height: '6px',
-                              background: '#e2e8f0',
-                              borderRadius: '9999px',
-                              overflow: 'hidden',
-                              minWidth: '60px',
-                            }}
-                          >
-                            <div
-                              style={{
-                                width: `${t.progress}%`,
-                                height: '100%',
-                                background: trackCfg.color,
-                              }}
-                            />
-                          </div>
-                          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                            {t.progress}%
+                    <div key={item.id} className="schedule-mobile-card">
+                      <div className="schedule-mobile-card-top">
+                        <div className="schedule-mobile-user-wrap">
+                          <strong className="schedule-mobile-user-name">{item.userName}</strong>
+                          <span className={`schedule-type-badge ${typeConfig.classKey}`}>
+                            {typeConfig.label}
                           </span>
                         </div>
-                      </td>
-                      <td style={{ padding: '14px 18px', textAlign: 'center' }}>
+                        <span className="schedule-mobile-period">
+                          {item.startDate} ~ {item.endDate}
+                        </span>
+                      </div>
+
+                      <div className="schedule-mobile-meta-grid">
+                        <span className="schedule-inline-icon-text">
+                          <UserCheck size={14} className="icon-emerald" /> 대행: {item.deputyName}
+                        </span>
+                        <span className="schedule-inline-icon-text">
+                          <Phone size={14} /> {item.contact || '-'}
+                        </span>
+                      </div>
+
+                      {item.notes && <div className="schedule-mobile-notes">{item.notes}</div>}
+
+                      <div className="schedule-mobile-card-actions">
                         <button
-                          onClick={() => setSelectedTask(t)}
-                          className="btn btn-secondary"
-                          style={{ padding: '4px 8px', fontSize: '12px' }}
+                          type="button"
+                          onClick={() => handleOpenEditModal(item)}
+                          className="btn btn-secondary tasks-action-btn"
                         >
-                          <Eye size={13} /> 상세 보기
+                          <Edit2 size={14} /> {isViewer ? '상세 조회' : '상세 및 수정'}
                         </button>
-                      </td>
-                    </tr>
+                        {!isViewer && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteVacation(item.id, item.userName)}
+                            className="btn btn-secondary tasks-delete-icon-btn"
+                          >
+                            <Trash2 size={14} /> 일정 취소
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
+                {vacations.length === 0 && (
+                  <div className="tasks-empty-col">등록된 휴가 일정이 없습니다.</div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* 데스크톱 & 태블릿 진행 업무 테이블 */}
+              <div className="schedule-table-scroll">
+                <table className="schedule-table">
+                  <thead>
+                    <tr>
+                      <th>직무 파트</th>
+                      <th>도메인</th>
+                      <th>업무명</th>
+                      <th>담당자</th>
+                      <th>일정 기간</th>
+                      <th className="th-center">상세</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeTasks.map((t) => {
+                      const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
+                      const TrackIcon = trackCfg.icon;
+                      return (
+                        <tr key={t.id}>
+                          <td>
+                            <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                              <TrackIcon size={13} /> {t.track}
+                            </span>
+                          </td>
+                          <td>
+                            <span className="tasks-badge-category">{t.category}</span>
+                          </td>
+                          <td className="td-bold">{t.title}</td>
+                          <td className="td-period">{t.assigneeName}</td>
+                          <td className="td-secondary">
+                            {t.startDate} ~ {t.dueDate}
+                          </td>
+                          <td className="td-center">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTask(t)}
+                              className="btn btn-secondary tasks-action-btn"
+                            >
+                              <Eye size={14} /> 상세 보기
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {activeTasks.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="td-center td-empty">
+                          현재 진행 중인 업무가 없습니다.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 모바일 진행 업무 카드 리스트 */}
+              <div className="schedule-mobile-list">
+                {activeTasks.map((t) => {
+                  const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
+                  const TrackIcon = trackCfg.icon;
+                  return (
+                    <div
+                      key={t.id}
+                      className={`schedule-mobile-card ${trackCfg.classKey}`}
+                    >
+                      <div className="schedule-mobile-card-top">
+                        <div className="tasks-card-badges">
+                          <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                            <TrackIcon size={13} /> {t.track}
+                          </span>
+                          <span className="tasks-badge-category">{t.category}</span>
+                        </div>
+                        <span className="schedule-inline-icon-text">
+                          <UserCheck size={14} /> {t.assigneeName}
+                        </span>
+                      </div>
+
+                      <div
+                        onClick={() => setSelectedTask(t)}
+                        className="tasks-mobile-list-title"
+                      >
+                        {t.title}
+                      </div>
+
+                      <div className="schedule-mobile-card-footer">
+                        <span className="schedule-inline-icon-text">
+                          <Clock size={14} /> {t.startDate} ~ {t.dueDate}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTask(t)}
+                          className="btn btn-secondary tasks-action-btn"
+                        >
+                          <Eye size={14} /> 상세 보기
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {activeTasks.length === 0 && (
+                  <div className="tasks-empty-col">현재 진행 중인 업무가 없습니다.</div>
+                )}
+              </div>
+            </>
           )}
         </div>
       )}
@@ -1243,32 +1178,40 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                   : '팀원 휴가 일정 등록'}
               </h3>
               <button
+                type="button"
                 onClick={() => setIsVacationModalOpen(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                className="tasks-modal-close-btn"
+                aria-label="모달 닫기"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveVacation}>
+            <form onSubmit={handleSaveVacation} className="tasks-modal-form">
               <div className="modal-body">
                 {/* 대상자 & 유형 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div className="tasks-form-grid-2">
                   <div className="form-group">
                     <label className="form-label">휴가 대상자 *</label>
                     <select
                       disabled={isViewer}
                       value={formData.userId}
                       onChange={(e) => {
-                        const target = teamMembers.find((m) => m.id === e.target.value);
+                        const target = teamMembers.find(
+                          (m) => String(m.id) === String(e.target.value)
+                        );
                         setFormData({
                           ...formData,
                           userId: e.target.value,
-                          userName: target ? target.name : '',
+                          userName: target ? target.name : formData.userName,
                         });
                       }}
                       className="form-select"
                     >
+                      {!teamMembers.some((m) => String(m.id) === String(formData.userId)) &&
+                        formData.userName && (
+                          <option value={formData.userId}>{formData.userName}</option>
+                        )}
                       {teamMembers.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.name}
@@ -1282,7 +1225,9 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                     <select
                       disabled={isViewer}
                       value={formData.type}
-                      onChange={(e) => setFormData({ ...formData, type: e.target.value as VacationType })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, type: e.target.value as VacationType })
+                      }
                       className="form-select"
                     >
                       {VACATION_TYPES.map((t) => (
@@ -1295,7 +1240,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                 </div>
 
                 {/* 기간 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div className="tasks-form-grid-2">
                   <div className="form-group">
                     <label className="form-label">시작일 *</label>
                     <input
@@ -1322,22 +1267,28 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                 </div>
 
                 {/* 대리업무자 & 연락처 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                <div className="tasks-form-grid-2">
                   <div className="form-group">
                     <label className="form-label">업무 대행자 (대리자) *</label>
                     <select
                       disabled={isViewer}
                       value={formData.deputyId}
                       onChange={(e) => {
-                        const dep = teamMembers.find((m) => m.id === e.target.value);
+                        const dep = teamMembers.find(
+                          (m) => String(m.id) === String(e.target.value)
+                        );
                         setFormData({
                           ...formData,
                           deputyId: e.target.value,
-                          deputyName: dep ? dep.name : '',
+                          deputyName: dep ? dep.name : formData.deputyName,
                         });
                       }}
                       className="form-select"
                     >
+                      {!teamMembers.some((m) => String(m.id) === String(formData.deputyId)) &&
+                        formData.deputyName && (
+                          <option value={formData.deputyId}>{formData.deputyName}</option>
+                        )}
                       {teamMembers.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.name}
@@ -1371,6 +1322,20 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                     className="form-textarea"
                   />
                 </div>
+
+                {/* 감사 추적 정보 표시 */}
+                {editingVacation && (
+                  <div className="tasks-audit-bar">
+                    <span>
+                      최초 등록: <strong>{editingVacation.createdBy}</strong> (
+                      {new Date(editingVacation.createdAt).toLocaleString('ko-KR')})
+                    </span>
+                    <span>
+                      최종 수정: <strong>{editingVacation.updatedBy}</strong> (
+                      {new Date(editingVacation.updatedAt).toLocaleString('ko-KR')})
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="modal-footer">
@@ -1378,8 +1343,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                   <button
                     type="button"
                     onClick={() => handleDeleteVacation(editingVacation.id, editingVacation.userName)}
-                    className="btn btn-danger"
-                    style={{ marginRight: 'auto' }}
+                    className="btn btn-danger tasks-modal-delete-btn"
                   >
                     <Trash2 size={15} /> 일정 취소
                   </button>
@@ -1405,75 +1369,44 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       {/* 5. 캘린더에서 클릭한 업무 상세 모달 (Task Detail Modal) */}
       {selectedTask && (
         <div className="modal-overlay" onClick={() => setSelectedTask(null)}>
-          <div className="modal-box" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-box schedule-task-modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="tasks-modal-header-left">
                 {(() => {
                   const trackCfg = TRACK_CONFIG[selectedTask.track] || TRACK_CONFIG['기획'];
+                  const TrackIcon = trackCfg.icon;
                   return (
-                    <span
-                      style={{
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        background: trackCfg.bg,
-                        color: trackCfg.color,
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}
-                    >
-                      <trackCfg.icon size={13} /> {selectedTask.track} 파트
+                    <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                      <TrackIcon size={13} /> {selectedTask.track} 파트
                     </span>
                   );
                 })()}
-                <h3 className="modal-title" style={{ fontSize: '17px' }}>
-                  {selectedTask.title}
-                </h3>
+                <h3 className="modal-title">{selectedTask.title}</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedTask(null)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                className="tasks-modal-close-btn"
+                aria-label="모달 닫기"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div className="modal-body schedule-modal-stack">
               {/* 속성 그리드 */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '12px',
-                  background: '#f8fafc',
-                  padding: '14px',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: '13px',
-                }}
-              >
+              <div className="schedule-task-meta-grid">
                 <div>
-                  <span style={{ color: 'var(--text-secondary)' }}>카테고리:</span>{' '}
+                  <span className="schedule-meta-label">도메인:</span>{' '}
                   <strong>{selectedTask.category}</strong>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text-secondary)' }}>담당자:</span>{' '}
+                  <span className="schedule-meta-label">담당자:</span>{' '}
                   <strong>{selectedTask.assigneeName}</strong>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text-secondary)' }}>우선순위:</span>{' '}
-                  <span
-                    style={{
-                      fontWeight: 700,
-                      color:
-                        selectedTask.priority === 'urgent'
-                          ? '#ef4444'
-                          : selectedTask.priority === 'high'
-                          ? '#f97316'
-                          : '#2563eb',
-                    }}
-                  >
+                  <span className="schedule-meta-label">우선순위:</span>{' '}
+                  <span className={`tasks-badge-priority priority-${selectedTask.priority}`}>
                     {selectedTask.priority === 'urgent'
                       ? '긴급'
                       : selectedTask.priority === 'high'
@@ -1484,35 +1417,12 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                   </span>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text-secondary)' }}>진행 상태:</span>{' '}
-                  <span
-                    style={{
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      background:
-                        selectedTask.status === 'done'
-                          ? '#dcfce7'
-                          : selectedTask.status === 'in_progress'
-                          ? '#dbeafe'
-                          : selectedTask.status === 'review'
-                          ? '#fef3c7'
-                          : '#f1f5f9',
-                      color:
-                        selectedTask.status === 'done'
-                          ? '#15803d'
-                          : selectedTask.status === 'in_progress'
-                          ? '#1d4ed8'
-                          : selectedTask.status === 'review'
-                          ? '#b45309'
-                          : '#475569',
-                    }}
-                  >
+                  <span className="schedule-meta-label">진행 상태:</span>{' '}
+                  <span className="tasks-badge-category">
                     {selectedTask.status === 'in_progress'
                       ? '진행중'
                       : selectedTask.status === 'review'
-                      ? '검토중'
+                      ? '검토/QA'
                       : selectedTask.status === 'done'
                       ? '완료'
                       : selectedTask.status === 'on_hold'
@@ -1520,85 +1430,50 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                       : '대기'}
                   </span>
                 </div>
-                <div style={{ gridColumn: 'span 2' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>업무 기간:</span>{' '}
+                <div className="schedule-task-meta-full">
+                  <span className="schedule-meta-label">업무 기간:</span>{' '}
                   <strong>
                     {selectedTask.startDate} ~ {selectedTask.dueDate}
                   </strong>
                 </div>
               </div>
 
-              {/* 진척률 바 */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>진척률</span>
-                  <span style={{ fontWeight: 800, color: '#2563eb' }}>{selectedTask.progress}%</span>
-                </div>
-                <div
-                  style={{
-                    height: '8px',
-                    background: '#e2e8f0',
-                    borderRadius: '9999px',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: `${selectedTask.progress}%`,
-                      height: '100%',
-                      background: '#2563eb',
-                      borderRadius: '9999px',
-                    }}
-                  />
-                </div>
-              </div>
-
               {/* 상세 내용 */}
               <div>
-                <label style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
-                  상세 업무 내용
-                </label>
-                <div
-                  style={{
-                    background: '#ffffff',
-                    border: '1px solid var(--border-light)',
-                    borderRadius: 'var(--radius-md)',
-                    padding: '12px',
-                    fontSize: '13.5px',
-                    lineHeight: 1.6,
-                    color: 'var(--text-main)',
-                    whiteSpace: 'pre-wrap',
-                  }}
-                >
+                <label className="form-label">상세 업무 내용</label>
+                <div className="schedule-task-desc-box">
                   {selectedTask.description || '상세 내용이 작성되지 않았습니다.'}
                 </div>
               </div>
 
-              {/* 산출물 문서 링크 */}
-              {selectedTask.links && selectedTask.links.length > 0 && (
+              {/* 산출물 링크 */}
+              {((selectedTask.links && selectedTask.links.length > 0) ||
+                selectedTask.artifactUrl) && (
                 <div>
-                  <label style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
-                    관련 산출물 및 문서
-                  </label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {selectedTask.links.map((link, lIdx) => (
+                  <label className="form-label">산출물 링크</label>
+                  <div className="schedule-task-links">
+                    {selectedTask.links && selectedTask.links.length > 0 ? (
+                      selectedTask.links.map((link, lIdx) => (
+                        <a
+                          key={lIdx}
+                          href={link.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="schedule-task-link-anchor"
+                        >
+                          <ExternalLink size={14} /> {link.url}
+                        </a>
+                      ))
+                    ) : (
                       <a
-                        key={lIdx}
-                        href={link.url}
+                        href={selectedTask.artifactUrl}
                         target="_blank"
                         rel="noreferrer"
-                        style={{
-                          fontSize: '12.5px',
-                          color: '#2563eb',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          textDecoration: 'none',
-                        }}
+                        className="schedule-task-link-anchor"
                       >
-                        <ExternalLink size={13} /> {link.title || link.url}
+                        <ExternalLink size={14} /> {selectedTask.artifactUrl}
                       </a>
-                    ))}
+                    )}
                   </div>
                 </div>
               )}
@@ -1612,10 +1487,9 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                     setSelectedTask(null);
                     onNavigateToTasks();
                   }}
-                  className="btn btn-primary"
-                  style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '5px' }}
+                  className="btn btn-primary tasks-modal-delete-btn"
                 >
-                  <ArrowUpRight size={14} /> 업무 관리 화면에서 열기
+                  <ArrowUpRight size={15} /> 업무 관리 화면에서 열기
                 </button>
               )}
               <button
@@ -1633,34 +1507,38 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       {/* 6. 일자별 전체 일정 더보기 모달 (Day Schedule Modal) */}
       {selectedDayDetail && (
         <div className="modal-overlay" onClick={() => setSelectedDayDetail(null)}>
-          <div className="modal-box" style={{ maxWidth: '620px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-box schedule-day-modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CalendarIcon size={18} color="#2563eb" />
-                {selectedDayDetail.dateStr} 전체 일정 (총 {selectedDayDetail.vacations.length + selectedDayDetail.tasks.length}건)
-              </h3>
+              <div className="tasks-modal-header-left">
+                <CalendarIcon size={18} className="schedule-mobile-day-icon" />
+                <h3 className="modal-title">
+                  {selectedDayDetail.dateStr} 전체 일정 (총{' '}
+                  {selectedDayDetail.vacations.length + selectedDayDetail.tasks.length}건)
+                </h3>
+              </div>
               <button
+                type="button"
                 onClick={() => setSelectedDayDetail(null)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                className="tasks-modal-close-btn"
+                aria-label="모달 닫기"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <div className="modal-body schedule-modal-stack">
               {/* 휴가 일정 목록 */}
               <div>
-                <h4 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>🏖️ 팀원 휴가 및 부재 ({selectedDayDetail.vacations.length}건)</span>
+                <h4 className="schedule-day-modal-section-title">
+                  팀원 휴가 및 부재 ({selectedDayDetail.vacations.length}건)
                 </h4>
                 {selectedDayDetail.vacations.length === 0 ? (
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '10px 0' }}>
-                    등록된 휴가 일정이 없습니다.
-                  </div>
+                  <div className="schedule-day-modal-empty">등록된 휴가 일정이 없습니다.</div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div className="schedule-mobile-agenda-list">
                     {selectedDayDetail.vacations.map((v) => {
-                      const typeConfig = VACATION_TYPES.find((t) => t.key === v.type) || VACATION_TYPES[0];
+                      const typeConfig =
+                        VACATION_TYPES.find((t) => t.key === v.type) || VACATION_TYPES[0];
                       return (
                         <div
                           key={v.id}
@@ -1668,41 +1546,22 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             setSelectedDayDetail(null);
                             handleOpenEditModal(v);
                           }}
-                          style={{
-                            padding: '10px 12px',
-                            borderRadius: '8px',
-                            background: typeConfig.bg,
-                            border: `1px solid ${typeConfig.color}40`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            cursor: 'pointer',
-                          }}
+                          className={`schedule-mobile-agenda-item is-vacation ${typeConfig.classKey}`}
                         >
-                          <div>
-                            <span style={{ fontWeight: 800, color: typeConfig.color, fontSize: '13.5px' }}>
-                              {v.userName}
-                            </span>
-                            <span
-                              style={{
-                                marginLeft: '8px',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                background: '#ffffff',
-                                color: typeConfig.color,
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                              }}
-                            >
-                              {typeConfig.label}
-                            </span>
-                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginLeft: '8px' }}>
-                              (대리자: {v.deputyName})
+                          <div className="schedule-mobile-agenda-top">
+                            <div className="schedule-mobile-user-wrap">
+                              <strong className="schedule-mobile-user-name">{v.userName}</strong>
+                              <span className={`schedule-type-badge ${typeConfig.classKey}`}>
+                                {typeConfig.label}
+                              </span>
+                              <span className="schedule-mobile-agenda-sub">
+                                (대행: {v.deputyName})
+                              </span>
+                            </div>
+                            <span className="schedule-mobile-agenda-period">
+                              {v.startDate} ~ {v.endDate}
                             </span>
                           </div>
-                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                            {v.startDate} ~ {v.endDate}
-                          </span>
                         </div>
                       );
                     })}
@@ -1712,17 +1571,18 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
 
               {/* 진행 업무 목록 */}
               <div>
-                <h4 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>📌 서비스기획 진행 업무 ({selectedDayDetail.tasks.length}건)</span>
+                <h4 className="schedule-day-modal-section-title">
+                  서비스기획 진행 업무 ({selectedDayDetail.tasks.length}건)
                 </h4>
                 {selectedDayDetail.tasks.length === 0 ? (
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', padding: '10px 0' }}>
+                  <div className="schedule-day-modal-empty">
                     해당 일자에 진행 중인 업무가 없습니다.
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div className="schedule-mobile-agenda-list">
                     {selectedDayDetail.tasks.map((t) => {
                       const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
+                      const TrackIcon = trackCfg.icon;
                       const isDue = selectedDayDetail.dateStr === t.dueDate;
                       return (
                         <div
@@ -1731,40 +1591,23 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             setSelectedDayDetail(null);
                             setSelectedTask(t);
                           }}
-                          style={{
-                            padding: '10px 12px',
-                            borderRadius: '8px',
-                            background: isDue ? '#fef2f2' : trackCfg.bg,
-                            border: `1px solid ${isDue ? '#fca5a5' : trackCfg.border}`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            cursor: 'pointer',
-                          }}
+                          className={`schedule-mobile-agenda-item is-task ${trackCfg.classKey} ${
+                            isDue ? 'is-due' : ''
+                          }`}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                fontWeight: 800,
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                background: isDue ? '#fee2e2' : '#ffffff',
-                                color: isDue ? '#dc2626' : trackCfg.color,
-                              }}
-                            >
-                              {isDue ? '🚨 마감일' : t.track}
-                            </span>
-                            <span style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-main)' }}>
-                              {t.title}
-                            </span>
-                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                              ({t.assigneeName} · {t.progress}%)
+                          <div className="schedule-mobile-agenda-top">
+                            <div className="tasks-card-badges">
+                              <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                                <TrackIcon size={13} /> {t.track}
+                              </span>
+                              {isDue && <span className="schedule-due-tag">마감일</span>}
+                              <strong className="schedule-mobile-user-name">{t.title}</strong>
+                              <span className="schedule-mobile-agenda-sub">({t.assigneeName})</span>
+                            </div>
+                            <span className="schedule-mobile-agenda-period">
+                              {t.startDate} ~ {t.dueDate}
                             </span>
                           </div>
-                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                            {t.startDate} ~ {t.dueDate}
-                          </span>
                         </div>
                       );
                     })}
