@@ -132,11 +132,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       status: 'in_progress' as TaskStatus,
       startDate: new Date().toISOString().split('T')[0],
       dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
-      progress: 0,
       description: '',
-      linkTitle: '',
       linkUrl: '',
-      links: [] as { title: string; url: string }[],
     };
   });
 
@@ -166,11 +163,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       status: 'in_progress',
       startDate: new Date().toISOString().split('T')[0],
       dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
-      progress: 0,
       description: '',
-      linkTitle: '',
       linkUrl: '',
-      links: [],
     });
     setIsModalOpen(true);
 
@@ -199,35 +193,10 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       status: task.status,
       startDate: task.startDate,
       dueDate: task.dueDate,
-      progress: task.progress,
       description: task.description,
-      linkTitle: '',
-      linkUrl: '',
-      links: [...(task.links ?? [])],
+      linkUrl: task.links?.[0]?.url || task.artifactUrl || '',
     });
     setIsModalOpen(true);
-  };
-
-  // 링크 추가
-  const handleAddLink = () => {
-    if (!formData.linkTitle.trim() || !formData.linkUrl.trim()) {
-      onShowToast('링크 제목과 URL을 모두 입력해 주세요.', 'error');
-      return;
-    }
-    setFormData((prev) => ({
-      ...prev,
-      links: [...prev.links, { title: prev.linkTitle.trim(), url: prev.linkUrl.trim() }],
-      linkTitle: '',
-      linkUrl: '',
-    }));
-  };
-
-  // 링크 삭제
-  const handleRemoveLink = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      links: prev.links.filter((_, i) => i !== index),
-    }));
   };
 
   // 저장 (등록/수정)
@@ -243,6 +212,9 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       return;
     }
 
+    const trimmedUrl = formData.linkUrl.trim();
+    const normalizedLinks = trimmedUrl ? [{ title: '산출물 링크', url: trimmedUrl }] : [];
+
     try {
       if (editingTask) {
         PlanningStorageService.updateTask(
@@ -257,9 +229,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
             status: formData.status,
             startDate: formData.startDate,
             dueDate: formData.dueDate,
-            progress: Number(formData.progress),
             description: formData.description,
-            links: formData.links,
+            links: normalizedLinks,
           },
           currentUser
         );
@@ -276,9 +247,9 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
             status: formData.status,
             startDate: formData.startDate,
             dueDate: formData.dueDate,
-            progress: Number(formData.progress),
+            progress: formData.status === 'done' ? 100 : 0,
             description: formData.description,
-            links: formData.links,
+            links: normalizedLinks,
           },
           currentUser
         );
@@ -348,24 +319,6 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
     const matchesStatus = selectedStatus === 'all' || t.status === selectedStatus;
     return matchesSearch && matchesTrack && matchesCategory && matchesAssignee && matchesStatus;
   });
-
-  const renderProgressSvg = (progress: number) => {
-    const clamped = Math.max(0, Math.min(100, Number(progress) || 0));
-    const isDone = clamped === 100;
-    return (
-      <svg className="tasks-progress-svg" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true">
-        <rect className="tasks-progress-track-bg" x="0" y="0" width="100" height="6" rx="3" />
-        <rect
-          className={`tasks-progress-fill ${isDone ? 'is-done' : ''}`}
-          x="0"
-          y="0"
-          width={clamped}
-          height="6"
-          rx="3"
-        />
-      </svg>
-    );
-  };
 
   return (
     <div className="tasks-container">
@@ -614,17 +567,6 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
 
                           <h4 className="tasks-card-title">{task.title}</h4>
 
-                          {/* 진척률 바 */}
-                          <div className="tasks-progress-wrap">
-                            <div className="tasks-progress-header">
-                              <span>진척률</span>
-                              <span className={`tasks-progress-val ${task.progress === 100 ? 'is-done' : ''}`}>
-                                {task.progress}%
-                              </span>
-                            </div>
-                            {renderProgressSvg(task.progress)}
-                          </div>
-
                           {/* 카드 하단 메타 */}
                           <div className="tasks-card-footer">
                             <span className="tasks-card-meta-item">
@@ -660,7 +602,6 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                   <th>업무명</th>
                   <th>담당자</th>
                   <th>상태</th>
-                  <th>진척률</th>
                   <th>일정 (시작~마감)</th>
                   <th className="th-center">관리</th>
                 </tr>
@@ -714,14 +655,6 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                           ))}
                         </select>
                       </td>
-                      <td>
-                        <div className="tasks-table-progress">
-                          <div className="tasks-table-progress-bar">
-                            {renderProgressSvg(task.progress)}
-                          </div>
-                          <span className="tasks-table-progress-text">{task.progress}%</span>
-                        </div>
-                      </td>
                       <td className="tasks-table-schedule">
                         {task.startDate} ~ {task.dueDate}
                       </td>
@@ -752,7 +685,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                 })}
                 {filteredTasks.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="td-center">
+                    <td colSpan={8} className="td-center">
                       조건에 해당하는 업무가 없습니다.
                     </td>
                   </tr>
@@ -812,16 +745,6 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                   {task.description && (
                     <div className="tasks-mobile-list-desc">{task.description}</div>
                   )}
-
-                  <div className="tasks-progress-wrap">
-                    <div className="tasks-progress-header">
-                      <span>진척률</span>
-                      <span className={`tasks-progress-val ${task.progress === 100 ? 'is-done' : ''}`}>
-                        {task.progress}%
-                      </span>
-                    </div>
-                    {renderProgressSvg(task.progress)}
-                  </div>
 
                   <div className="tasks-mobile-list-meta">
                     <span className="tasks-card-meta-item">
@@ -1011,8 +934,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                   </div>
                 </div>
 
-                {/* 4. 일정 & 진척률 */}
-                <div className="tasks-form-grid-3">
+                {/* 4. 일정 (시작일 & 마감일) */}
+                <div className="tasks-form-grid-2">
                   <div className="form-group">
                     <label className="form-label">시작일</label>
                     <input
@@ -1034,20 +957,6 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       className="form-input"
                     />
                   </div>
-
-                  <div className="form-group tasks-form-progress-group">
-                    <label className="form-label">진척률 ({formData.progress}%)</label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      step="5"
-                      disabled={isViewer}
-                      value={formData.progress}
-                      onChange={(e) => setFormData({ ...formData, progress: Number(e.target.value) })}
-                      className="tasks-range-input"
-                    />
-                  </div>
                 </div>
 
                 {/* 5. 상세 내용 */}
@@ -1063,62 +972,28 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                   />
                 </div>
 
-                {/* 6. 관련 문서 링크 */}
+                {/* 6. 산출물 링크 (단일 입력 필드) */}
                 <div className="form-group">
-                  <label className="form-label">관련 기획서 및 산출물 링크</label>
-                  {!isViewer && (
-                    <div className="tasks-link-input-row">
-                      <input
-                        type="text"
-                        placeholder="문서명 (예: 화면설계서 SB)"
-                        value={formData.linkTitle}
-                        onChange={(e) => setFormData({ ...formData, linkTitle: e.target.value })}
-                        className="form-input tasks-link-title-input"
-                      />
-                      <div className="tasks-link-url-group">
-                        <input
-                          type="url"
-                          placeholder="https://..."
-                          value={formData.linkUrl}
-                          onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
-                          className="form-input tasks-link-url-input"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddLink}
-                          className="btn btn-secondary tasks-link-add-btn"
-                        >
-                          추가
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="tasks-links-list">
-                    {formData.links.map((link, idx) => (
-                      <div key={idx} className="tasks-link-item">
-                        <a
-                          href={link.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="tasks-link-anchor"
-                        >
-                          <ExternalLink size={14} /> {link.title}
-                        </a>
-                        {!isViewer && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveLink(idx)}
-                            className="tasks-link-remove-btn"
-                            aria-label="링크 삭제"
-                          >
-                            <X size={15} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                    {formData.links.length === 0 && (
-                      <div className="tasks-links-empty">등록된 첨부 문서 링크가 없습니다.</div>
+                  <label className="form-label">산출물 링크</label>
+                  <div className="tasks-single-link-row">
+                    <input
+                      type="url"
+                      disabled={isViewer}
+                      placeholder="https://..."
+                      value={formData.linkUrl}
+                      onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
+                      className="form-input tasks-single-link-input"
+                    />
+                    {formData.linkUrl.trim() && (
+                      <a
+                        href={formData.linkUrl.trim()}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary tasks-single-link-open-btn"
+                        title="새 창에서 산출물 링크 열기"
+                      >
+                        <ExternalLink size={15} /> 열기
+                      </a>
                     )}
                   </div>
                 </div>

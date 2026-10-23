@@ -3576,89 +3576,27 @@ button, input, select, textarea {
   cursor: pointer;
 }
 
-.tasks-link-input-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.tasks-link-title-input {
-  flex: 1;
-  min-width: 0;
-}
-
-.tasks-link-url-group {
-  display: flex;
-  gap: 8px;
-  flex: 1.5;
-  min-width: 0;
-}
-
-.tasks-link-url-input {
-  flex: 1;
-  min-width: 0;
-}
-
-.tasks-link-add-btn {
-  padding: 8px 14px;
-  flex-shrink: 0;
-}
-
-.tasks-links-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.tasks-link-item {
+.tasks-single-link-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  padding: 8px 12px;
-  background: #f8fafc;
-  border-radius: var(--radius-sm);
-  border: 1px solid #e2e8f0;
-  font-size: 14px;
 }
 
-.tasks-link-anchor {
+.tasks-single-link-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.tasks-single-link-open-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #2563eb;
-  text-decoration: none;
+  padding: 9px 14px;
+  font-size: 14px;
   font-weight: 600;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tasks-link-anchor:hover {
-  text-decoration: underline;
-}
-
-.tasks-link-remove-btn {
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: #94a3b8;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
   flex-shrink: 0;
-}
-
-.tasks-link-remove-btn:hover {
-  color: #ef4444;
-}
-
-.tasks-links-empty {
-  font-size: 14px;
-  color: #94a3b8;
-  padding: 4px 0;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 .tasks-audit-bar {
