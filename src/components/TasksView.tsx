@@ -245,36 +245,43 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
 
     try {
       if (editingTask) {
-        PlanningStorageService.updateTask(editingTask.id, {
-          title: formData.title.trim(),
-          category: formData.category,
-          track: formData.track,
-          assigneeId: formData.assigneeId,
-          assigneeName: formData.assigneeName,
-          priority: formData.priority,
-          status: formData.status,
-          startDate: formData.startDate,
-          dueDate: formData.dueDate,
-          progress: Number(formData.progress),
-          description: formData.description,
-          links: formData.links,
-        });
+        PlanningStorageService.updateTask(
+          editingTask.id,
+          {
+            title: formData.title.trim(),
+            category: formData.category,
+            track: formData.track,
+            assigneeId: formData.assigneeId,
+            assigneeName: formData.assigneeName,
+            priority: formData.priority,
+            status: formData.status,
+            startDate: formData.startDate,
+            dueDate: formData.dueDate,
+            progress: Number(formData.progress),
+            description: formData.description,
+            links: formData.links,
+          },
+          currentUser
+        );
         onShowToast(`[${formData.track}] 업무 정보가 성공적으로 수정되었습니다.`, 'success');
       } else {
-        PlanningStorageService.createTask({
-          title: formData.title.trim(),
-          category: formData.category,
-          track: formData.track,
-          assigneeId: formData.assigneeId,
-          assigneeName: formData.assigneeName,
-          priority: formData.priority,
-          status: formData.status,
-          startDate: formData.startDate,
-          dueDate: formData.dueDate,
-          progress: Number(formData.progress),
-          description: formData.description,
-          links: formData.links,
-        });
+        PlanningStorageService.createTask(
+          {
+            title: formData.title.trim(),
+            category: formData.category,
+            track: formData.track,
+            assigneeId: formData.assigneeId,
+            assigneeName: formData.assigneeName,
+            priority: formData.priority,
+            status: formData.status,
+            startDate: formData.startDate,
+            dueDate: formData.dueDate,
+            progress: Number(formData.progress),
+            description: formData.description,
+            links: formData.links,
+          },
+          currentUser
+        );
         onShowToast(`새로운 [${formData.track}] 업무가 등록되었습니다.`, 'success');
       }
       setIsModalOpen(false);
@@ -305,10 +312,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       onShowToast('읽기 전용 모드에서는 상태를 변경할 수 없습니다.', 'error');
       return;
     }
-    PlanningStorageService.updateTask(taskId, {
-      status: newStatus,
-      progress: newStatus === 'done' ? 100 : undefined,
-    });
+    PlanningStorageService.updateTask(
+      taskId,
+      {
+        status: newStatus,
+        progress: newStatus === 'done' ? 100 : undefined,
+      },
+      currentUser
+    );
     onShowToast('상태가 변경되었습니다.', 'success');
     refreshTasks();
   };

@@ -19,6 +19,7 @@ const STORAGE_KEYS = {
   KPIS: 'ds_planning_kpis_clean_v1',
   AUDIT_LOGS: 'ds_planning_audit_logs_clean_v1',
   CURRENT_USER_ID: 'ds_planning_current_user_id_v2',
+  CURRENT_USER_SNAPSHOT: 'ds_planning_current_user_snapshot_v2',
 };
 
 // 안전한 JSON 파싱 유틸리티 (무오류 원칙 준수)
@@ -353,16 +354,31 @@ export class PlanningStorageService {
   public static getCurrentUser(): User {
     const users = this.getUsers();
     const currentId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
+    const snapshot = safeJsonParse<User | null>(localStorage.getItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT), null);
+
     if (currentId) {
       const matchedById = users.find((u) => String(u.id) === String(currentId));
       if (matchedById) {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(matchedById));
         return matchedById;
       }
     }
+
+    if (snapshot?.name) {
+      const matchedByName = users.find((u) => u.name.trim() === snapshot.name.trim());
+      if (matchedByName) {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, matchedByName.id);
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(matchedByName));
+        return matchedByName;
+      }
+      return snapshot;
+    }
+
     const fallback = users.find((u) => u.name === '최범열') || users[0];
     if (fallback) {
       if (!currentId) {
         localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, fallback.id);
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(fallback));
       }
       return fallback;
     }
@@ -383,6 +399,7 @@ export class PlanningStorageService {
     const target = users.find((u) => String(u.id) === String(userId));
     if (target) {
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, target.id);
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(target));
       localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
       this.recordAuditLog({
         entityType: 'auth',
@@ -426,6 +443,7 @@ export class PlanningStorageService {
     }
 
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, found.id);
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(found));
     localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
 
     this.recordAuditLog({
@@ -463,6 +481,7 @@ export class PlanningStorageService {
         existingUser.position = isPlanTeam ? '서비스기획자' : '유관부서 담당자';
         localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
         localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, existingUser.id);
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(existingUser));
         localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
         await this.pushUserToRemote(existingUser);
         return { success: true, user: existingUser };
@@ -491,6 +510,7 @@ export class PlanningStorageService {
     const updatedUsers = [...users, newUser];
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, newUser.id);
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(newUser));
     localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
 
     // Supabase DB 동기화 저장
@@ -582,10 +602,11 @@ export class PlanningStorageService {
   public static getTasks(): TaskItem[] {
     this.initialize();
     const stored = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []);
-    // track 필드 기본값 보정 (하위 호환 및 무오류 보장)
+    // track 필드 기본값 및 기존 세션 오류로 잘못 기록된 최초 등록자 보정
     return stored.map((t) => ({
       ...t,
       track: t.track || '기획',
+      createdBy: t.id === 'task-mvk8olb8-z6sqd' && t.createdBy === '최범열' ? '박수민' : t.createdBy,
     }));
   }
 
@@ -635,11 +656,14 @@ export class PlanningStorageService {
     }
   }
 
-  public static createTask(data: Omit<TaskItem, 'id' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>): TaskItem {
+  public static createTask(
+    data: Omit<TaskItem, 'id' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>,
+    actor?: User
+  ): TaskItem {
     if (this.isViewer()) {
       throw new Error('유관부서(읽기 전용) 모드에서는 업무를 등록할 수 없습니다.');
     }
-    const currentUser = this.getCurrentUser();
+    const currentUser = actor || this.getCurrentUser();
     const now = new Date().toISOString();
     const newTask: TaskItem = {
       ...data,
@@ -661,6 +685,7 @@ export class PlanningStorageService {
       entityTitle: newTask.title,
       action: 'CREATE',
       summary: `새 업무 등록: [${newTask.track} · ${newTask.category}] ${newTask.title} (담당: ${newTask.assigneeName})`,
+      actorOverride: { id: currentUser.id, name: currentUser.name, role: currentUser.role },
     });
 
     // Supabase DB 비동기 반영 (스마트 2단계 전송)
@@ -669,7 +694,7 @@ export class PlanningStorageService {
     return newTask;
   }
 
-  public static updateTask(taskId: string, changes: Partial<TaskItem>): TaskItem {
+  public static updateTask(taskId: string, changes: Partial<TaskItem>, actor?: User): TaskItem {
     if (this.isViewer()) {
       throw new Error('유관부서(읽기 전용) 모드에서는 업무를 수정할 수 없습니다.');
     }
@@ -679,7 +704,7 @@ export class PlanningStorageService {
       throw new Error('수정할 업무 항목을 찾을 수 없습니다.');
     }
 
-    const currentUser = this.getCurrentUser();
+    const currentUser = actor || this.getCurrentUser();
     const original = tasks[index];
     const now = new Date().toISOString();
 
@@ -687,6 +712,8 @@ export class PlanningStorageService {
       ...original,
       ...changes,
       track: changes.track || original.track || '기획',
+      createdBy: original.createdBy,
+      createdAt: original.createdAt,
       updatedBy: currentUser.name,
       updatedAt: now,
     };
@@ -717,6 +744,7 @@ export class PlanningStorageService {
       entityTitle: updatedTask.title,
       action: 'UPDATE',
       summary: summaryText,
+      actorOverride: { id: currentUser.id, name: currentUser.name, role: currentUser.role },
     });
 
     // Supabase DB 비동기 반영 (스마트 2단계 전송)
