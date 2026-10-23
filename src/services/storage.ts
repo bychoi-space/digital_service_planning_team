@@ -73,20 +73,52 @@ export class PlanningStorageService {
 
     this.isSyncing = true;
     try {
-      // 0. users 동기화 (클라우드 회원 DB - 시퀀스 ID 및 표준 회원 구조)
-      const { data: remoteUsers, error: userErr } = await client.from('users').select('*').order('id', { ascending: true });
+      // 0. users 동기화 (클라우드 회원 DB - 로컬 가입 회원 안전 병합 및 원격 자동 푸시)
+      const { data: remoteUsers, error: userErr } = await client.from('users').select('*').order('created_at', { ascending: true });
       if (!userErr && remoteUsers && remoteUsers.length > 0) {
-        const mappedUsers: User[] = remoteUsers.map((row) => ({
+        const localUsers = safeJsonParse<User[]>(localStorage.getItem(STORAGE_KEYS.USERS), []);
+        const prevCurrentId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
+        const prevCurrentUser = localUsers.find((u) => String(u.id) === String(prevCurrentId));
+
+        const mappedRemoteUsers: User[] = remoteUsers.map((row) => ({
           id: String(row.id),
+          username: row.username || `user_${String(row.id)}`,
           name: row.name,
-          password: row.password || '1234',
+          password: row.password ?? '',
           role: row.role as UserRole,
           department: row.department,
           position: row.position || (row.role === 'admin' ? '팀장 / 수석기획자' : row.role === 'member' ? '서비스기획자' : '유관부서 담당자'),
           email: row.email || `${row.name.replace(/\s+/g, '').toLowerCase()}@company.com`,
           avatarColor: row.avatar_color || '#2563eb',
         }));
-        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mappedUsers));
+
+        const userMap = new Map<string, User>();
+        mappedRemoteUsers.forEach((u) => userMap.set(u.name.trim(), u));
+
+        for (const localUser of localUsers) {
+          const key = localUser.name.trim();
+          if (!userMap.has(key)) {
+            userMap.set(key, localUser);
+            this.pushUserToRemote(localUser);
+          } else {
+            const remoteUser = userMap.get(key)!;
+            if (!remoteUser.password && localUser.password) {
+              remoteUser.password = localUser.password;
+              this.pushUserToRemote(remoteUser);
+            }
+          }
+        }
+
+        const mergedUsers = Array.from(userMap.values());
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mergedUsers));
+
+        // 로그인된 사용자 세션 ID가 이름 기준으로 매칭되는 원격 회원 ID로 갱신되어야 하는 경우 보정
+        if (prevCurrentUser) {
+          const matchedMerged = mergedUsers.find((u) => u.name.trim() === prevCurrentUser.name.trim());
+          if (matchedMerged && String(matchedMerged.id) !== String(prevCurrentId)) {
+            localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, matchedMerged.id);
+          }
+        }
       }
 
       // 1. tasks 동기화 (로컬 데이터 절대 보존 및 안전 병합 정책)
@@ -266,6 +298,54 @@ export class PlanningStorageService {
     return safeJsonParse<User[]>(localStorage.getItem(STORAGE_KEYS.USERS), []);
   }
 
+  // 서비스기획팀 소속으로 가입된 팀원 목록 조회 (담당자/대행자 선택용)
+  public static getServicePlanningMembers(): User[] {
+    const users = this.getUsers();
+    const members = users.filter(
+      (u) =>
+        u.department === '서비스기획팀' ||
+        u.department?.includes('서비스기획') ||
+        u.role === 'admin' ||
+        u.role === 'member'
+    );
+    if (members.length > 0) return members;
+    const current = this.getCurrentUser();
+    return current ? [current] : [];
+  }
+
+  // 원격 Supabase users 테이블로 회원 정보 업서트 (id/username 포함 스키마 및 시퀀스 스키마 모두 호환)
+  public static async pushUserToRemote(user: User): Promise<void> {
+    if (!isSupabaseEnabled()) return;
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const payloadFull = {
+      id: user.id,
+      username: user.username || `user_${Date.now().toString(36)}`,
+      name: user.name,
+      password: user.password || '',
+      role: user.role,
+      department: user.department,
+      position: user.position || (user.role === 'viewer' ? '유관부서 담당자' : '서비스기획자'),
+      email: user.email || `${user.name.replace(/\s+/g, '').toLowerCase()}@company.com`,
+      avatar_color: user.avatarColor || '#2563eb',
+    };
+
+    try {
+      const { error } = await client.from('users').upsert(payloadFull);
+      if (error) {
+        if (error.message.includes('username')) {
+          const { username: _unused, ...payloadWithoutUsername } = payloadFull;
+          await client.from('users').upsert(payloadWithoutUsername);
+        } else {
+          console.warn('[Supabase] User upsert note:', error.message);
+        }
+      }
+    } catch (e) {
+      console.warn('[Supabase] User push error:', e);
+    }
+  }
+
   public static isLoggedIn(): boolean {
     return localStorage.getItem('ds_planning_is_logged_in_v1') === 'true';
   }
@@ -273,14 +353,19 @@ export class PlanningStorageService {
   public static getCurrentUser(): User {
     const users = this.getUsers();
     const currentId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
-    const found = users.find((u) => u.id === currentId || u.name === '최범열');
-    if (found) {
-      if (currentId !== found.id) {
-        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, found.id);
+    if (currentId) {
+      const matchedById = users.find((u) => String(u.id) === String(currentId));
+      if (matchedById) {
+        return matchedById;
       }
-      return found;
     }
-    if (users.length > 0) return users[0];
+    const fallback = users.find((u) => u.name === '최범열') || users[0];
+    if (fallback) {
+      if (!currentId) {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, fallback.id);
+      }
+      return fallback;
+    }
     // DB 로딩 전 기본 안전 관리자 객체
     return {
       id: 'user-mvfynq9h-dl4un',
@@ -295,7 +380,7 @@ export class PlanningStorageService {
 
   public static setCurrentUser(userId: string): User {
     const users = this.getUsers();
-    const target = users.find((u) => u.id === userId);
+    const target = users.find((u) => String(u.id) === String(userId));
     if (target) {
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, target.id);
       localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
@@ -305,6 +390,7 @@ export class PlanningStorageService {
         entityTitle: target.name,
         action: 'LOGIN',
         summary: `${target.name}(${target.role === 'viewer' ? '유관부서 뷰어' : '기획팀원'}) 계정으로 전환/로그인`,
+        actorOverride: { id: target.id, name: target.name, role: target.role },
       });
       return target;
     }
@@ -332,6 +418,13 @@ export class PlanningStorageService {
       return { success: false, message: '비밀번호가 일치하지 않습니다.' };
     }
 
+    // 비밀번호가 비어있던 복구 계정의 경우 최초 로그인 비밀번호를 저장 및 동기화
+    if (!found.password) {
+      found.password = password;
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+      this.pushUserToRemote(found);
+    }
+
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, found.id);
     localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
 
@@ -341,12 +434,13 @@ export class PlanningStorageService {
       entityTitle: found.name,
       action: 'LOGIN',
       summary: `${found.name} (${found.department}) 포털 로그인 성공`,
+      actorOverride: { id: found.id, name: found.name, role: found.role },
     });
 
     return { success: true, user: found };
   }
 
-  // 신규 회원가입 처리 (DB 자동 증가 시퀀스 PK 채번 및 표준 구조)
+  // 신규 회원가입 처리 (Supabase users 테이블 스키마 완벽 호환)
   public static async registerUser(params: {
     name: string;
     password: string;
@@ -355,50 +449,36 @@ export class PlanningStorageService {
     const users = this.getUsers();
     const trimmedName = params.name.trim();
 
-    // 중복 체크
-    if (users.some((u) => u.name.trim() === trimmedName)) {
-      return { success: false, message: '이미 동일한 이름으로 등록된 사용자가 있습니다.' };
-    }
-
     // 역할 자동 결정: 서비스기획팀이면 member, 그 외 유관부서는 viewer
     const isPlanTeam = params.department.includes('서비스기획') || params.department.includes('기획');
     const role: UserRole = isPlanTeam ? 'member' : 'viewer';
 
+    // 이미 동일 이름이 존재하는 경우: 비밀번호 미설정(복구 계정)이면 비밀번호/부서 갱신 허용, 아니면 중복 안내
+    const existingUser = users.find((u) => u.name.trim() === trimmedName);
+    if (existingUser) {
+      if (!existingUser.password) {
+        existingUser.password = params.password;
+        existingUser.department = params.department;
+        existingUser.role = role;
+        existingUser.position = isPlanTeam ? '서비스기획자' : '유관부서 담당자';
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, existingUser.id);
+        localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
+        await this.pushUserToRemote(existingUser);
+        return { success: true, user: existingUser };
+      }
+      return { success: false, message: '이미 동일한 이름으로 등록된 사용자가 있습니다.' };
+    }
+
     const colors = ['#2563eb', '#059669', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#4b5563'];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
 
-    // 기본 시퀀스 ID 계산 (로컬 오프라인 대비: 기존 최대 숫자 ID + 1)
-    const existingNumericIds = users.map((u) => parseInt(u.id, 10)).filter((n) => !isNaN(n));
-    let assignedId = String(existingNumericIds.length > 0 ? Math.max(...existingNumericIds) + 1 : users.length + 1);
-
-    // Supabase DB 비동기 등록 (DB의 BIGINT IDENTITY 시퀀스 채번)
-    if (isSupabaseEnabled()) {
-      try {
-        const client = getSupabaseClient();
-        if (client) {
-          const { data, error } = await client.from('users').insert({
-            name: trimmedName,
-            password: params.password,
-            role,
-            department: params.department,
-            position: isPlanTeam ? '서비스기획자' : '유관부서 담당자',
-            email: `${trimmedName.replace(/\s+/g, '').toLowerCase()}@company.com`,
-            avatar_color: randomColor,
-          }).select().single();
-
-          if (error) {
-            console.warn('Supabase user register note:', error.message);
-          } else if (data?.id) {
-            assignedId = String(data.id);
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase insert skipped or failed:', err);
-      }
-    }
+    const assignedId = generateUniqueId('user');
+    const assignedUsername = `user_${Date.now().toString(36)}`;
 
     const newUser: User = {
       id: assignedId,
+      username: assignedUsername,
       name: trimmedName,
       password: params.password,
       role,
@@ -413,12 +493,16 @@ export class PlanningStorageService {
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, newUser.id);
     localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
 
+    // Supabase DB 동기화 저장
+    await this.pushUserToRemote(newUser);
+
     this.recordAuditLog({
       entityType: 'auth',
       entityId: newUser.id,
       entityTitle: newUser.name,
       action: 'CREATE',
-      summary: `신규 회원가입: ${newUser.name} (${newUser.department}, ${role === 'member' ? '기획팀원' : '유관부서 뷰어'}) [ID: ${newUser.id}]`,
+      summary: `신규 회원가입: ${newUser.name} (${newUser.department}, ${role === 'member' ? '기획팀원' : '유관부서 뷰어'})`,
+      actorOverride: { id: newUser.id, name: newUser.name, role: newUser.role },
     });
 
     return { success: true, user: newUser };

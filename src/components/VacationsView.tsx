@@ -66,6 +66,7 @@ const TRACK_CONFIG: Record<
 };
 
 export const VacationsView: React.FC<VacationsViewProps> = ({
+  currentUser,
   isViewer,
   onShowToast,
   onNavigateToTasks,
@@ -95,12 +96,12 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     tasks: TaskItem[];
   } | null>(null);
 
-  const teamMembers = PlanningStorageService.getUsers().filter((u) => u.role !== 'viewer');
+  const teamMembers = PlanningStorageService.getServicePlanningMembers();
 
   const [formData, setFormData] = useState({
     userId: '',
     userName: '',
-    department: '디지털서비스기획팀',
+    department: '서비스기획팀',
     type: 'annual' as VacationType,
     startDate: '2026-10-25',
     endDate: '2026-10-25',
@@ -115,21 +116,27 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     setTasks(PlanningStorageService.getTasks());
   };
 
-  // 모달 열기 (신규 휴가 신청)
+  // 모달 열기 (신규 휴가 신청 - 기본 대상자를 현재 로그인된 서비스기획팀원으로 지정)
   const handleOpenCreateModal = (presetDate?: string) => {
     if (isViewer) {
       onShowToast('유관부서(읽기 전용) 모드에서는 휴가를 등록할 수 없습니다.', 'error');
       return;
     }
-    const defaultUser = teamMembers[0] || { id: '1', name: '최범열' };
-    const defaultDeputy = teamMembers.length > 1 ? teamMembers[1] : defaultUser;
+    const defaultUser =
+      teamMembers.find(
+        (m) => String(m.id) === String(currentUser.id) || m.name.trim() === currentUser.name.trim()
+      ) ||
+      teamMembers[0] ||
+      currentUser;
+    const defaultDeputy =
+      teamMembers.find((m) => String(m.id) !== String(defaultUser.id)) || defaultUser;
     const targetDate = presetDate || new Date().toISOString().split('T')[0];
 
     setEditingVacation(null);
     setFormData({
       userId: defaultUser.id,
       userName: defaultUser.name,
-      department: '디지털서비스기획팀',
+      department: '서비스기획팀',
       type: 'annual',
       startDate: targetDate,
       endDate: targetDate,

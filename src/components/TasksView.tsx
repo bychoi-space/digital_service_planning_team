@@ -87,8 +87,9 @@ const STATUSES: { key: TaskStatus; label: string; shortLabel: string; classKey: 
   { key: 'on_hold', label: '보류 (On Hold)', shortLabel: '보류', classKey: 'status-on_hold' },
 ];
 
-export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) => {
+export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onShowToast }) => {
   const [tasks, setTasks] = useState<TaskItem[]>(() => PlanningStorageService.getTasks());
+  const [teamMembers, setTeamMembers] = useState<User[]>(() => PlanningStorageService.getServicePlanningMembers());
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTrack, setSelectedTrack] = useState<string>('all'); // 'all' | '기획' | '디자인' | '퍼블리싱'
@@ -101,37 +102,59 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
 
-  // 폼 입력 상태
-  const [formData, setFormData] = useState(() => ({
-    title: '',
-    category: '신규기획' as TaskCategory,
-    track: '기획' as TaskTrack,
-    assigneeId: '',
-    assigneeName: '',
-    priority: 'medium' as TaskPriority,
-    status: 'in_progress' as TaskStatus,
-    startDate: new Date().toISOString().split('T')[0],
-    dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
-    progress: 0,
-    description: '',
-    linkTitle: '',
-    linkUrl: '',
-    links: [] as { title: string; url: string }[],
-  }));
+  // 로그인된 회원을 기본 담당자로 반환하는 헬퍼
+  const resolveDefaultAssignee = (members: User[]): User => {
+    const matchedCurrent = members.find(
+      (m) => String(m.id) === String(currentUser.id) || m.name.trim() === currentUser.name.trim()
+    );
+    if (matchedCurrent) return matchedCurrent;
+    if (currentUser.role !== 'viewer') return currentUser;
+    return members[0] || currentUser;
+  };
 
-  const teamMembers = PlanningStorageService.getUsers().filter((u) => u.role !== 'viewer');
+  // 폼 입력 상태 (기본 담당자: 현재 로그인된 서비스기획팀원)
+  const [formData, setFormData] = useState(() => {
+    const initialMembers = PlanningStorageService.getServicePlanningMembers();
+    const initialAssignee =
+      initialMembers.find(
+        (m) => String(m.id) === String(currentUser.id) || m.name.trim() === currentUser.name.trim()
+      ) ||
+      (currentUser.role !== 'viewer' ? currentUser : initialMembers[0]) ||
+      currentUser;
+
+    return {
+      title: '',
+      category: '신규기획' as TaskCategory,
+      track: '기획' as TaskTrack,
+      assigneeId: initialAssignee.id,
+      assigneeName: initialAssignee.name,
+      priority: 'medium' as TaskPriority,
+      status: 'in_progress' as TaskStatus,
+      startDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+      progress: 0,
+      description: '',
+      linkTitle: '',
+      linkUrl: '',
+      links: [] as { title: string; url: string }[],
+    };
+  });
 
   const refreshTasks = () => {
     setTasks(PlanningStorageService.getTasks());
+    setTeamMembers(PlanningStorageService.getServicePlanningMembers());
   };
 
-  // 모달 열기 (등록)
+  // 모달 열기 (등록 - 기본 담당자를 로그인된 회원으로 자동 지정)
   const handleOpenCreateModal = (defaultTrack?: TaskTrack) => {
     if (isViewer) {
       onShowToast('유관부서(읽기 전용) 모드에서는 새 업무를 등록할 수 없습니다.', 'error');
       return;
     }
-    const defaultAssignee = teamMembers[0] || { id: '1', name: '최범열' };
+    const latestMembers = PlanningStorageService.getServicePlanningMembers();
+    setTeamMembers(latestMembers);
+    const defaultAssignee = resolveDefaultAssignee(latestMembers);
+
     setEditingTask(null);
     setFormData({
       title: '',
@@ -150,17 +173,28 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
       links: [],
     });
     setIsModalOpen(true);
+
+    // 원격 DB 최신 가입 팀원 목록 비동기 동기화
+    PlanningStorageService.syncFromSupabase().then(() => {
+      setTeamMembers(PlanningStorageService.getServicePlanningMembers());
+    });
   };
 
   // 모달 열기 (수정 or 상세 조회)
   const handleOpenEditModal = (task: TaskItem) => {
+    const latestMembers = PlanningStorageService.getServicePlanningMembers();
+    setTeamMembers(latestMembers);
+    const matchedAssignee = latestMembers.find(
+      (m) => String(m.id) === String(task.assigneeId) || m.name.trim() === task.assigneeName?.trim()
+    );
+
     setEditingTask(task);
     setFormData({
       title: task.title,
       category: task.category,
       track: task.track || '기획',
-      assigneeId: task.assigneeId,
-      assigneeName: task.assigneeName,
+      assigneeId: matchedAssignee ? matchedAssignee.id : task.assigneeId,
+      assigneeName: matchedAssignee ? matchedAssignee.name : task.assigneeName,
       priority: task.priority,
       status: task.status,
       startDate: task.startDate,
@@ -295,7 +329,11 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
       t.assigneeName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTrack = selectedTrack === 'all' || t.track === selectedTrack;
     const matchesCategory = selectedCategory === 'all' || t.category === selectedCategory;
-    const matchesAssignee = selectedAssignee === 'all' || t.assigneeId === selectedAssignee;
+    const selectedMemberObj = teamMembers.find((m) => String(m.id) === String(selectedAssignee));
+    const matchesAssignee =
+      selectedAssignee === 'all' ||
+      String(t.assigneeId) === String(selectedAssignee) ||
+      (selectedMemberObj ? t.assigneeName.trim() === selectedMemberObj.name.trim() : false);
     const matchesStatus = selectedStatus === 'all' || t.status === selectedStatus;
     return matchesSearch && matchesTrack && matchesCategory && matchesAssignee && matchesStatus;
   });
@@ -909,7 +947,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                       disabled={isViewer}
                       value={formData.assigneeId}
                       onChange={(e) => {
-                        const targetUser = teamMembers.find((m) => m.id === e.target.value);
+                        const targetUser = teamMembers.find((m) => String(m.id) === String(e.target.value));
                         setFormData({
                           ...formData,
                           assigneeId: e.target.value,
@@ -920,7 +958,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ isViewer, onShowToast }) =
                     >
                       {teamMembers.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.name} ({m.position})
+                          {m.name} ({m.department || '서비스기획팀'})
                         </option>
                       ))}
                     </select>
