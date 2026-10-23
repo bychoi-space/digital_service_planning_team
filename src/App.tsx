@@ -7,12 +7,14 @@ import { OverviewView } from './components/OverviewView';
 import { TasksView } from './components/TasksView';
 import { VacationsView } from './components/VacationsView';
 import { KpiView } from './components/KpiView';
+import { WorkInfoView } from './components/WorkInfoView';
 import { AuditLogsView } from './components/AuditLogsView';
 import {
   Compass,
   CheckSquare,
   Calendar,
   Target,
+  BookOpen,
   ShieldAlert,
   Eye,
   Check,
@@ -24,7 +26,7 @@ import {
   X,
 } from 'lucide-react';
 
-type NavTab = 'overview' | 'tasks' | 'vacations' | 'kpi' | 'audit';
+type NavTab = 'overview' | 'tasks' | 'vacations' | 'kpi' | 'work_info' | 'audit';
 type AuthMode = 'login' | 'register';
 
 function isAuthHash(hash: string = typeof window !== 'undefined' ? window.location.hash : ''): boolean {
@@ -45,12 +47,21 @@ function parseTabFromHash(hash: string = typeof window !== 'undefined' ? window.
   if (cleanHash === 'tasks' || cleanHash.startsWith('tasks/')) return 'tasks';
   if (cleanHash === 'schedule' || cleanHash === 'vacations' || cleanHash.startsWith('schedule/')) return 'vacations';
   if (cleanHash === 'kpi' || cleanHash === 'kpis' || cleanHash.startsWith('kpi/')) return 'kpi';
+  if (
+    cleanHash === 'work-info' ||
+    cleanHash === 'work_info' ||
+    cleanHash === 'info' ||
+    cleanHash.startsWith('work-info/')
+  ) {
+    return 'work_info';
+  }
   if (cleanHash === 'audit' || cleanHash === 'logs' || cleanHash.startsWith('audit/')) return 'audit';
   return 'overview';
 }
 
 function tabToHash(tab: NavTab): string {
   if (tab === 'vacations') return '#/schedule';
+  if (tab === 'work_info') return '#/work-info';
   return `#/${tab}`;
 }
 
@@ -59,6 +70,7 @@ const NAV_LABELS: Record<NavTab, string> = {
   tasks: '서비스기획 업무 관리',
   vacations: '팀 통합 일정',
   kpi: 'KPI 목표 및 평가',
+  work_info: '업무 관련 정보',
   audit: '감사 로그 (Audit)',
 };
 
@@ -67,6 +79,7 @@ const TAB_TITLES: Record<NavTab, string> = {
   tasks: `서비스기획팀 업무포털 | ${NAV_LABELS.tasks}`,
   vacations: `서비스기획팀 업무포털 | ${NAV_LABELS.vacations}`,
   kpi: `서비스기획팀 업무포털 | ${NAV_LABELS.kpi}`,
+  work_info: `서비스기획팀 업무포털 | ${NAV_LABELS.work_info}`,
   audit: `서비스기획팀 업무포털 | ${NAV_LABELS.audit}`,
 };
 
@@ -308,6 +321,18 @@ export function App() {
             <span>{NAV_LABELS.kpi}</span>
           </a>
 
+          <a
+            href="#/work-info"
+            className={`nav-item ${activeTab === 'work_info' ? 'active' : ''}`}
+            onClick={(e) => {
+              e.preventDefault();
+              navigateTo('work_info');
+            }}
+          >
+            <BookOpen size={18} />
+            <span>{NAV_LABELS.work_info}</span>
+          </a>
+
           <div className="sidebar-divider" />
 
           <a
@@ -399,6 +424,13 @@ export function App() {
           )}
           {activeTab === 'kpi' && (
             <KpiView
+              currentUser={currentUser}
+              isViewer={isViewer}
+              onShowToast={showToast}
+            />
+          )}
+          {activeTab === 'work_info' && (
+            <WorkInfoView
               currentUser={currentUser}
               isViewer={isViewer}
               onShowToast={showToast}

@@ -175,7 +175,16 @@ export interface KpiItem extends AuditBase {
 
 // 4. 감사 로그(Audit Log) 관련 타입
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'STATUS_CHANGE';
-export type AuditEntityType = 'task' | 'vacation' | 'kpi' | 'auth';
+export type AuditEntityType = 'task' | 'vacation' | 'kpi' | 'auth' | 'work_info';
+
+// 6. 업무 관련 정보 (Work Info) 타입
+export interface WorkInfoItem extends AuditBase {
+  category: string; // 예: '기본 사항', '참고 정보' 등
+  title: string;    // 항목명
+  content: string;  // 내용 (멀티라인 텍스트, URL 등)
+  note: string;     // 비고
+  sortOrder: number;
+}
 
 export interface AuditLog {
   id: string;

@@ -5294,6 +5294,473 @@ button, input, select, textarea {
   }
 }
 
+/* ============================================================================
+   업무 관련 정보 (WorkInfoView - #/work-info) 전용 스타일 & 반응형 최적화
+   ============================================================================ */
+
+.winfo-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.winfo-control-card {
+  padding: 18px 20px;
+}
+
+.winfo-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.winfo-category-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.winfo-category-tab {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.winfo-category-tab:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.winfo-category-tab.active {
+  border: 2px solid #1e293b;
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.winfo-category-count {
+  font-size: 14px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 1px 7px;
+  border-radius: 9999px;
+}
+
+.winfo-category-tab.active .winfo-category-count {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.winfo-search-and-action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  justify-content: flex-end;
+  min-width: 280px;
+}
+
+.winfo-search-box {
+  max-width: 320px;
+}
+
+.winfo-add-main-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* 섹션 카드 및 노션 스타일 테이블 */
+.winfo-sections-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.winfo-section-card {
+  overflow: hidden;
+}
+
+.winfo-section-header {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-light);
+  background: #ffffff;
+}
+
+.winfo-section-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.winfo-section-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-main);
+  letter-spacing: -0.3px;
+}
+
+.winfo-section-badge {
+  font-size: 14px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 2px 10px;
+  border-radius: 9999px;
+}
+
+.winfo-section-add-btn {
+  padding: 7px 13px;
+  font-size: 14px;
+}
+
+.winfo-table-scroll {
+  overflow-x: auto;
+}
+
+.winfo-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+}
+
+.winfo-table thead tr {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.winfo-table th {
+  padding: 13px 18px;
+  font-weight: 700;
+  font-size: 14px;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.winfo-table th:last-child {
+  border-right: none;
+}
+
+.winfo-col-title {
+  width: 26%;
+  min-width: 200px;
+}
+
+.winfo-col-content {
+  width: 46%;
+  min-width: 280px;
+}
+
+.winfo-col-note {
+  width: 16%;
+  min-width: 140px;
+}
+
+.winfo-col-actions {
+  width: 12%;
+  min-width: 130px;
+  text-align: center;
+}
+
+.winfo-table tbody tr {
+  border-bottom: 1px solid var(--border-light);
+  transition: background-color 0.15s ease;
+}
+
+.winfo-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.winfo-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+.winfo-table td {
+  padding: 15px 18px;
+  font-size: 14.5px;
+  vertical-align: top;
+  border-right: 1px solid var(--border-light);
+  line-height: 1.65;
+}
+
+.winfo-table td:last-child {
+  border-right: none;
+}
+
+.winfo-td-title {
+  font-weight: 700;
+  color: var(--text-main);
+  word-break: keep-all;
+}
+
+.winfo-td-content {
+  color: var(--text-main);
+}
+
+.winfo-content-wrap {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.winfo-content-text {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.winfo-copy-btn {
+  padding: 6px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.winfo-copy-btn:hover {
+  background: #f1f5f9;
+  color: var(--text-main);
+  border-color: #cbd5e1;
+}
+
+.winfo-td-note {
+  color: var(--text-secondary);
+}
+
+.winfo-td-actions {
+  text-align: center;
+  vertical-align: middle !important;
+}
+
+.winfo-inline-link {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  word-break: break-all;
+}
+
+.winfo-inline-link:hover {
+  color: #1d4ed8;
+}
+
+.winfo-inline-link-icon {
+  flex-shrink: 0;
+}
+
+.winfo-empty-cell {
+  text-align: center;
+  padding: 28px 16px !important;
+  color: var(--text-muted);
+}
+
+.winfo-no-results {
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+/* 모바일 카드 리스트 (데스크톱/태블릿에서는 숨김) */
+.winfo-mobile-list {
+  display: none;
+}
+
+/* 모달 내부 보조 컨트롤 */
+.winfo-modal-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.winfo-modal-label-row .form-label {
+  margin-bottom: 0;
+}
+
+.winfo-toggle-custom-cat-btn {
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.winfo-toggle-custom-cat-btn:hover {
+  text-decoration: underline;
+}
+
+/* 태블릿 반응형 (768px ~ 1023px) */
+@media (max-width: 1023px) {
+  .winfo-top-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .winfo-search-and-action {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .winfo-search-box {
+    max-width: none;
+    flex: 1;
+  }
+}
+
+/* 모바일 반응형 (767px 이하) */
+@media (max-width: 767px) {
+  .winfo-container {
+    gap: 14px;
+  }
+
+  .winfo-control-card {
+    padding: 14px;
+  }
+
+  .winfo-category-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+  }
+
+  .winfo-category-tab {
+    width: 100%;
+    justify-content: space-between;
+    padding: 8px 10px;
+  }
+
+  .winfo-search-and-action {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
+    gap: 8px;
+  }
+
+  .winfo-add-main-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 14px;
+  }
+
+  .winfo-section-header {
+    padding: 14px;
+  }
+
+  .winfo-section-add-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .winfo-table-scroll {
+    display: none;
+  }
+
+  .winfo-mobile-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    background: #f8fafc;
+  }
+
+  .winfo-mobile-card {
+    background: #ffffff;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .winfo-mobile-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .winfo-mobile-card-title {
+    font-size: 15.5px;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.4;
+    word-break: keep-all;
+  }
+
+  .winfo-mobile-copy-btn {
+    padding: 5px 10px;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .winfo-mobile-card-body {
+    font-size: 14.5px;
+    color: var(--text-main);
+    line-height: 1.65;
+    background: #f8fafc;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    word-break: break-word;
+  }
+
+  .winfo-mobile-card-note {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .winfo-mobile-note-label {
+    font-weight: 700;
+    color: var(--text-main);
+  }
+
+  .winfo-mobile-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f1f5f9;
+  }
+}
+
+
 
 
 

@@ -9,6 +9,7 @@ import type {
   KpiGrade,
   AuditLog,
   UserRole,
+  WorkInfoItem,
 } from '../types';
 import { getSupabaseClient, isSupabaseEnabled } from './supabase';
 
@@ -18,9 +19,100 @@ const STORAGE_KEYS = {
   VACATIONS: 'ds_planning_vacations_clean_v1',
   KPIS: 'ds_planning_kpis_clean_v1',
   AUDIT_LOGS: 'ds_planning_audit_logs_clean_v1',
+  WORK_INFOS: 'ds_planning_work_infos_v1',
   CURRENT_USER_ID: 'ds_planning_current_user_id_v2',
   CURRENT_USER_SNAPSHOT: 'ds_planning_current_user_snapshot_v2',
 };
+
+const WORK_INFO_CLOUD_RECORD_ID = 'sys-work-info-store-v1';
+
+const INITIAL_WORK_INFO_ITEMS: WorkInfoItem[] = [
+  {
+    id: 'winfo-1',
+    category: '기본 사항',
+    title: '시선 그룹웨어 (메신저, 메일, 일정)',
+    content: 'https://gw.sisun.com/',
+    note: '',
+    sortOrder: 1,
+    createdBy: '최범열',
+    createdAt: '2026-10-23T02:55:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-10-23T02:55:00.000Z',
+  },
+  {
+    id: 'winfo-2',
+    category: '기본 사항',
+    title: 'ERP, 나스 폴더 (공유폴더)',
+    content: 'ID : 1260808\nPW : sisun65@@',
+    note: '',
+    sortOrder: 2,
+    createdBy: '최범열',
+    createdAt: '2026-10-23T02:55:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-10-23T02:55:00.000Z',
+  },
+  {
+    id: 'winfo-3',
+    category: '기본 사항',
+    title: '디지털정보실 업무 담당자',
+    content: 'ERP : 김현진 수석부장, 모세 과장\n그룹웨어 / 메신저 : 민상연 대리\n나스 : 김동혁 주임',
+    note: '',
+    sortOrder: 3,
+    createdBy: '최범열',
+    createdAt: '2026-10-23T02:55:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-10-23T02:55:00.000Z',
+  },
+  {
+    id: 'winfo-4',
+    category: '기본 사항',
+    title: '와이파이',
+    content:
+      '1. 게스트 (손님용)\nsisun\nsisun1234\n* 인터넷만 가능\n\n2. 내부 업무용\nsisunin\nsisun12#$\n* 내부 : NAS, ERP 회의실에서 업무사용\n내부업무 접속 가이드 - Hiden 되어 있는 WiFi',
+    note: '',
+    sortOrder: 4,
+    createdBy: '최범열',
+    createdAt: '2026-10-23T02:55:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-10-23T02:55:00.000Z',
+  },
+  {
+    id: 'winfo-5',
+    category: '기본 사항',
+    title: '라이브 방송',
+    content: '소스라이브',
+    note: '',
+    sortOrder: 5,
+    createdBy: '최범열',
+    createdAt: '2026-10-23T02:55:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-10-23T02:55:00.000Z',
+  },
+  {
+    id: 'winfo-6',
+    category: '참고 정보',
+    title: 'QA 서버 Front',
+    content: 'https://qas.sisun.com/',
+    note: '',
+    sortOrder: 6,
+    createdBy: '최범열',
+    createdAt: '2026-10-23T02:55:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-10-23T02:55:00.000Z',
+  },
+  {
+    id: 'winfo-7',
+    category: '참고 정보',
+    title: 'QA 서버 Admin',
+    content: 'https://qasadmin.sisun.com/',
+    note: '',
+    sortOrder: 7,
+    createdBy: '최범열',
+    createdAt: '2026-10-23T02:55:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-10-23T02:55:00.000Z',
+  },
+];
 
 // 안전한 JSON 파싱 유틸리티 (무오류 원칙 준수)
 function safeJsonParse<T>(jsonString: string | null, fallback: T): T {
@@ -60,6 +152,9 @@ export class PlanningStorageService {
     }
     if (!localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS)) {
       localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify([]));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.WORK_INFOS)) {
+      localStorage.setItem(STORAGE_KEYS.WORK_INFOS, JSON.stringify(INITIAL_WORK_INFO_ITEMS));
     }
 
     // Supabase가 활성화되어 있으면 백그라운드 원격 동기화 시도
@@ -269,21 +364,31 @@ export class PlanningStorageService {
         localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(Array.from(kpiMap.values())));
       }
 
-      // 4. audit_logs 동기화
+      // 4. audit_logs 및 업무 관련 정보(work_infos) 동기화
       const { data: remoteLogs, error: logErr } = await client.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(200);
       if (!logErr && remoteLogs && remoteLogs.length > 0) {
-        const mappedLogs: AuditLog[] = remoteLogs.map((row) => ({
-          id: row.id,
-          entityType: row.entity_type,
-          entityId: row.entity_id,
-          entityTitle: row.entity_title,
-          action: row.action,
-          actorId: row.actor_id,
-          actorName: row.actor_name,
-          actorRole: row.actor_role,
-          timestamp: row.timestamp,
-          summary: row.summary,
-        }));
+        const cloudWorkInfoRow = remoteLogs.find((row) => row.id === WORK_INFO_CLOUD_RECORD_ID);
+        if (cloudWorkInfoRow && typeof cloudWorkInfoRow.summary === 'string') {
+          const parsedWorkInfos = safeJsonParse<WorkInfoItem[]>(cloudWorkInfoRow.summary, []);
+          if (Array.isArray(parsedWorkInfos) && parsedWorkInfos.length > 0) {
+            localStorage.setItem(STORAGE_KEYS.WORK_INFOS, JSON.stringify(parsedWorkInfos));
+          }
+        }
+
+        const mappedLogs: AuditLog[] = remoteLogs
+          .filter((row) => row.id !== WORK_INFO_CLOUD_RECORD_ID && row.entity_title !== 'WORK_INFO_STORE')
+          .map((row) => ({
+            id: row.id,
+            entityType: row.entity_type,
+            entityId: row.entity_id,
+            entityTitle: row.entity_title,
+            action: row.action,
+            actorId: row.actor_id,
+            actorName: row.actor_name,
+            actorRole: row.actor_role,
+            timestamp: row.timestamp,
+            summary: row.summary,
+          }));
         localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(mappedLogs));
       }
     } catch (e) {
@@ -548,12 +653,14 @@ export class PlanningStorageService {
   // --- 감사 로그 (Audit Logs) 기록 유틸리티 ---
   public static getAuditLogs(): AuditLog[] {
     this.initialize();
-    const logs = safeJsonParse<AuditLog[]>(localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS), []);
+    const logs = safeJsonParse<AuditLog[]>(localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS), []).filter(
+      (log) => log.id !== WORK_INFO_CLOUD_RECORD_ID && log.entityTitle !== 'WORK_INFO_STORE'
+    );
     return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   public static recordAuditLog(params: {
-    entityType: 'task' | 'vacation' | 'kpi' | 'auth';
+    entityType: 'task' | 'vacation' | 'kpi' | 'auth' | 'work_info';
     entityId: string;
     entityTitle: string;
     action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'STATUS_CHANGE';
@@ -1220,6 +1327,150 @@ export class PlanningStorageService {
         if (error) console.warn('Supabase kpi delete note:', error.message);
       });
     }
+  }
+
+  // --- 4. 업무 관련 정보 (Work Info) CRUD & 클라우드 동기화 ---
+  public static getWorkInfos(): WorkInfoItem[] {
+    this.initialize();
+    const items = safeJsonParse<WorkInfoItem[]>(
+      localStorage.getItem(STORAGE_KEYS.WORK_INFOS),
+      INITIAL_WORK_INFO_ITEMS
+    );
+    if (!Array.isArray(items) || items.length === 0) {
+      return INITIAL_WORK_INFO_ITEMS;
+    }
+    return [...items].sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+  }
+
+  private static async pushWorkInfosToRemote(items: WorkInfoItem[]): Promise<void> {
+    if (!isSupabaseEnabled()) return;
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const currentUser = this.getCurrentUser();
+    try {
+      await client.from('audit_logs').upsert({
+        id: WORK_INFO_CLOUD_RECORD_ID,
+        entity_type: 'auth',
+        entity_id: 'sys-work-info',
+        entity_title: 'WORK_INFO_STORE',
+        action: 'UPDATE',
+        actor_id: currentUser.id,
+        actor_name: currentUser.name,
+        actor_role: currentUser.role,
+        timestamp: new Date().toISOString(),
+        summary: JSON.stringify(items),
+      });
+    } catch (e) {
+      console.warn('Supabase work_info sync note:', e);
+    }
+  }
+
+  public static createWorkInfo(data: {
+    category: string;
+    title: string;
+    content: string;
+    note: string;
+  }): WorkInfoItem {
+    if (this.isViewer()) {
+      throw new Error('유관부서(읽기 전용) 모드에서는 정보를 등록할 수 없습니다.');
+    }
+
+    const currentUser = this.getCurrentUser();
+    const now = new Date().toISOString();
+    const items = this.getWorkInfos();
+    const maxOrder = items.reduce((max, item) => Math.max(max, item.sortOrder || 0), 0);
+
+    const newItem: WorkInfoItem = {
+      id: generateUniqueId('winfo'),
+      category: data.category.trim() || '기본 사항',
+      title: data.title.trim(),
+      content: data.content,
+      note: data.note.trim(),
+      sortOrder: maxOrder + 1,
+      createdBy: currentUser.name,
+      createdAt: now,
+      updatedBy: currentUser.name,
+      updatedAt: now,
+    };
+
+    const updated = [...items, newItem];
+    localStorage.setItem(STORAGE_KEYS.WORK_INFOS, JSON.stringify(updated));
+    this.pushWorkInfosToRemote(updated);
+
+    this.recordAuditLog({
+      entityType: 'task',
+      entityId: newItem.id,
+      entityTitle: newItem.title,
+      action: 'CREATE',
+      summary: `[업무 관련 정보] 신규 등록: [${newItem.category}] ${newItem.title}`,
+    });
+
+    return newItem;
+  }
+
+  public static updateWorkInfo(
+    id: string,
+    updates: Partial<Pick<WorkInfoItem, 'category' | 'title' | 'content' | 'note' | 'sortOrder'>>
+  ): WorkInfoItem {
+    if (this.isViewer()) {
+      throw new Error('유관부서(읽기 전용) 모드에서는 정보를 수정할 수 없습니다.');
+    }
+
+    const currentUser = this.getCurrentUser();
+    const now = new Date().toISOString();
+    const items = this.getWorkInfos();
+    const idx = items.findIndex((item) => item.id === id);
+    if (idx === -1) {
+      throw new Error('해당 업무 관련 정보 항목을 찾을 수 없습니다.');
+    }
+
+    const updatedItem: WorkInfoItem = {
+      ...items[idx],
+      ...updates,
+      id: items[idx].id,
+      createdBy: items[idx].createdBy,
+      createdAt: items[idx].createdAt,
+      updatedBy: currentUser.name,
+      updatedAt: now,
+    };
+
+    const updatedList = [...items];
+    updatedList[idx] = updatedItem;
+    localStorage.setItem(STORAGE_KEYS.WORK_INFOS, JSON.stringify(updatedList));
+    this.pushWorkInfosToRemote(updatedList);
+
+    this.recordAuditLog({
+      entityType: 'task',
+      entityId: updatedItem.id,
+      entityTitle: updatedItem.title,
+      action: 'UPDATE',
+      summary: `[업무 관련 정보] 수정: [${updatedItem.category}] ${updatedItem.title}`,
+    });
+
+    return updatedItem;
+  }
+
+  public static deleteWorkInfo(id: string): void {
+    if (this.isViewer()) {
+      throw new Error('유관부서(읽기 전용) 모드에서는 정보를 삭제할 수 없습니다.');
+    }
+
+    const items = this.getWorkInfos();
+    const target = items.find((item) => item.id === id);
+    if (!target) return;
+
+    const filtered = items.filter((item) => item.id !== id);
+    localStorage.setItem(STORAGE_KEYS.WORK_INFOS, JSON.stringify(filtered));
+    this.pushWorkInfosToRemote(filtered);
+
+    this.recordAuditLog({
+      entityType: 'task',
+      entityId: target.id,
+      entityTitle: target.title,
+      action: 'DELETE',
+      summary: `[업무 관련 정보] 삭제: [${target.category}] ${target.title}`,
+    });
   }
 
   // 데이터 전체 리셋 (테스트용)
