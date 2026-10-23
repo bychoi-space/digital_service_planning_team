@@ -176,6 +176,7 @@ button, input, select, textarea {
   background: transparent;
   width: 100%;
   text-align: left;
+  white-space: nowrap;
   transition: all 0.15s var(--ease-smooth);
 }
 
@@ -190,15 +191,6 @@ button, input, select, textarea {
   color: #ffffff;
   font-weight: 600;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
-}
-
-.nav-badge {
-  margin-left: auto;
-  font-size: 14px;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-weight: 600;
 }
 
 /* 사이드바 하단 프로필/계정 전환 영역 */
@@ -2235,11 +2227,6 @@ button, input, select, textarea {
     width: 100%;
     padding: 11px 14px;
     white-space: nowrap;
-  }
-
-  .nav-badge {
-    display: inline-block;
-    margin-left: auto;
   }
 
   .sidebar-mobile-footer {

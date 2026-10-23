@@ -282,7 +282,6 @@ export function App() {
           >
             <CheckSquare size={18} />
             <span>{NAV_LABELS.tasks}</span>
-            <span className="nav-badge">Tasks</span>
           </a>
 
           <a
@@ -295,7 +294,6 @@ export function App() {
           >
             <Calendar size={18} />
             <span>{NAV_LABELS.vacations}</span>
-            <span className="nav-badge">Schedule</span>
           </a>
 
           <a
@@ -308,7 +306,6 @@ export function App() {
           >
             <Target size={18} />
             <span>{NAV_LABELS.kpi}</span>
-            <span className="nav-badge">2026</span>
           </a>
 
           <div className="sidebar-divider" />
