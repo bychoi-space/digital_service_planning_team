@@ -5760,6 +5760,799 @@ button, input, select, textarea {
   }
 }
 
+/* ============================================================================
+   KPI 목표 및 평가 (KpiView - #/kpi) 전용 스타일 & 반응형 최적화
+   ============================================================================ */
+
+.kpi-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 1. 상단 KPI 요약 히어로 카드 */
+.kpi-hero-card {
+  padding: 22px 26px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.kpi-hero-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.kpi-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #93c5fd;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.kpi-hero-title {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: #ffffff;
+  margin: 0;
+}
+
+.kpi-hero-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.kpi-hero-stat-pill {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.kpi-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.kpi-create-main-btn {
+  padding: 10px 18px;
+  font-size: 14.5px;
+  white-space: nowrap;
+}
+
+/* 2. 객관적 평가 기준 & 루브릭 카드 */
+.kpi-framework-card {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.kpi-framework-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.kpi-framework-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kpi-framework-icon {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.kpi-framework-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.kpi-pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.kpi-pillar-box {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kpi-pillar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kpi-pillar-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.kpi-pillar-weight {
+  font-size: 14px;
+  font-weight: 700;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.kpi-pillar-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+  word-break: keep-all;
+}
+
+.kpi-rubric-bar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+}
+
+.kpi-rubric-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.kpi-grade-chip {
+  font-size: 14px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.kpi-grade-chip.grade-s {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.kpi-grade-chip.grade-a {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.kpi-grade-chip.grade-b {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.kpi-grade-chip.grade-c,
+.kpi-grade-chip.grade-d {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.kpi-rubric-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  word-break: keep-all;
+}
+
+/* 3. 컨트롤 및 필터 바 */
+.kpi-control-card {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kpi-subfilter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kpi-quarter-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.kpi-quarter-btn {
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.kpi-quarter-btn:hover {
+  background: #f8fafc;
+}
+
+.kpi-quarter-btn.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.quarter-label-short {
+  display: none;
+}
+
+.kpi-owner-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kpi-filter-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.kpi-owner-select {
+  width: 210px;
+}
+
+/* 4. KPI 카드 그리드 */
+.kpi-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.kpi-empty-card {
+  grid-column: 1 / -1;
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.kpi-empty-icon {
+  color: #94a3b8;
+  opacity: 0.5;
+}
+
+.kpi-empty-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.kpi-empty-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 520px;
+  line-height: 1.5;
+}
+
+.kpi-item-card {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kpi-item-card.track-planning {
+  border-top: 4px solid #2563eb;
+}
+
+.kpi-item-card.track-design {
+  border-top: 4px solid #059669;
+}
+
+.kpi-item-card.track-publishing {
+  border-top: 4px solid #9333ea;
+}
+
+.kpi-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kpi-weight-badge {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: #f1f5f9;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.kpi-status-badge {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.kpi-status-planning {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.kpi-status-progress {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.kpi-status-achieved {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.kpi-status-partial {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.kpi-status-missed {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.kpi-card-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-main);
+  line-height: 1.4;
+  margin: 0;
+  word-break: keep-all;
+}
+
+.kpi-criteria-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kpi-criteria-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.kpi-criteria-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.kpi-criteria-value {
+  font-size: 14.5px;
+  color: var(--text-main);
+  line-height: 1.5;
+  margin: 0;
+  word-break: keep-all;
+}
+
+.kpi-criteria-value.is-target {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* 연동된 실무 수행 근거 (Evidence Tasks) */
+.kpi-evidence-section {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kpi-evidence-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kpi-evidence-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kpi-evidence-empty {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.kpi-evidence-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kpi-evidence-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: #f8fafc;
+  font-size: 14px;
+}
+
+.kpi-evidence-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.kpi-evidence-check {
+  color: #059669;
+  flex-shrink: 0;
+}
+
+.kpi-evidence-task-name {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.kpi-evidence-assignee {
+  color: var(--text-secondary);
+}
+
+.kpi-evidence-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.kpi-evidence-date {
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kpi-evidence-link {
+  color: #2563eb;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kpi-evidence-link:hover {
+  text-decoration: underline;
+}
+
+/* 평가 결과 요약 박스 */
+.kpi-eval-summary-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.kpi-eval-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.kpi-eval-badge {
+  align-self: flex-start;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 5px;
+}
+
+.kpi-eval-badge.is-self {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.kpi-eval-badge.is-peer {
+  background: #f0fdf4;
+  color: #059669;
+}
+
+.kpi-eval-badge.is-admin {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.kpi-eval-text {
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+.kpi-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+  margin-top: auto;
+}
+
+.kpi-eval-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* 모달 내부 프리셋 및 요약 스타일 */
+.kpi-modal-box {
+  max-width: 680px;
+}
+
+.kpi-preset-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.kpi-preset-header {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
+.kpi-preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kpi-preset-item-btn {
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+  font-size: 14px;
+  transition: all 0.15s ease;
+}
+
+.kpi-preset-item-btn:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.kpi-preset-pillar {
+  font-weight: 800;
+  color: #2563eb;
+  white-space: nowrap;
+}
+
+.kpi-preset-title {
+  flex: 1;
+  font-weight: 600;
+  color: var(--text-main);
+  min-width: 0;
+}
+
+.kpi-preset-weight {
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.kpi-modal-target-summary {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.kpi-modal-target-summary strong {
+  font-size: 15px;
+  color: var(--text-main);
+}
+
+/* ============================================================================
+   KPI 목표 및 평가 (KpiView) 반응형 미디어 쿼리 (1023px 태블릿 / 767px 모바일)
+   ============================================================================ */
+
+/* 1) 태블릿 디바이스 (768px ~ 1023px) */
+@media (max-width: 1023px) {
+  .kpi-pillars-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .kpi-rubric-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 2) 모바일 디바이스 (767px 이하) */
+@media (max-width: 767px) {
+  .kpi-container {
+    gap: 14px;
+  }
+
+  .kpi-hero-card {
+    padding: 18px 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .kpi-hero-title {
+    font-size: 18px;
+  }
+
+  .kpi-create-main-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .kpi-framework-card {
+    padding: 16px;
+  }
+
+  .kpi-control-card {
+    padding: 14px;
+  }
+
+  .kpi-subfilter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .kpi-quarter-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+  }
+
+  .kpi-quarter-btn {
+    width: 100%;
+    padding: 8px 6px;
+    text-align: center;
+  }
+
+  .quarter-label-full {
+    display: none;
+  }
+
+  .quarter-label-short {
+    display: inline;
+  }
+
+  .kpi-owner-filter {
+    width: 100%;
+  }
+
+  .kpi-owner-select {
+    flex: 1;
+    width: 100%;
+  }
+
+  .kpi-item-card {
+    padding: 16px;
+  }
+
+  .kpi-card-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .kpi-eval-buttons {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .kpi-eval-buttons .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .kpi-preset-item-btn {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+
 
 
 
