@@ -767,10 +767,10 @@ button, input, select, textarea {
 .login-studio-bg-layer {
   position: absolute;
   inset: 0;
-  background-image: url("./images/login-studio-bg.jpg");
-  background-size: cover;
-  background-position: center center;
-  background-repeat: no-repeat;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
   filter: blur(5px) brightness(0.76) saturate(1.08);
 }
 

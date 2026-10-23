@@ -229,12 +229,13 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
   };
 
   const frame8 = (frameTick % 8) + 1;
+  const studioBgUrl = `${BASE_URL.endsWith('/') ? BASE_URL : `${BASE_URL}/`}images/login-studio-bg.jpg`;
 
   return (
     <div className="login-page-shell">
       {/* 배경 전용 클리핑 래퍼 (가로/세로 스크롤 오버플로우 원천 차단) */}
       <div className="login-bg-clip">
-        <div className="login-studio-bg-layer" />
+        <img src={studioBgUrl} alt="" className="login-studio-bg-layer" />
         <div className="login-studio-vignette-layer" />
       </div>
 
