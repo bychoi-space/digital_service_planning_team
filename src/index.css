@@ -6338,6 +6338,104 @@ button, input, select, textarea {
   line-height: 1.5;
 }
 
+/* 무기명 동료 피드백 결과 섹션 */
+.kpi-peer-anon-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kpi-peer-anon-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kpi-peer-anon-scores {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.kpi-peer-anon-scores strong {
+  color: #059669;
+  font-weight: 800;
+}
+
+.kpi-peer-anon-empty {
+  font-size: 14px;
+  color: var(--text-muted);
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
+.kpi-peer-anon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kpi-peer-anon-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpi-peer-anon-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kpi-peer-anon-tag {
+  font-size: 14px;
+  font-weight: 800;
+  color: #059669;
+}
+
+.kpi-peer-anon-subscore {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.kpi-peer-anon-comment {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-main);
+  line-height: 1.5;
+}
+
+.kpi-peer-anon-improve {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding-top: 4px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.kpi-peer-eval-btn {
+  border-color: #10b981;
+  color: #047857;
+  background: #ecfdf5;
+}
+
+.kpi-peer-eval-btn:hover {
+  background: #d1fae5;
+  border-color: #059669;
+}
+
 .kpi-card-footer {
   display: flex;
   align-items: center;

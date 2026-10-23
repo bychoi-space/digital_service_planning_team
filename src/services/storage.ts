@@ -25,6 +25,7 @@ const STORAGE_KEYS = {
 };
 
 const WORK_INFO_CLOUD_RECORD_ID = 'sys-work-info-store-v1';
+const KPI_CLOUD_RECORD_ID = 'sys-kpi-extended-store-v1';
 
 const INITIAL_WORK_INFO_ITEMS: WorkInfoItem[] = [
   {
@@ -364,7 +365,7 @@ export class PlanningStorageService {
         localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(Array.from(kpiMap.values())));
       }
 
-      // 4. audit_logs 및 업무 관련 정보(work_infos) 동기화
+      // 4. audit_logs, 업무 관련 정보(work_infos), KPI 확장/동료피드백 데이터 동기화
       const { data: remoteLogs, error: logErr } = await client.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(200);
       if (!logErr && remoteLogs && remoteLogs.length > 0) {
         const cloudWorkInfoRow = remoteLogs.find((row) => row.id === WORK_INFO_CLOUD_RECORD_ID);
@@ -375,8 +376,40 @@ export class PlanningStorageService {
           }
         }
 
+        const cloudKpiRow = remoteLogs.find((row) => row.id === KPI_CLOUD_RECORD_ID);
+        if (cloudKpiRow && typeof cloudKpiRow.summary === 'string') {
+          const parsedExtendedKpis = safeJsonParse<KpiItem[]>(cloudKpiRow.summary, []);
+          if (Array.isArray(parsedExtendedKpis) && parsedExtendedKpis.length > 0) {
+            const currentKpis = safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []);
+            const mergedMap = new Map<string, KpiItem>();
+            currentKpis.forEach((k) => mergedMap.set(k.id, k));
+            parsedExtendedKpis.forEach((ext) => {
+              const existing = mergedMap.get(ext.id);
+              if (existing) {
+                mergedMap.set(ext.id, {
+                  ...existing,
+                  ...ext,
+                  peerReviews: Array.isArray(ext.peerReviews) && ext.peerReviews.length > 0
+                    ? ext.peerReviews
+                    : existing.peerReviews || [],
+                  peerAvgScore: ext.peerAvgScore ?? existing.peerAvgScore,
+                });
+              } else {
+                mergedMap.set(ext.id, ext);
+              }
+            });
+            localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(Array.from(mergedMap.values())));
+          }
+        }
+
         const mappedLogs: AuditLog[] = remoteLogs
-          .filter((row) => row.id !== WORK_INFO_CLOUD_RECORD_ID && row.entity_title !== 'WORK_INFO_STORE')
+          .filter(
+            (row) =>
+              row.id !== WORK_INFO_CLOUD_RECORD_ID &&
+              row.entity_title !== 'WORK_INFO_STORE' &&
+              row.id !== KPI_CLOUD_RECORD_ID &&
+              row.entity_title !== 'KPI_EXTENDED_STORE'
+          )
           .map((row) => ({
             id: row.id,
             entityType: row.entity_type,
@@ -654,7 +687,11 @@ export class PlanningStorageService {
   public static getAuditLogs(): AuditLog[] {
     this.initialize();
     const logs = safeJsonParse<AuditLog[]>(localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS), []).filter(
-      (log) => log.id !== WORK_INFO_CLOUD_RECORD_ID && log.entityTitle !== 'WORK_INFO_STORE'
+      (log) =>
+        log.id !== WORK_INFO_CLOUD_RECORD_ID &&
+        log.entityTitle !== 'WORK_INFO_STORE' &&
+        log.id !== KPI_CLOUD_RECORD_ID &&
+        log.entityTitle !== 'KPI_EXTENDED_STORE'
     );
     return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
@@ -1033,9 +1070,38 @@ export class PlanningStorageService {
       ...k,
       stage: k.stage || (k.status === 'planning' ? 'draft' : 'aligned'),
       checkins: Array.isArray(k.checkins) ? k.checkins : [],
-      peerReviews: Array.isArray(k.peerReviews) ? k.peerReviews : [],
+      peerReviews: Array.isArray(k.peerReviews)
+        ? k.peerReviews.map((pr) => ({
+            ...pr,
+            reviewerName: '익명 동료',
+          }))
+        : [],
       track: k.track || '기획',
     }));
+  }
+
+  private static async pushExtendedKpisToRemote(kpis: KpiItem[]): Promise<void> {
+    if (!isSupabaseEnabled()) return;
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const currentUser = this.getCurrentUser();
+    try {
+      await client.from('audit_logs').upsert({
+        id: KPI_CLOUD_RECORD_ID,
+        entity_type: 'kpi',
+        entity_id: 'sys-kpi-extended',
+        entity_title: 'KPI_EXTENDED_STORE',
+        action: 'UPDATE',
+        actor_id: currentUser.id,
+        actor_name: 'SYSTEM',
+        actor_role: currentUser.role,
+        timestamp: new Date().toISOString(),
+        summary: JSON.stringify(kpis),
+      });
+    } catch (e) {
+      console.warn('Supabase kpi extended sync note:', e);
+    }
   }
 
   public static createKpi(data: Omit<KpiItem, 'id' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>): KpiItem {
@@ -1061,6 +1127,7 @@ export class PlanningStorageService {
     const kpis = this.getKpis();
     const updated = [newKpi, ...kpis];
     localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(updated));
+    this.pushExtendedKpisToRemote(updated);
 
     this.recordAuditLog({
       entityType: 'kpi',
@@ -1120,6 +1187,7 @@ export class PlanningStorageService {
 
     kpis[index] = updated;
     localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(kpis));
+    this.pushExtendedKpisToRemote(kpis);
 
     this.recordAuditLog({
       entityType: 'kpi',
@@ -1218,24 +1286,38 @@ export class PlanningStorageService {
     });
   }
 
-  // [3단계] 동료 다면평가 제출 (Peer Review)
+  // [3단계] 동료 다면평가 제출 (Peer Review - 타 임직원 전용, 무기명 결과 보장)
   public static submitPeerReview(
     id: string,
     reviewData: Omit<KpiPeerReview, 'id' | 'submittedAt'>
   ): KpiItem {
     const kpis = this.getKpis();
-    const target = kpis.find((k) => k.id === id);
-    if (!target) throw new Error('KPI 항목을 찾을 수 없습니다.');
+    const index = kpis.findIndex((k) => k.id === id);
+    if (index === -1) throw new Error('KPI 항목을 찾을 수 없습니다.');
+    const target = kpis[index];
+
+    const currentUser = this.getCurrentUser();
+    const isSelfKpi =
+      target.ownerName?.trim() === currentUser.name?.trim() ||
+      (target.ownerId ? String(target.ownerId) === String(currentUser.id) : false) ||
+      (target.targetScope === 'team' && target.createdBy?.trim() === currentUser.name?.trim());
+
+    if (isSelfKpi) {
+      throw new Error('본인의 KPI에는 직접 동료 피드백을 등록할 수 없습니다.');
+    }
 
     const now = new Date().toISOString();
     const newReview: KpiPeerReview = {
       ...reviewData,
+      reviewerName: '익명 동료',
       id: generateUniqueId('peer'),
       submittedAt: now,
     };
 
     const existingReviews = Array.isArray(target.peerReviews) ? target.peerReviews : [];
-    const filtered = existingReviews.filter((r) => r.reviewerId !== reviewData.reviewerId);
+    const filtered = existingReviews.filter(
+      (r) => String(r.reviewerId) !== String(reviewData.reviewerId)
+    );
     const updatedReviews = [...filtered, newReview];
 
     // 다면평가 평균점수 계산 (5점 만점 기준)
@@ -1243,12 +1325,21 @@ export class PlanningStorageService {
       (sum, r) => sum + (Number(r.scoreCollaboration) + Number(r.scoreQuality)) / 2,
       0
     );
-    const peerAvgScore = updatedReviews.length > 0 ? Number((totalScore / updatedReviews.length).toFixed(1)) : 0;
+    const peerAvgScore =
+      updatedReviews.length > 0 ? Number((totalScore / updatedReviews.length).toFixed(1)) : 0;
 
-    return this.updateKpi(id, {
+    // 무기명 보장을 위해 KPI의 최종 수정자(updatedBy)는 변경하지 않음
+    const updated: KpiItem = {
+      ...target,
       peerReviews: updatedReviews,
       peerAvgScore,
-    });
+    };
+
+    kpis[index] = updated;
+    localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(kpis));
+    this.pushExtendedKpisToRemote(kpis);
+
+    return updated;
   }
 
   // [4단계-자가평가] 팀원 연간 자가평가 제출
@@ -1312,6 +1403,7 @@ export class PlanningStorageService {
 
     const filtered = kpis.filter((k) => k.id !== id);
     localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(filtered));
+    this.pushExtendedKpisToRemote(filtered);
 
     this.recordAuditLog({
       entityType: 'kpi',
