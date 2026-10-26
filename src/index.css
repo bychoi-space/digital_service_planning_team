@@ -109,6 +109,27 @@ button, input, select, textarea {
   flex-shrink: 0;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   z-index: 20;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.app-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.app-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .sidebar-header {
