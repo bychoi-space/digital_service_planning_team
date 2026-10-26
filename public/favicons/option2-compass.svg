@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bgGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <linearGradient id="needleNorth" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="needleSouth" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#94A3B8"/>
+      <stop offset="100%" stop-color="#64748B"/>
+    </linearGradient>
+    <linearGradient id="sparkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#FCD34D"/>
+    </linearGradient>
+    <filter id="softGlow2" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- 베이스 라운드 스퀘어 -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#bgGrad2)"/>
+  <rect x="2.5" y="2.5" width="59" height="59" rx="15.5" fill="none" stroke="#38BDF8" stroke-width="1.2" stroke-opacity="0.4"/>
+
+  <!-- 기획 전략 타겟 링 (Strategic Target Ring) -->
+  <circle cx="32" cy="32" r="21" fill="none" stroke="#38BDF8" stroke-width="1.2" stroke-opacity="0.3" stroke-dasharray="2 3"/>
+  <circle cx="32" cy="32" r="16" fill="none" stroke="#60A5FA" stroke-width="1" stroke-opacity="0.4"/>
+
+  <!-- 기획 나침반 바늘 & 포인터 (Direction Needles) -->
+  <g filter="url(#softGlow2)">
+    <!-- 북쪽 (미래/목표 방향 - 비비드 시안/블루) -->
+    <polygon points="32,9 37,28 32,25" fill="#38BDF8"/>
+    <polygon points="32,9 27,28 32,25" fill="#0284C7"/>
+
+    <!-- 남쪽 (기반/현재 - 슬레이트 그레이) -->
+    <polygon points="32,55 37,36 32,39" fill="#94A3B8"/>
+    <polygon points="32,55 27,36 32,39" fill="#64748B"/>
+
+    <!-- 동쪽 (실행) -->
+    <polygon points="55,32 36,37 39,32" fill="#60A5FA"/>
+    <polygon points="55,32 36,27 39,32" fill="#2563EB"/>
+
+    <!-- 서쪽 (분석) -->
+    <polygon points="9,32 28,37 25,32" fill="#94A3B8"/>
+    <polygon points="9,32 28,27 25,32" fill="#475569"/>
+
+    <!-- 중앙 전략 인사이트 스파크 (Spark of Insight) -->
+    <circle cx="32" cy="32" r="5" fill="#FFFFFF"/>
+    <path d="M32 25 Q32 32 25 32 Q32 32 32 39 Q32 32 39 32 Q32 32 32 25 Z" fill="url(#sparkGrad)"/>
+    <circle cx="32" cy="32" r="2" fill="#F59E0B"/>
+  </g>
+</svg>

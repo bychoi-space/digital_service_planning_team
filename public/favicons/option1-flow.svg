@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bgGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="flowLineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#93C5FD"/>
+      <stop offset="100%" stop-color="#67E8F9"/>
+    </linearGradient>
+    <filter id="softGlow1" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- 베이스 라운드 스퀘어 -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#bgGrad1)"/>
+  <rect x="2.5" y="2.5" width="59" height="59" rx="15.5" fill="none" stroke="#60A5FA" stroke-width="1.2" stroke-opacity="0.6"/>
+
+  <!-- 서비스 플로우 연결선 (User Flow Paths) -->
+  <g filter="url(#softGlow1)">
+    <!-- 분기 플로우 패스 -->
+    <path d="M32 23 V29 C32 34 21 34 21 39 V42" fill="none" stroke="url(#flowLineGrad)" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M32 29 C32 34 43 34 43 39 V42" fill="none" stroke="url(#flowLineGrad)" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- 상단 메인 기획 노드 (와이어프레임 카드) -->
+    <rect x="22" y="11" width="20" height="13" rx="3.5" fill="#FFFFFF"/>
+    <!-- 와이어프레임 내부 헤더/바 -->
+    <rect x="25" y="14" width="7" height="2.2" rx="1" fill="#2563EB"/>
+    <rect x="25" y="18" width="14" height="2" rx="1" fill="#93C5FD"/>
+
+    <!-- 하단 좌측 액션 노드 -->
+    <rect x="13" y="41" width="16" height="12" rx="3" fill="#EFF6FF"/>
+    <rect x="16" y="44.5" width="10" height="2" rx="1" fill="#3B82F6"/>
+    <rect x="16" y="48" width="6" height="1.8" rx="0.9" fill="#93C5FD"/>
+
+    <!-- 하단 우측 목표/결과 노드 (완료/배포) -->
+    <rect x="35" y="41" width="16" height="12" rx="3" fill="#059669"/>
+    <!-- 체크마크 / 전환 완료 심볼 -->
+    <path d="M40 47 L42.5 49.5 L47.5 44.5" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- 중심 분기점 펄스 도트 (기획 판단 로직/디시전) -->
+    <circle cx="32" cy="29" r="2.8" fill="#38BDF8" stroke="#FFFFFF" stroke-width="1.2"/>
+  </g>
+</svg>

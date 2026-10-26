@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>파비콘 후보 3종 실시간 비교 프리뷰</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+    }
+    body {
+      background-color: #0b1120;
+      color: #f1f5f9;
+      padding: 40px 24px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      max-width: 800px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+    .header p {
+      font-size: 15px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 28px;
+      width: 100%;
+      max-width: 1140px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: #3b82f6;
+    }
+    .card-badge {
+      align-self: flex-start;
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+    .card-desc {
+      font-size: 14px;
+      color: #94a3b8;
+      line-height: 1.6;
+      margin-bottom: 24px;
+      min-height: 68px;
+    }
+    .preview-large {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 32px 20px;
+      background: #0f172a;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      border: 1px solid #1e293b;
+    }
+    .preview-large img {
+      width: 80px;
+      height: 80px;
+      filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.4));
+    }
+    .tab-sim-section {
+      margin-bottom: 20px;
+    }
+    .tab-sim-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+    }
+    .browser-tab-light {
+      background: #e2e8f0;
+      border-radius: 8px 8px 0 0;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #1e293b;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .browser-tab-dark {
+      background: #0f172a;
+      border-radius: 8px 8px 0 0;
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #e2e8f0;
+      font-size: 14px;
+      font-weight: 500;
+      border-top: 1px solid #334155;
+    }
+    .tab-icon-16 {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+    .tab-icon-32 {
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+    }
+    .scale-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      background: #0f172a;
+      padding: 14px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    .scale-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .scale-caption {
+      font-size: 14px;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>서비스기획팀 파비콘 디자인 3종 프리뷰</h1>
+    <p>'서비스기획'의 3대 핵심 가치(플로우 청사진, 전략 나침반, 계층 아키텍처)를 16px 브라우저 탭 환경에 최적화하여 설계한 벡터 디자인입니다.</p>
+  </div>
+
+  <div class="grid">
+
+    <!-- 옵션 1 -->
+    <div class="card">
+      <span class="card-badge">옵션 1 (Option A)</span>
+      <h2 class="card-title">플로우 청사진 (Blueprint Flow)</h2>
+      <p class="card-desc">
+        사용자 경험 흐름(User Flow)과 서비스 와이어프레임 구조를 직관적으로 형상화했습니다. 기획의 본질인 연결과 설계를 직관적으로 전달합니다.
+      </p>
+
+      <div class="preview-large">
+        <img src="/favicons/option1-flow.svg" alt="옵션 1 대형 뷰">
+      </div>
+
+      <div class="scale-row">
+        <div class="scale-item">
+          <img src="/favicons/option1-flow.svg" class="tab-icon-16" alt="16px">
+          <span class="scale-caption">16px</span>
+        </div>
+        <div class="scale-item">
+          <img src="/favicons/option1-flow.svg" class="tab-icon-32" alt="32px">
+          <span class="scale-caption">32px</span>
+        </div>
+        <div class="scale-item">
+          <img src="/favicons/option1-flow.svg" style="width:48px;height:48px;" alt="48px">
+          <span class="scale-caption">48px</span>
+        </div>
+      </div>
+
+      <div class="tab-sim-section">
+        <div class="tab-sim-label">브라우저 탭 실물 시뮬레이션</div>
+        <div class="browser-tab-light" style="margin-bottom: 6px;">
+          <img src="/favicons/option1-flow.svg" class="tab-icon-16" alt="탭 아이콘">
+          <span>서비스기획팀 업무관리 포털</span>
+        </div>
+        <div class="browser-tab-dark">
+          <img src="/favicons/option1-flow.svg" class="tab-icon-16" alt="탭 아이콘">
+          <span>서비스기획팀 업무관리 포털</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 옵션 2 -->
+    <div class="card">
+      <span class="card-badge">옵션 2 (Option B)</span>
+      <h2 class="card-title">전략 나침반 (Strategic Compass)</h2>
+      <p class="card-desc">
+        서비스가 나아가야 할 올바른 방향을 제시하는 프로덕트 나침반과 핵심 인사이트를 상징하는 별빛(Spark)을 결합한 기획 리더십 심볼입니다.
+      </p>
+
+      <div class="preview-large">
+        <img src="/favicons/option2-compass.svg" alt="옵션 2 대형 뷰">
+      </div>
+
+      <div class="scale-row">
+        <div class="scale-item">
+          <img src="/favicons/option2-compass.svg" class="tab-icon-16" alt="16px">
+          <span class="scale-caption">16px</span>
+        </div>
+        <div class="scale-item">
+          <img src="/favicons/option2-compass.svg" class="tab-icon-32" alt="32px">
+          <span class="scale-caption">32px</span>
+        </div>
+        <div class="scale-item">
+          <img src="/favicons/option2-compass.svg" style="width:48px;height:48px;" alt="48px">
+          <span class="scale-caption">48px</span>
+        </div>
+      </div>
+
+      <div class="tab-sim-section">
+        <div class="tab-sim-label">브라우저 탭 실물 시뮬레이션</div>
+        <div class="browser-tab-light" style="margin-bottom: 6px;">
+          <img src="/favicons/option2-compass.svg" class="tab-icon-16" alt="탭 아이콘">
+          <span>서비스기획팀 업무관리 포털</span>
+        </div>
+        <div class="browser-tab-dark">
+          <img src="/favicons/option2-compass.svg" class="tab-icon-16" alt="탭 아이콘">
+          <span>서비스기획팀 업무관리 포털</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 옵션 3 -->
+    <div class="card">
+      <span class="card-badge">옵션 3 (Option C)</span>
+      <h2 class="card-title">서비스 계층 스택 (Layer Stack)</h2>
+      <p class="card-desc">
+        비즈니스 요구사항, 서비스 정책 로직, UI/UX 화면이 유기적으로 조립되어 하나의 견고한 시스템을 완성하는 서비스 아키텍처를 상징합니다.
+      </p>
+
+      <div class="preview-large">
+        <img src="/favicons/option3-layers.svg" alt="옵션 3 대형 뷰">
+      </div>
+
+      <div class="scale-row">
+        <div class="scale-item">
+          <img src="/favicons/option3-layers.svg" class="tab-icon-16" alt="16px">
+          <span class="scale-caption">16px</span>
+        </div>
+        <div class="scale-item">
+          <img src="/favicons/option3-layers.svg" class="tab-icon-32" alt="32px">
+          <span class="scale-caption">32px</span>
+        </div>
+        <div class="scale-item">
+          <img src="/favicons/option3-layers.svg" style="width:48px;height:48px;" alt="48px">
+          <span class="scale-caption">48px</span>
+        </div>
+      </div>
+
+      <div class="tab-sim-section">
+        <div class="tab-sim-label">브라우저 탭 실물 시뮬레이션</div>
+        <div class="browser-tab-light" style="margin-bottom: 6px;">
+          <img src="/favicons/option3-layers.svg" class="tab-icon-16" alt="탭 아이콘">
+          <span>서비스기획팀 업무관리 포털</span>
+        </div>
+        <div class="browser-tab-dark">
+          <img src="/favicons/option3-layers.svg" class="tab-icon-16" alt="탭 아이콘">
+          <span>서비스기획팀 업무관리 포털</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>
