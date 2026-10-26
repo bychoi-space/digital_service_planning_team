@@ -4647,6 +4647,10 @@ button, input, select, textarea {
   margin-right: 3px;
 }
 
+.schedule-event-prefix.is-due {
+  color: #dc2626;
+}
+
 .schedule-event-text {
   overflow: hidden;
   text-overflow: ellipsis;

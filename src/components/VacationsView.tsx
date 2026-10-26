@@ -780,16 +780,16 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                               e.stopPropagation();
                               setSelectedTask(t);
                             }}
-                            className={`schedule-event-badge is-task ${trackCfg.classKey} ${
-                              isDueDay ? 'is-due' : ''
-                            }`}
+                            className={`schedule-event-badge is-task ${trackCfg.classKey}`}
                             title={`[${t.track}] ${t.title} (${t.assigneeName}) / 기간: ${t.startDate} ~ ${t.dueDate}`}
                           >
                             <TrackIcon size={11} className="schedule-event-icon" />
                             <span className="schedule-event-text">
-                              {isDueDay && <strong className="schedule-event-prefix">마감</strong>}
+                              {isDueDay && (
+                                <strong className="schedule-event-prefix is-due">마감</strong>
+                              )}
                               {isStartDay && !isDueDay && (
-                                <strong className="schedule-event-prefix">착수</strong>
+                                <strong className="schedule-event-prefix is-start">착수</strong>
                               )}
                               {summaryTitle}
                             </span>
@@ -825,13 +825,10 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                         ))}
                         {cellTasks.slice(0, 3).map((t) => {
                           const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
-                          const isDueDay = cell.dateStr === t.dueDate;
                           return (
                             <span
                               key={`mdot-t-${t.id}`}
-                              className={`schedule-dot ${
-                                isDueDay ? 'is-due' : trackCfg.classKey
-                              }`}
+                              className={`schedule-dot ${trackCfg.classKey}`}
                             />
                           );
                         })}
@@ -911,9 +908,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                     <div
                       key={`mob-task-${t.id}`}
                       onClick={() => setSelectedTask(t)}
-                      className={`schedule-mobile-agenda-item is-task ${trackCfg.classKey} ${
-                        isDueDay ? 'is-due' : ''
-                      }`}
+                      className={`schedule-mobile-agenda-item is-task ${trackCfg.classKey}`}
                     >
                       <div className="schedule-mobile-agenda-top">
                         <div className="schedule-mobile-agenda-badges">
@@ -1634,9 +1629,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             setSelectedDayDetail(null);
                             setSelectedTask(t);
                           }}
-                          className={`schedule-mobile-agenda-item is-task ${trackCfg.classKey} ${
-                            isDue ? 'is-due' : ''
-                          }`}
+                          className={`schedule-mobile-agenda-item is-task ${trackCfg.classKey}`}
                         >
                           <div className="schedule-mobile-agenda-top">
                             <div className="tasks-card-badges">
