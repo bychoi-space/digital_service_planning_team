@@ -80,6 +80,32 @@ function getWeekdayLabel(dateStr: string): string {
   return WEEKDAY_NAMES[d.getDay()] || '';
 }
 
+// 캘린더 셀 내부 배지용 과제명 요약 헬퍼 (원문은 툴팁/상세 모달에서 그대로 노출)
+function summarizeCalendarTaskTitle(rawTitle: string): string {
+  let text = (rawTitle || '').trim();
+
+  // 1. 앞머리 연도 표기 제거 (예: "2027년 자사몰·어드민..." -> "자사몰·어드민...")
+  text = text.replace(/^20\d{2}년\s+/, '');
+
+  // 2. 앞머리 대괄호 말머리 요약/생략
+  const bracketMatch = text.match(/^\[([^\]]+)\]\s*(.+)$/);
+  if (bracketMatch) {
+    const prefix = bracketMatch[1].trim();
+    const rest = bracketMatch[2].trim().replace(/^20\d{2}년\s+/, '');
+    if (rest.length >= 5) {
+      text = rest;
+    } else {
+      const shortPrefix = prefix
+        .replace(/Front\s*UI\s*Renewal/i, 'UI개편')
+        .replace(/Renewal/i, '개편')
+        .trim();
+      text = `[${shortPrefix}] ${rest}`;
+    }
+  }
+
+  return text.replace(/\s+/g, ' ').trim();
+}
+
 export const VacationsView: React.FC<VacationsViewProps> = ({
   currentUser,
   isViewer,
@@ -656,8 +682,8 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                 );
                 const totalItemsCount = cellVacations.length + cellTasks.length;
 
-                // 최대 3개 항목만 노출하고 초과분은 '+N개 더보기' 버튼으로 처리
-                const MAX_DISPLAY = 3;
+                // 최대 10개 항목까지 노출하고 초과분은 '+N개 더보기' 버튼으로 처리
+                const MAX_DISPLAY = 10;
                 const displayVacations = cellVacations.slice(0, MAX_DISPLAY);
                 const remainingSlots = Math.max(0, MAX_DISPLAY - displayVacations.length);
                 const displayTasks = cellTasks.slice(0, remainingSlots);
@@ -698,7 +724,21 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                       </span>
 
                       {totalItemsCount > 0 && (
-                        <span className="schedule-day-count">{totalItemsCount}건</span>
+                        <span
+                          className="schedule-day-count"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedDayDetail({
+                              dateStr: cell.dateStr,
+                              dayNum: cell.dayNum,
+                              vacations: cellVacations,
+                              tasks: cellTasks,
+                            });
+                          }}
+                          title="해당 일자 전체 일정 보기"
+                        >
+                          {totalItemsCount}건
+                        </span>
                       )}
                     </div>
 
@@ -725,12 +765,13 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                         );
                       })}
 
-                      {/* B. 업무 배지 노출 */}
+                      {/* B. 업무 배지 노출 (요약 과제명 + 컴팩트 상태 표기) */}
                       {displayTasks.map((t) => {
                         const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
                         const TrackIcon = trackCfg.icon;
                         const isDueDay = cell.dateStr === t.dueDate;
                         const isStartDay = cell.dateStr === t.startDate;
+                        const summaryTitle = summarizeCalendarTaskTitle(t.title);
 
                         return (
                           <div
@@ -742,19 +783,21 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             className={`schedule-event-badge is-task ${trackCfg.classKey} ${
                               isDueDay ? 'is-due' : ''
                             }`}
-                            title={`[${t.track}] ${t.title} (${t.assigneeName}) / 마감일: ${t.dueDate}`}
+                            title={`[${t.track}] ${t.title} (${t.assigneeName}) / 기간: ${t.startDate} ~ ${t.dueDate}`}
                           >
-                            <TrackIcon size={13} className="schedule-event-icon" />
+                            <TrackIcon size={11} className="schedule-event-icon" />
                             <span className="schedule-event-text">
-                              {isDueDay && <strong>[마감] </strong>}
-                              {isStartDay && !isDueDay && <strong>[착수] </strong>}
-                              {t.title}
+                              {isDueDay && <strong className="schedule-event-prefix">마감</strong>}
+                              {isStartDay && !isDueDay && (
+                                <strong className="schedule-event-prefix">착수</strong>
+                              )}
+                              {summaryTitle}
                             </span>
                           </div>
                         );
                       })}
 
-                      {/* C. 3개 초과 시 '+N개 더보기' 버튼 */}
+                      {/* C. 10개 초과 시 '+N개 더보기' 버튼 */}
                       {overflowCount > 0 && (
                         <button
                           type="button"
