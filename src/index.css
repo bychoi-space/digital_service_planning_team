@@ -6521,11 +6521,28 @@ button, input, select, textarea {
   flex-shrink: 0;
 }
 
-.kpi-list-body-grid {
+/* Tier 1 (상단 2단): [좌] 목표 측정·완료 기준 | [우] 매핑된 실무 수행 근거 */
+.kpi-list-top-grid {
   display: grid;
-  grid-template-columns: 1.15fr 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   align-items: stretch;
+}
+
+/* Tier 2 (하단 3단 순차 평가 파이프라인): STEP 1 ➔ STEP 2 ➔ STEP 3 */
+.kpi-eval-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
+.kpi-final-eval-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #cbd5e1;
 }
 
 .kpi-weighted-point-badge {
@@ -6733,10 +6750,13 @@ button, input, select, textarea {
 .kpi-evidence-task-name {
   font-weight: 700;
   color: var(--text-main);
+  word-break: keep-all;
 }
 
 .kpi-evidence-assignee {
   color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .kpi-evidence-meta {
@@ -6751,6 +6771,7 @@ button, input, select, textarea {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .kpi-evidence-link {
@@ -6760,6 +6781,7 @@ button, input, select, textarea {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .kpi-evidence-link:hover {
@@ -6790,50 +6812,144 @@ button, input, select, textarea {
   border-color: #93c5fd;
 }
 
-/* 평가 결과 요약 박스 */
-.kpi-eval-summary-box {
+/* Tier 2: 3단 순차 평가 단계 카드 (STEP 1 본인 자가평가 ➔ STEP 2 동료 피드백 ➔ STEP 3 관리자 최종평가) */
+.kpi-eval-step-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 13px 14px;
   border-radius: 10px;
-  background: #f8fafc;
   border: 1px solid #e2e8f0;
+  background: #f8fafc;
 }
 
-.kpi-eval-row {
+.kpi-eval-step-card.is-completed-self {
+  background: #f8fbff;
+  border-color: #bfdbfe;
+}
+
+.kpi-eval-step-card.is-completed-peer {
+  background: #f6fef9;
+  border-color: #bbf7d0;
+}
+
+.kpi-eval-step-card.is-completed-admin {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.04);
+}
+
+.kpi-eval-step-card.is-locked {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+}
+
+.kpi-eval-step-header {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.kpi-eval-badge {
-  align-self: flex-start;
+.kpi-step-badge-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.kpi-step-num {
   font-size: 14px;
-  font-weight: 700;
-  padding: 2px 8px;
+  font-weight: 800;
+  padding: 2px 7px;
   border-radius: 5px;
+  white-space: nowrap;
 }
 
-.kpi-eval-badge.is-self {
+.kpi-step-num.step-1 {
   background: #eff6ff;
   color: #2563eb;
 }
 
-.kpi-eval-badge.is-peer {
-  background: #f0fdf4;
+.kpi-step-num.step-2 {
+  background: #ecfdf5;
   color: #059669;
 }
 
-.kpi-eval-badge.is-admin {
+.kpi-step-num.step-3 {
   background: #0f172a;
   color: #ffffff;
 }
 
-.kpi-eval-text {
+.kpi-step-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+.kpi-step-pending-badge {
+  font-size: 14px;
+  font-weight: 700;
+  color: #64748b;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.kpi-step-pending-badge.is-locked {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.kpi-peer-score-chip {
+  font-size: 14px;
+  font-weight: 800;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.kpi-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kpi-step-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kpi-step-field-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.kpi-step-field-val {
+  margin: 0;
+  font-size: 14px;
   color: var(--text-main);
   line-height: 1.5;
+  word-break: keep-all;
+}
+
+.kpi-step-empty {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  word-break: keep-all;
 }
 
 /* 무기명 동료 피드백 결과 섹션 */
@@ -7268,7 +7384,8 @@ button, input, select, textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .kpi-list-body-grid {
+  .kpi-list-top-grid,
+  .kpi-eval-steps-grid {
     grid-template-columns: 1fr;
   }
 
