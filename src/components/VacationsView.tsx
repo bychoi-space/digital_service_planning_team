@@ -180,7 +180,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
 
   // 필터 상태: 'all' | 'vacation' | '기획' | '디자인' | '퍼블리싱'
   const [filterType, setFilterType] = useState<'all' | 'vacation' | TaskTrack>('all');
-  const [onlyActiveTasks, setOnlyActiveTasks] = useState<boolean>(true);
+  const [onlyActiveTasks, setOnlyActiveTasks] = useState<boolean>(false);
 
   // 휴가 모달 상태
   const [isVacationModalOpen, setIsVacationModalOpen] = useState(false);
