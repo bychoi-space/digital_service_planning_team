@@ -946,11 +946,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                 )}
               </div>
 
-              {/* 상세 본문 카드 */}
-              <div className={`card kpi-list-item kpi-detail-card ${trackCfg.classKey}`}>
-                {/* 상단 헤더 바: 좌측(배지 + 목표명) / 우측(순차 평가 액션 버튼) */}
-                <div className="kpi-list-header">
-                  <div className="kpi-list-header-main">
+              {/* 섹션 1. KPI 목표 타이틀 & 핵심 스코어 요약 & 측정/달성 기준(DoD) 카드 */}
+              <div className={`card kpi-detail-hero-card ${trackCfg.classKey}`}>
+                <div className="kpi-detail-hero-top">
+                  <div className="kpi-detail-hero-main">
                     <div className="tasks-card-badges">
                       <span className={`tasks-badge-track ${trackCfg.classKey}`}>
                         <TrackIcon size={13} /> {trackCfg.label}
@@ -958,37 +957,159 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       <span className="tasks-badge-category">
                         {item.targetScope === 'team' ? '팀 공통' : item.ownerName}
                       </span>
-                      <span className="kpi-weight-badge">가중치 {item.weight}%</span>
+                      <span className="kpi-weight-badge">
+                        {QUARTERS.find((q) => q.key === (item.quarter || 'Annual'))?.label ||
+                          '2026 연간 종합'}
+                      </span>
                       <span className={`kpi-status-badge ${lifecycleBadge.classKey}`}>
                         {lifecycleBadge.label}
                       </span>
-                      {evalMetrics.weightedPoint !== null && (
-                        <span
-                          className="kpi-weighted-point-badge"
-                          title={
-                            evalMetrics.source === 'final'
-                              ? '최종 등급 기준 가중치 환산 득점'
-                              : '자가진단 등급 기준 가중치 환산 예상 득점'
-                          }
-                        >
-                          {evalMetrics.source === 'final' ? '최종 가중 득점' : '자가 예상 득점'}{' '}
-                          {evalMetrics.weightedPoint} / {item.weight}점
-                        </span>
-                      )}
-                      {finalGrade && (
-                        <span
-                          className={`kpi-grade-chip grade-${finalGrade.toLowerCase()}`}
-                          title="관리자 최종 확정 등급"
-                        >
-                          최종 {finalGrade}등급
-                        </span>
-                      )}
                     </div>
                     <h2 className="kpi-detail-title">{item.title}</h2>
                   </div>
 
-                  {/* 우측 평가 실행 버튼 바 */}
-                  <div className="kpi-list-header-actions">
+                  {/* 우측 핵심 평가 스코어 요약 박스 (4열) */}
+                  <div className="kpi-detail-score-strip">
+                    <div className="kpi-detail-score-box">
+                      <span className="kpi-detail-score-label">배점 가중치</span>
+                      <strong className="kpi-detail-score-val">{item.weight}%</strong>
+                    </div>
+
+                    <div className="kpi-detail-score-box">
+                      <span className="kpi-detail-score-label">본인 자가진단</span>
+                      <strong className="kpi-detail-score-val is-self">
+                        {hasSelfEvaluated && selfGrade ? `${selfGrade}등급` : '미등록'}
+                      </strong>
+                    </div>
+
+                    <div className="kpi-detail-score-box">
+                      <span className="kpi-detail-score-label">동료 피드백</span>
+                      <strong className="kpi-detail-score-val is-peer">
+                        {peerCount > 0 ? `${avgTotal}점 (${peerCount}명)` : `대기 (0명)`}
+                      </strong>
+                    </div>
+
+                    <div className="kpi-detail-score-box is-final-box">
+                      <span className="kpi-detail-score-label">최종 확정 등급</span>
+                      <strong className="kpi-detail-score-val is-final">
+                        {finalGrade
+                          ? `${finalGrade}등급 (${evalMetrics.weightedPoint}/${item.weight}점)`
+                          : '미확정'}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 하단 측정 기준(Metric) & 완료/달성 기준(DoD) 2열 와이드 배너 */}
+                <div className="kpi-detail-criteria-grid">
+                  <div className="kpi-detail-criteria-item">
+                    <span className="kpi-detail-criteria-label">측정 기준 (Metric)</span>
+                    <p className="kpi-detail-criteria-val">{item.targetMetric || '-'}</p>
+                  </div>
+
+                  <div className="kpi-detail-criteria-item is-dod">
+                    <span className="kpi-detail-criteria-label">
+                      완료/달성 기준 (DoD · A등급 기준)
+                    </span>
+                    <p className="kpi-detail-criteria-val is-target">{item.targetValue || '-'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 섹션 2. 매핑된 실무 수행 근거 과제 (독립 풀와이드 섹션 카드) */}
+              <div className="card kpi-detail-section-card">
+                <div className="kpi-detail-section-header">
+                  <div className="kpi-detail-section-title-wrap">
+                    <LinkIcon size={17} className="kpi-framework-icon" />
+                    <h3 className="kpi-detail-section-title">
+                      매핑된 실무 수행 근거 과제 ({linkedTasks.length}건)
+                    </h3>
+                    {linkedTasks.length > 0 && (
+                      <span className="kpi-evidence-summary-badge">
+                        완료 {doneLinkedCount} / 매핑 {linkedTasks.length}건
+                      </span>
+                    )}
+                  </div>
+
+                  {!isViewer && (isSelf || isAdmin) && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenTaskMappingModal(item)}
+                      className="btn btn-secondary tasks-action-btn kpi-evidence-map-btn-lg"
+                    >
+                      <LinkIcon size={14} />{' '}
+                      {linkedTasks.length > 0 ? '실무 과제 매핑 편집' : '+ 실무 과제 매핑하기'}
+                    </button>
+                  )}
+                </div>
+
+                {linkedTasks.length === 0 ? (
+                  <div className="kpi-detail-empty-box">
+                    {!isViewer && (isSelf || isAdmin)
+                      ? '아직 이 KPI 목표에 매핑된 실무 수행 근거 과제가 없습니다. 우측 상단 [+ 실무 과제 매핑하기] 버튼을 눌러 업무를 연결해 주세요.'
+                      : '아직 담당자가 이 KPI 목표에 매핑한 실무 수행 근거 과제가 없습니다.'}
+                  </div>
+                ) : (
+                  <div className="kpi-detail-task-list">
+                    {linkedTasks.map((t) => {
+                      const outUrl = t.links?.[0]?.url || t.artifactUrl;
+                      const isDone = t.status === 'done';
+                      return (
+                        <div key={t.id} className="kpi-detail-task-row">
+                          <div className="kpi-detail-task-main">
+                            <span
+                              className={`kpi-detail-task-status ${isDone ? 'is-done' : 'is-progress'}`}
+                            >
+                              <CheckCircle2 size={14} />
+                              {isDone ? '완료' : `진행중 (${t.progress ?? 0}%)`}
+                            </span>
+                            <span className="kpi-detail-task-title">{t.title}</span>
+                            <span className="kpi-evidence-assignee">담당: {t.assigneeName}</span>
+                          </div>
+
+                          <div className="kpi-detail-task-meta">
+                            <span className="kpi-evidence-date">
+                              <Clock size={14} /> {t.startDate} ~ {t.dueDate}
+                            </span>
+                            {outUrl && (
+                              <a
+                                href={outUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="kpi-detail-task-link"
+                              >
+                                산출물 확인 <ExternalLink size={14} />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* 섹션 3. 단계별 성과 평가 상세 워크플로우 (STEP 1 ➔ STEP 2 ➔ STEP 3) */}
+              <div className="kpi-eval-steps-grid is-detail-page">
+                {/* STEP 1: 본인 수행 실적 및 자가평가 */}
+                <div
+                  className={`card kpi-eval-step-card is-detail ${
+                    hasSelfEvaluated ? 'is-completed-self' : 'is-pending'
+                  }`}
+                >
+                  <div className="kpi-eval-step-header">
+                    <div className="kpi-step-badge-wrap">
+                      <span className="kpi-step-num step-1">STEP 1</span>
+                      <span className="kpi-step-title">본인 수행 실적 및 자가평가</span>
+                      {hasSelfEvaluated && selfGrade ? (
+                        <span className={`kpi-grade-chip grade-${selfGrade.toLowerCase()}`}>
+                          자가 {selfGrade}등급
+                        </span>
+                      ) : (
+                        <span className="kpi-step-pending-badge">미등록 (필수 선행)</span>
+                      )}
+                    </div>
+
                     {isSelf && !isViewer && (
                       <button
                         type="button"
@@ -999,6 +1120,48 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                         {hasSelfEvaluated ? '실적 · 자가평가 수정' : '실적 · 자가평가 등록'}
                       </button>
                     )}
+                  </div>
+
+                  {hasSelfEvaluated ? (
+                    <div className="kpi-step-body is-detail is-two-col">
+                      <div className="kpi-detail-eval-content-box">
+                        <span className="kpi-step-field-label">수행 실적 요약</span>
+                        <p className="kpi-step-field-val is-detail">
+                          {item.currentValue?.trim() || '-'}
+                        </p>
+                      </div>
+                      <div className="kpi-detail-eval-content-box">
+                        <span className="kpi-step-field-label">본인 자가평가 의견</span>
+                        <p className="kpi-step-field-val is-detail">
+                          {item.selfEvaluation?.trim() || '등록된 자가평가 코멘트가 없습니다.'}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="kpi-detail-empty-box">
+                      {isSelf && !isViewer
+                        ? '아직 수행 실적과 자가평가가 등록되지 않았습니다. 우측 상단 [실적 · 자가평가 등록] 버튼을 눌러 먼저 작성해 주세요.'
+                        : '담당자 본인의 수행 실적 및 자가평가 등록을 대기 중입니다.'}
+                    </div>
+                  )}
+                </div>
+
+                {/* STEP 2: 무기명 동료 피드백 */}
+                <div
+                  className={`card kpi-eval-step-card is-detail ${
+                    peerCount > 0 ? 'is-completed-peer' : 'is-pending'
+                  }`}
+                >
+                  <div className="kpi-eval-step-header">
+                    <div className="kpi-step-badge-wrap">
+                      <span className="kpi-step-num step-2">STEP 2</span>
+                      <span className="kpi-step-title">무기명 동료 피드백 ({peerCount}명)</span>
+                      {peerCount > 0 ? (
+                        <span className="kpi-peer-score-chip">평균 {avgTotal} / 5.0점</span>
+                      ) : (
+                        <span className="kpi-step-pending-badge">참여 대기</span>
+                      )}
+                    </div>
 
                     {!isSelf && (
                       <button
@@ -1012,6 +1175,66 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                           : '동료 피드백 평가하기 (무기명)'}
                       </button>
                     )}
+                  </div>
+
+                  {peerCount === 0 ? (
+                    <div className="kpi-detail-empty-box">
+                      {isSelf
+                        ? '타 임직원이 평가하면 평가자 정보 없이 결과만 무기명으로 이곳에 표시됩니다.'
+                        : '아직 등록된 동료 피드백이 없습니다. 우측 상단 버튼으로 무기명 피드백을 남길 수 있습니다.'}
+                    </div>
+                  ) : (
+                    <div className="kpi-step-body is-detail">
+                      <div className="kpi-peer-anon-scores">
+                        산출물 완성도 평균 <strong>{avgQuality}</strong>점 · 일정·소통 협업 평균{' '}
+                        <strong>{avgCollab}</strong>점
+                      </div>
+                      <div className="kpi-peer-anon-list">
+                        {peerReviews.map((pr, idx) => (
+                          <div key={pr.id || idx} className="kpi-peer-anon-item">
+                            <div className="kpi-peer-anon-item-head">
+                              <span className="kpi-peer-anon-tag">익명 피드백 #{idx + 1}</span>
+                              <span className="kpi-peer-anon-subscore">
+                                완성도 {pr.scoreQuality}점 · 소통 {pr.scoreCollaboration}점
+                              </span>
+                            </div>
+                            <p className="kpi-peer-anon-comment">{pr.commentGood}</p>
+                            {pr.commentImprove && (
+                              <p className="kpi-peer-anon-improve">
+                                보완/건의: {pr.commentImprove}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* STEP 3: 관리자 최종 평가 */}
+                <div
+                  className={`card kpi-eval-step-card is-detail ${
+                    finalGrade
+                      ? 'is-completed-admin'
+                      : !hasSelfEvaluated
+                        ? 'is-locked'
+                        : 'is-pending'
+                  }`}
+                >
+                  <div className="kpi-eval-step-header">
+                    <div className="kpi-step-badge-wrap">
+                      <span className="kpi-step-num step-3">STEP 3</span>
+                      <span className="kpi-step-title">관리자 최종 평가</span>
+                      {finalGrade ? (
+                        <span className={`kpi-grade-chip grade-${finalGrade.toLowerCase()}`}>
+                          최종 {finalGrade}등급 ({evalMetrics.weightedPoint} / {item.weight}점)
+                        </span>
+                      ) : !hasSelfEvaluated ? (
+                        <span className="kpi-step-pending-badge is-locked">STEP 1 선행 필요</span>
+                      ) : (
+                        <span className="kpi-step-pending-badge">최종 평가 대기</span>
+                      )}
+                    </div>
 
                     {isAdmin && (
                       <button
@@ -1034,227 +1257,25 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       </button>
                     )}
                   </div>
-                </div>
 
-                {/* Tier 1 (상단 2단): [좌] 목표 측정·완료 기준(DoD) | [우] 매핑된 실무 수행 근거 과제 */}
-                <div className="kpi-list-top-grid">
-                  <div className="kpi-criteria-box">
-                    <div className="kpi-criteria-row">
-                      <span className="kpi-criteria-label">측정 기준 (Metric)</span>
-                      <p className="kpi-criteria-value">{item.targetMetric || '-'}</p>
-                    </div>
-                    <div className="kpi-criteria-row">
-                      <span className="kpi-criteria-label">완료/달성 기준 (DoD · A등급 기준)</span>
-                      <p className="kpi-criteria-value is-target">{item.targetValue || '-'}</p>
-                    </div>
-                  </div>
-
-                  <div className="kpi-evidence-section">
-                    <div className="kpi-evidence-header">
-                      <span className="kpi-evidence-title">
-                        <LinkIcon size={14} /> 매핑된 실무 수행 근거 ({linkedTasks.length}건)
-                      </span>
-                      <div className="kpi-evidence-header-right">
-                        {linkedTasks.length > 0 && (
-                          <span className="kpi-evidence-summary-badge">
-                            완료 {doneLinkedCount} / 매핑 {linkedTasks.length}건
-                          </span>
-                        )}
-                        {!isViewer && (isSelf || isAdmin) && (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenTaskMappingModal(item)}
-                            className="kpi-evidence-map-btn"
-                          >
-                            {linkedTasks.length > 0 ? '과제 매핑 편집' : '+ 실무 과제 매핑'}
-                          </button>
-                        )}
+                  {finalGrade ? (
+                    <div className="kpi-step-body is-detail">
+                      <div className="kpi-detail-eval-content-box">
+                        <span className="kpi-step-field-label">관리자 최종 평가 의견</span>
+                        <p className="kpi-step-field-val is-detail">
+                          {finalComment || '등록된 최종 평가 코멘트가 없습니다.'}
+                        </p>
                       </div>
                     </div>
-                    {linkedTasks.length === 0 ? (
-                      <div className="kpi-evidence-empty">
-                        {!isViewer && (isSelf || isAdmin)
-                          ? '아직 매핑된 실무 과제가 없습니다. 우측 상단 [+ 실무 과제 매핑] 버튼으로 해당 업무를 선택해 주세요.'
-                          : '아직 담당자가 이 KPI 목표에 매핑한 실무 수행 근거 과제가 없습니다.'}
-                      </div>
-                    ) : (
-                      <div className="kpi-evidence-list">
-                        {linkedTasks.map((t) => {
-                          const outUrl = t.links?.[0]?.url || t.artifactUrl;
-                          return (
-                            <div key={t.id} className="kpi-evidence-item">
-                              <div className="kpi-evidence-main">
-                                <CheckCircle2
-                                  size={14}
-                                  className={
-                                    t.status === 'done'
-                                      ? 'kpi-evidence-check'
-                                      : 'kpi-evidence-progress'
-                                  }
-                                />
-                                <span className="kpi-evidence-task-name">{t.title}</span>
-                                <span className="kpi-evidence-assignee">({t.assigneeName})</span>
-                              </div>
-                              <div className="kpi-evidence-meta">
-                                <span className="kpi-evidence-date">
-                                  <Clock size={13} /> {t.startDate} ~ {t.dueDate}
-                                </span>
-                                {outUrl && (
-                                  <a
-                                    href={outUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="kpi-evidence-link"
-                                  >
-                                    산출물 <ExternalLink size={13} />
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Tier 2 (하단 3단 순차 파이프라인): STEP 1 본인 실적·자가평가 ➔ STEP 2 무기명 동료 피드백 ➔ STEP 3 관리자 최종 평가 */}
-                <div className="kpi-eval-steps-grid">
-                  {/* STEP 1: 본인 수행 실적 및 자가평가 */}
-                  <div
-                    className={`kpi-eval-step-card ${hasSelfEvaluated ? 'is-completed-self' : 'is-pending'}`}
-                  >
-                    <div className="kpi-eval-step-header">
-                      <div className="kpi-step-badge-wrap">
-                        <span className="kpi-step-num step-1">STEP 1</span>
-                        <span className="kpi-step-title">본인 수행 실적 및 자가평가</span>
-                      </div>
-                      {hasSelfEvaluated && selfGrade ? (
-                        <span className={`kpi-grade-chip grade-${selfGrade.toLowerCase()}`}>
-                          자가 {selfGrade}등급
-                        </span>
-                      ) : (
-                        <span className="kpi-step-pending-badge">미등록 (필수 선행)</span>
-                      )}
+                  ) : !hasSelfEvaluated ? (
+                    <div className="kpi-detail-empty-box">
+                      STEP 1 [본인 수행 실적 및 자가평가]가 먼저 등록되어야 관리자 최종 등급을 확정할 수 있습니다.
                     </div>
-
-                    {hasSelfEvaluated ? (
-                      <div className="kpi-step-body">
-                        <div className="kpi-step-field">
-                          <span className="kpi-step-field-label">수행 실적 요약</span>
-                          <p className="kpi-step-field-val">{item.currentValue?.trim() || '-'}</p>
-                        </div>
-                        {item.selfEvaluation?.trim() && (
-                          <div className="kpi-step-field">
-                            <span className="kpi-step-field-label">자가평가 의견</span>
-                            <p className="kpi-step-field-val">{item.selfEvaluation}</p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="kpi-step-empty">
-                        {isSelf && !isViewer
-                          ? '아직 수행 실적과 자가평가가 등록되지 않았습니다. 상단 [실적 · 자가평가 등록] 버튼을 눌러 먼저 작성해 주세요.'
-                          : '담당자 본인의 수행 실적 및 자가평가 등록을 대기 중입니다.'}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* STEP 2: 무기명 동료 피드백 */}
-                  <div
-                    className={`kpi-eval-step-card ${peerCount > 0 ? 'is-completed-peer' : 'is-pending'}`}
-                  >
-                    <div className="kpi-eval-step-header">
-                      <div className="kpi-step-badge-wrap">
-                        <span className="kpi-step-num step-2">STEP 2</span>
-                        <span className="kpi-step-title">무기명 동료 피드백 ({peerCount}명)</span>
-                      </div>
-                      {peerCount > 0 ? (
-                        <span className="kpi-peer-score-chip">평균 {avgTotal} / 5.0점</span>
-                      ) : (
-                        <span className="kpi-step-pending-badge">참여 대기</span>
-                      )}
+                  ) : (
+                    <div className="kpi-detail-empty-box">
+                      본인 자가평가가 완료되었습니다. 관리자가 실무 근거와 자가평가를 검토하여 최종 등급을 확정합니다.
                     </div>
-
-                    {peerCount === 0 ? (
-                      <div className="kpi-step-empty">
-                        {isSelf
-                          ? '타 임직원이 평가하면 평가자 정보 없이 결과만 무기명으로 표시됩니다.'
-                          : '등록된 동료 피드백이 없습니다. 상단 버튼으로 무기명 피드백을 남길 수 있습니다.'}
-                      </div>
-                    ) : (
-                      <div className="kpi-step-body">
-                        <div className="kpi-peer-anon-scores">
-                          산출물 완성도 <strong>{avgQuality}</strong>점 · 일정·소통 협업{' '}
-                          <strong>{avgCollab}</strong>점
-                        </div>
-                        <div className="kpi-peer-anon-list">
-                          {peerReviews.map((pr, idx) => (
-                            <div key={pr.id || idx} className="kpi-peer-anon-item">
-                              <div className="kpi-peer-anon-item-head">
-                                <span className="kpi-peer-anon-tag">익명 피드백 #{idx + 1}</span>
-                                <span className="kpi-peer-anon-subscore">
-                                  완성도 {pr.scoreQuality} · 소통 {pr.scoreCollaboration}
-                                </span>
-                              </div>
-                              <p className="kpi-peer-anon-comment">{pr.commentGood}</p>
-                              {pr.commentImprove && (
-                                <p className="kpi-peer-anon-improve">
-                                  보완/건의: {pr.commentImprove}
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* STEP 3: 관리자 최종 평가 */}
-                  <div
-                    className={`kpi-eval-step-card ${
-                      finalGrade
-                        ? 'is-completed-admin'
-                        : !hasSelfEvaluated
-                          ? 'is-locked'
-                          : 'is-pending'
-                    }`}
-                  >
-                    <div className="kpi-eval-step-header">
-                      <div className="kpi-step-badge-wrap">
-                        <span className="kpi-step-num step-3">STEP 3</span>
-                        <span className="kpi-step-title">관리자 최종 평가</span>
-                      </div>
-                      {finalGrade ? (
-                        <span className={`kpi-grade-chip grade-${finalGrade.toLowerCase()}`}>
-                          최종 {finalGrade}등급 ({evalMetrics.weightedPoint} / {item.weight}점)
-                        </span>
-                      ) : !hasSelfEvaluated ? (
-                        <span className="kpi-step-pending-badge is-locked">STEP 1 선행 필요</span>
-                      ) : (
-                        <span className="kpi-step-pending-badge">최종 평가 대기</span>
-                      )}
-                    </div>
-
-                    {finalGrade ? (
-                      <div className="kpi-step-body">
-                        <div className="kpi-step-field">
-                          <span className="kpi-step-field-label">최종 평가 의견</span>
-                          <p className="kpi-step-field-val">
-                            {finalComment || '등록된 최종 평가 코멘트가 없습니다.'}
-                          </p>
-                        </div>
-                      </div>
-                    ) : !hasSelfEvaluated ? (
-                      <div className="kpi-step-empty">
-                        STEP 1 [본인 수행 실적 및 자가평가]가 먼저 등록되어야 관리자 최종 등급을 확정할 수 있습니다.
-                      </div>
-                    ) : (
-                      <div className="kpi-step-empty">
-                        본인 자가평가가 완료되었습니다. 관리자가 실무 근거와 자가평가를 검토하여 최종 등급을 확정합니다.
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             </div>

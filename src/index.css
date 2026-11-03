@@ -6909,11 +6909,11 @@ textarea {
   white-space: nowrap;
 }
 
-/* KPI 상세 페이지 (단일 KPI 집중 뷰) */
+/* KPI 상세 페이지 (단일 KPI 집중 3단 섹션 뷰) */
 .kpi-detail-view {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
 }
 
 .kpi-detail-topbar {
@@ -6932,13 +6932,316 @@ textarea {
   font-weight: 700;
 }
 
+/* 섹션 1. KPI 목표 및 달성 기준(DoD) 요약 헤더 카드 */
+.kpi-detail-hero-card {
+  padding: 24px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.kpi-detail-hero-card.track-planning {
+  border-left: 6px solid #2563eb;
+}
+
+.kpi-detail-hero-card.track-design {
+  border-left: 6px solid #059669;
+}
+
+.kpi-detail-hero-card.track-publishing {
+  border-left: 6px solid #9333ea;
+}
+
+.kpi-detail-hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.kpi-detail-hero-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
 .kpi-detail-title {
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 800;
   color: var(--text-main);
   line-height: 1.4;
   margin: 0;
   word-break: keep-all;
+}
+
+.kpi-detail-score-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(115px, auto));
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.kpi-detail-score-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpi-detail-score-box.is-final-box {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.kpi-detail-score-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.kpi-detail-score-val {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+.kpi-detail-score-val.is-self {
+  color: #2563eb;
+}
+
+.kpi-detail-score-val.is-peer {
+  color: #059669;
+}
+
+.kpi-detail-score-val.is-final {
+  color: #1d4ed8;
+}
+
+.kpi-detail-criteria-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.kpi-detail-criteria-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kpi-detail-criteria-item.is-dod {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.kpi-detail-criteria-label {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-secondary);
+}
+
+.kpi-detail-criteria-item.is-dod .kpi-detail-criteria-label {
+  color: #0369a1;
+}
+
+.kpi-detail-criteria-val {
+  margin: 0;
+  font-size: 15.5px;
+  color: var(--text-main);
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.kpi-detail-criteria-val.is-target {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* 섹션 2. 매핑된 실무 수행 근거 과제 (독립 풀와이드 카드) */
+.kpi-detail-section-card {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kpi-detail-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kpi-detail-section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kpi-detail-section-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.kpi-evidence-map-btn-lg {
+  border-color: #2563eb;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.kpi-evidence-map-btn-lg:hover {
+  background: #dbeafe;
+}
+
+.kpi-detail-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kpi-detail-task-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.kpi-detail-task-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.kpi-detail-task-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.kpi-detail-task-status.is-done {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.kpi-detail-task-status.is-progress {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.kpi-detail-task-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-main);
+  word-break: keep-all;
+}
+
+.kpi-detail-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.kpi-detail-task-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.kpi-detail-task-link:hover {
+  background: #eff6ff;
+}
+
+.kpi-detail-empty-box {
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  color: var(--text-muted);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+.kpi-detail-eval-content-box {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.kpi-eval-steps-grid.is-detail-page {
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.kpi-eval-step-card.is-detail {
+  padding: 20px 24px;
+  gap: 14px;
+}
+
+.kpi-eval-step-card.is-detail .kpi-step-title {
+  font-size: 16px;
+}
+
+.kpi-step-body.is-detail {
+  gap: 12px;
+}
+
+.kpi-step-body.is-detail.is-two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.kpi-step-field-val.is-detail {
+  font-size: 15px;
+  line-height: 1.65;
 }
 
 .kpi-list-item {
@@ -7857,8 +8160,15 @@ textarea {
   }
 
   .kpi-list-top-grid,
-  .kpi-eval-steps-grid {
+  .kpi-eval-steps-grid,
+  .kpi-detail-criteria-grid,
+  .kpi-step-body.is-detail.is-two-col {
     grid-template-columns: 1fr;
+  }
+
+  .kpi-detail-score-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
   }
 }
 
@@ -7868,7 +8178,8 @@ textarea {
     gap: 14px;
   }
 
-  .kpi-rubric-bar {
+  .kpi-rubric-bar,
+  .kpi-detail-score-strip {
     grid-template-columns: 1fr;
   }
 
