@@ -6282,6 +6282,164 @@ button, input, select, textarea {
   width: 210px;
 }
 
+/* 3-C. 대상별 가중치 합산 종합 산출 요약표 */
+.kpi-scorecard-card {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kpi-scorecard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kpi-scorecard-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kpi-scorecard-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.kpi-scorecard-formula {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.kpi-scorecard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 12px;
+}
+
+.kpi-scorecard-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kpi-scorecard-item:hover {
+  background: #ffffff;
+  border-color: #93c5fd;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+.kpi-scorecard-item.is-selected {
+  background: #eff6ff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.kpi-scorecard-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kpi-scorecard-owner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kpi-scorecard-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.kpi-scorecard-stage {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.kpi-scorecard-stage.is-final {
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.kpi-scorecard-stage.is-provisional {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.kpi-scorecard-stage.is-pending {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.kpi-scorecard-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.kpi-scorecard-metric-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.kpi-scorecard-metric-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.kpi-scorecard-metric-val {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.kpi-scorecard-metric-val.is-valid {
+  color: #059669;
+}
+
+.kpi-scorecard-metric-val.is-warn {
+  color: #d97706;
+}
+
+.kpi-scorecard-metric-val.is-highlight {
+  color: #1d4ed8;
+}
+
+.kpi-scorecard-final-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 /* 4. KPI 카드 그리드 */
 .kpi-cards-grid {
   display: grid;
@@ -6343,6 +6501,24 @@ button, input, select, textarea {
   justify-content: space-between;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.kpi-card-grade-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.kpi-weighted-point-badge {
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  padding: 2px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
 }
 
 .kpi-weight-badge {
@@ -6815,6 +6991,104 @@ button, input, select, textarea {
   color: var(--text-main);
 }
 
+/* 관리자 최종 평가 모달 내 다각도 종합 산출 가이드 */
+.kpi-admin-calc-box {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kpi-admin-calc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kpi-admin-calc-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.kpi-recommend-apply-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.kpi-recommend-apply-btn:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.kpi-admin-calc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kpi-admin-calc-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kpi-admin-calc-item.is-recommend {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.kpi-admin-calc-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.kpi-admin-calc-value {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.kpi-admin-calc-value.is-accent {
+  color: #1d4ed8;
+}
+
+.kpi-admin-weighted-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px dashed #cbd5e1;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.kpi-admin-weighted-preview strong {
+  color: #0f172a;
+  font-weight: 800;
+}
+
 /* ============================================================================
    KPI 목표 및 평가 (KpiView) 반응형 미디어 쿼리 (1023px 태블릿 / 767px 모바일)
    ============================================================================ */
@@ -6833,12 +7107,24 @@ button, input, select, textarea {
   .kpi-cards-grid {
     grid-template-columns: 1fr;
   }
+
+  .kpi-scorecard-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* 2) 모바일 디바이스 (767px 이하) */
 @media (max-width: 767px) {
   .kpi-container {
     gap: 14px;
+  }
+
+  .kpi-scorecard-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-admin-calc-grid {
+    grid-template-columns: 1fr;
   }
 
   .kpi-hero-card {

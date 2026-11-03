@@ -236,13 +236,59 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
   const isAdmin = currentUser.role === 'admin' || currentUser.name?.trim() === '최범열';
 
-  // 자가 진단 점수(selfScore)를 등급(S/A/B/C)으로 변환하는 헬퍼
-  const resolveSelfGrade = (selfScore?: number): KpiGrade | null => {
+  // 점수(0~100)를 등급(S/A/B/C)으로 변환하는 헬퍼
+  const resolveSelfGrade = (selfScore?: number | null): KpiGrade | null => {
     if (typeof selfScore !== 'number' || Number.isNaN(selfScore)) return null;
     if (selfScore >= 95) return 'S';
     if (selfScore >= 85) return 'A';
     if (selfScore >= 75) return 'B';
     return 'C';
+  };
+
+  // 등급(S/A/B/C)을 표준 점수(100/90/80/70)로 변환하는 헬퍼
+  const getScoreFromGrade = (grade?: KpiGrade | null): number | null => {
+    if (!grade) return null;
+    const found = GRADE_RUBRIC.find((r) => r.grade === grade);
+    return found ? found.score : null;
+  };
+
+  // 개별 KPI 항목의 평가 점수 및 가중치 반영 득점(Weighted Point) 산출
+  const getKpiEvalMetrics = (kpi: KpiItem) => {
+    const finalGrade = kpi.directorGrade || kpi.leaderGrade || null;
+    const selfGrade = resolveSelfGrade(kpi.selfScore);
+    const weight = Number(kpi.weight || 0);
+
+    if (finalGrade) {
+      const score = kpi.directorScore ?? kpi.leaderScore ?? getScoreFromGrade(finalGrade) ?? 90;
+      const weightedPoint = Math.round(((score * weight) / 100) * 10) / 10;
+      return {
+        source: 'final' as const,
+        grade: finalGrade,
+        score,
+        weight,
+        weightedPoint,
+      };
+    }
+
+    if (typeof kpi.selfScore === 'number' && !Number.isNaN(kpi.selfScore)) {
+      const score = kpi.selfScore;
+      const weightedPoint = Math.round(((score * weight) / 100) * 10) / 10;
+      return {
+        source: 'self' as const,
+        grade: selfGrade,
+        score,
+        weight,
+        weightedPoint,
+      };
+    }
+
+    return {
+      source: 'none' as const,
+      grade: null,
+      score: null,
+      weight,
+      weightedPoint: null,
+    };
   };
 
   // 현재 로그인한 사용자가 해당 KPI의 본인(담당자)인지 여부 판별
@@ -624,6 +670,82 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     (k) => k.stage === 'finalized' || k.directorGrade || k.leaderGrade
   ).length;
 
+  // 대상별(팀 공통 및 개인별) 가중치 합산 종합 점수·등급 자동 산출 (MBO + BARS 가중 평균)
+  const ownerScorecards = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        ownerKey: string;
+        ownerLabel: string;
+        isTeam: boolean;
+        track: KpiTrack;
+        kpiCount: number;
+        finalizedCount: number;
+        evaluatedCount: number;
+        totalWeight: number;
+        evaluatedWeight: number;
+        weightedEarnedSum: number;
+      }
+    >();
+
+    currentKpis.forEach((item) => {
+      const isTeam = item.targetScope === 'team';
+      const ownerKey = isTeam ? 'team' : (item.ownerName || '미지정').trim();
+      const ownerLabel = isTeam ? '서비스기획팀 공통' : ownerKey;
+      const evalInfo = getKpiEvalMetrics(item);
+
+      const existing = map.get(ownerKey) || {
+        ownerKey,
+        ownerLabel,
+        isTeam,
+        track: (item.track || '기획') as KpiTrack,
+        kpiCount: 0,
+        finalizedCount: 0,
+        evaluatedCount: 0,
+        totalWeight: 0,
+        evaluatedWeight: 0,
+        weightedEarnedSum: 0,
+      };
+
+      existing.kpiCount += 1;
+      existing.totalWeight += evalInfo.weight;
+
+      if (evalInfo.source === 'final') {
+        existing.finalizedCount += 1;
+      }
+      if (evalInfo.source !== 'none' && evalInfo.weightedPoint !== null) {
+        existing.evaluatedCount += 1;
+        existing.evaluatedWeight += evalInfo.weight;
+        existing.weightedEarnedSum =
+          Math.round((existing.weightedEarnedSum + evalInfo.weightedPoint) * 10) / 10;
+      }
+
+      map.set(ownerKey, existing);
+    });
+
+    return Array.from(map.values()).map((entry) => {
+      const normalizedScore =
+        entry.evaluatedWeight > 0
+          ? Math.round(((entry.weightedEarnedSum / entry.evaluatedWeight) * 100) * 10) / 10
+          : null;
+      const overallGrade = resolveSelfGrade(normalizedScore);
+      const isAllFinalized = entry.kpiCount > 0 && entry.finalizedCount === entry.kpiCount;
+      const evalStageLabel = isAllFinalized
+        ? '최종 확정'
+        : entry.evaluatedCount > 0
+        ? '가집계 (진행중)'
+        : '평가 대기';
+
+      return {
+        ...entry,
+        normalizedScore,
+        overallGrade,
+        isAllFinalized,
+        evalStageLabel,
+      };
+    });
+  }, [currentKpis]);
+
   return (
     <div className="kpi-container">
       {/* 1. 상단 KPI 요약 배너 */}
@@ -816,6 +938,105 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         </div>
       </div>
 
+      {/* 3-C. 대상별 가중치 합산 종합 산출 요약표 (MBO 가중 평균 성적표) */}
+      {ownerScorecards.length > 0 && (
+        <div className="card kpi-scorecard-card">
+          <div className="kpi-scorecard-header">
+            <div className="kpi-scorecard-title-wrap">
+              <Award size={17} className="kpi-framework-icon" />
+              <h3 className="kpi-scorecard-title">
+                대상별 가중치 합산 종합 산출 현황 (항목별 점수 × 가중치 합산)
+              </h3>
+            </div>
+            <span className="kpi-scorecard-formula">
+              산출식: Σ (항목 등급점수 × 가중치%) · S=100 / A=90 / B=80 / C=70점
+            </span>
+          </div>
+
+          <div className="kpi-scorecard-grid">
+            {ownerScorecards.map((sc) => {
+              const trackCfg = TRACK_CONFIG[sc.track] || TRACK_CONFIG['기획'];
+              const TrackIcon = trackCfg.icon;
+              const isSelectedOwner =
+                (sc.isTeam && ownerFilter === 'team') ||
+                (!sc.isTeam && ownerFilter === sc.ownerKey);
+
+              return (
+                <div
+                  key={sc.ownerKey}
+                  onClick={() => {
+                    const targetFilter = sc.isTeam ? 'team' : sc.ownerKey;
+                    setOwnerFilter((prev) => (prev === targetFilter ? 'all' : targetFilter));
+                  }}
+                  className={`kpi-scorecard-item ${trackCfg.classKey} ${
+                    isSelectedOwner ? 'is-selected' : ''
+                  }`}
+                  title="클릭하여 해당 대상 KPI만 필터링"
+                >
+                  <div className="kpi-scorecard-item-top">
+                    <div className="kpi-scorecard-owner">
+                      <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                        <TrackIcon size={13} /> {trackCfg.label}
+                      </span>
+                      <strong className="kpi-scorecard-name">{sc.ownerLabel}</strong>
+                    </div>
+                    <span
+                      className={`kpi-scorecard-stage ${
+                        sc.isAllFinalized
+                          ? 'is-final'
+                          : sc.evaluatedCount > 0
+                          ? 'is-provisional'
+                          : 'is-pending'
+                      }`}
+                    >
+                      {sc.evalStageLabel} ({sc.finalizedCount}/{sc.kpiCount}건 확정)
+                    </span>
+                  </div>
+
+                  <div className="kpi-scorecard-metrics">
+                    <div className="kpi-scorecard-metric-col">
+                      <span className="kpi-scorecard-metric-label">가중치 합계</span>
+                      <strong
+                        className={`kpi-scorecard-metric-val ${
+                          sc.totalWeight === 100 ? 'is-valid' : 'is-warn'
+                        }`}
+                      >
+                        {sc.totalWeight}%
+                      </strong>
+                    </div>
+
+                    <div className="kpi-scorecard-metric-col">
+                      <span className="kpi-scorecard-metric-label">가중 합산 득점</span>
+                      <strong className="kpi-scorecard-metric-val">
+                        {sc.evaluatedCount > 0
+                          ? `${sc.weightedEarnedSum} / ${sc.evaluatedWeight}점`
+                          : '-'}
+                      </strong>
+                    </div>
+
+                    <div className="kpi-scorecard-metric-col">
+                      <span className="kpi-scorecard-metric-label">100점 환산 종합</span>
+                      <div className="kpi-scorecard-final-wrap">
+                        <strong className="kpi-scorecard-metric-val is-highlight">
+                          {sc.normalizedScore !== null ? `${sc.normalizedScore}점` : '미산출'}
+                        </strong>
+                        {sc.overallGrade && (
+                          <span
+                            className={`kpi-grade-chip grade-${sc.overallGrade.toLowerCase()}`}
+                          >
+                            종합 {sc.overallGrade}등급
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* 4. KPI 카드 그리드 */}
       <div className="kpi-cards-grid">
         {currentKpis.length === 0 ? (
@@ -842,6 +1063,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             const statusCfg = STATUS_MAP[item.status] || STATUS_MAP.in_progress;
             const finalGrade = item.directorGrade || item.leaderGrade;
             const selfGrade = resolveSelfGrade(item.selfScore);
+            const evalMetrics = getKpiEvalMetrics(item);
             const linkedTasks = getLinkedTasksForKpi(item);
             const doneLinkedCount = linkedTasks.filter((t) => t.status === 'done').length;
             const isEvidenceExpanded = !!expandedEvidenceIds[item.id];
@@ -889,14 +1111,28 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     </span>
                   </div>
 
-                  {finalGrade && (
-                    <span
-                      className={`kpi-grade-chip grade-${finalGrade.toLowerCase()}`}
-                      title="관리자 최종 확정 등급"
-                    >
-                      최종 {finalGrade}등급
-                    </span>
-                  )}
+                  <div className="kpi-card-grade-group">
+                    {evalMetrics.weightedPoint !== null && (
+                      <span
+                        className="kpi-weighted-point-badge"
+                        title={
+                          evalMetrics.source === 'final'
+                            ? '최종 등급 기준 가중치 환산 득점'
+                            : '자가진단 등급 기준 가중치 환산 예상 득점'
+                        }
+                      >
+                        가중 득점 {evalMetrics.weightedPoint} / {item.weight}점
+                      </span>
+                    )}
+                    {finalGrade && (
+                      <span
+                        className={`kpi-grade-chip grade-${finalGrade.toLowerCase()}`}
+                        title="관리자 최종 확정 등급"
+                      >
+                        최종 {finalGrade}등급
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* 목표 타이틀 */}
@@ -1647,127 +1883,231 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       )}
 
       {/* 6-C. 관리자(최범열) 최종 평가 등급 확정 모달 */}
-      {actionModal.type === 'admin_eval' && actionModal.kpi && (
-        <div
-          className="modal-overlay"
-          onClick={() => setActionModal({ type: null, kpi: null })}
-        >
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">관리자 최종 등급 및 평가 확정</h3>
-              <button
-                type="button"
-                onClick={() => setActionModal({ type: null, kpi: null })}
-                className="tasks-modal-close-btn"
-              >
-                <X size={20} />
-              </button>
+      {actionModal.type === 'admin_eval' &&
+        actionModal.kpi &&
+        (() => {
+          const targetKpi = actionModal.kpi;
+          const modalLinkedTasks = getLinkedTasksForKpi(targetKpi);
+          const modalDoneTasks = modalLinkedTasks.filter((t) => t.status === 'done').length;
+          const modalSelfScore =
+            typeof targetKpi.selfScore === 'number' && !Number.isNaN(targetKpi.selfScore)
+              ? targetKpi.selfScore
+              : null;
+          const modalSelfGrade = resolveSelfGrade(modalSelfScore);
+          const modalPeerReviews = targetKpi.peerReviews || [];
+          const modalPeerCount = modalPeerReviews.length;
+          const modalPeerAvg5 =
+            modalPeerCount > 0
+              ? targetKpi.peerAvgScore ??
+                Number(
+                  (
+                    modalPeerReviews.reduce(
+                      (acc, r) =>
+                        acc + (Number(r.scoreQuality || 5) + Number(r.scoreCollaboration || 5)) / 2,
+                      0
+                    ) / modalPeerCount
+                  ).toFixed(1)
+                )
+              : null;
+          const modalPeerScore100 =
+            modalPeerAvg5 !== null ? Math.round((modalPeerAvg5 / 5) * 100) : null;
+
+          // 다각도 참고 산출 점수 (본인 자가진단 70% + 다면 협업 피드백 환산 30%)
+          const referenceScore =
+            modalSelfScore !== null && modalPeerScore100 !== null
+              ? Math.round((modalSelfScore * 0.7 + modalPeerScore100 * 0.3) * 10) / 10
+              : modalSelfScore !== null
+              ? modalSelfScore
+              : modalPeerScore100 !== null
+              ? modalPeerScore100
+              : 90;
+          const recommendedGrade = resolveSelfGrade(referenceScore) || 'A';
+
+          const selectedRubric =
+            GRADE_RUBRIC.find((r) => r.grade === adminEvalForm.grade) || GRADE_RUBRIC[1];
+          const selectedWeightedPoint =
+            Math.round(((selectedRubric.score * Number(targetKpi.weight || 0)) / 100) * 10) / 10;
+
+          return (
+            <div
+              className="modal-overlay"
+              onClick={() => setActionModal({ type: null, kpi: null })}
+            >
+              <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3 className="modal-title">관리자 최종 등급 및 평가 확정</h3>
+                  <button
+                    type="button"
+                    onClick={() => setActionModal({ type: null, kpi: null })}
+                    className="tasks-modal-close-btn"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveAdminEval} className="tasks-modal-form">
+                  <div className="modal-body">
+                    <div className="kpi-modal-target-summary">
+                      <strong>
+                        [{targetKpi.ownerName}] {targetKpi.title} (가중치 {targetKpi.weight}%)
+                      </strong>
+                      <span>완료 기준(DoD): {targetKpi.targetValue}</span>
+                      {targetKpi.selfEvaluation && (
+                        <span>본인 자가평가 의견: {targetKpi.selfEvaluation}</span>
+                      )}
+                    </div>
+
+                    {/* 다각도 종합 산출 가이드 박스 */}
+                    <div className="kpi-admin-calc-box">
+                      <div className="kpi-admin-calc-header">
+                        <span className="kpi-admin-calc-title">
+                          다각도 평가 산출 참고 지표 (업적 · 동료 다면피드백 종합)
+                        </span>
+                        {adminEvalForm.grade !== recommendedGrade && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAdminEvalForm((prev) => ({
+                                ...prev,
+                                grade: recommendedGrade,
+                                status:
+                                  recommendedGrade === 'S' || recommendedGrade === 'A'
+                                    ? 'achieved'
+                                    : recommendedGrade === 'B'
+                                    ? 'partially_achieved'
+                                    : 'missed',
+                              }))
+                            }
+                            className="kpi-recommend-apply-btn"
+                          >
+                            추천 {recommendedGrade}등급 적용
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="kpi-admin-calc-grid">
+                        <div className="kpi-admin-calc-item">
+                          <span className="kpi-admin-calc-label">실무 수행 근거</span>
+                          <strong className="kpi-admin-calc-value">
+                            완료 {modalDoneTasks} / {modalLinkedTasks.length}건
+                          </strong>
+                        </div>
+
+                        <div className="kpi-admin-calc-item">
+                          <span className="kpi-admin-calc-label">본인 자가진단</span>
+                          <strong className="kpi-admin-calc-value">
+                            {modalSelfGrade
+                              ? `${modalSelfGrade}등급 (${modalSelfScore}점)`
+                              : '미입력'}
+                          </strong>
+                        </div>
+
+                        <div className="kpi-admin-calc-item">
+                          <span className="kpi-admin-calc-label">동료 피드백 환산</span>
+                          <strong className="kpi-admin-calc-value">
+                            {modalPeerAvg5 !== null
+                              ? `${modalPeerAvg5}/5.0 (환산 ${modalPeerScore100}점)`
+                              : '미참여'}
+                          </strong>
+                        </div>
+
+                        <div className="kpi-admin-calc-item is-recommend">
+                          <span className="kpi-admin-calc-label">산출 추천 등급</span>
+                          <strong className="kpi-admin-calc-value is-accent">
+                            {recommendedGrade}등급 (참고 {referenceScore}점)
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className="kpi-admin-weighted-preview">
+                        <span>
+                          선택 등급(<strong>{adminEvalForm.grade}등급 · {selectedRubric.score}점</strong>) 확정 시 가중치 반영 득점:
+                        </span>
+                        <strong>
+                          {selectedWeightedPoint}점 / {targetKpi.weight}점 만점
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="tasks-form-grid-2">
+                      <div className="form-group">
+                        <label className="form-label">최종 평가 등급 (루브릭 기준) *</label>
+                        <select
+                          value={adminEvalForm.grade}
+                          onChange={(e) => {
+                            const g = e.target.value as KpiGrade;
+                            setAdminEvalForm({
+                              ...adminEvalForm,
+                              grade: g,
+                              status:
+                                g === 'S' || g === 'A'
+                                  ? 'achieved'
+                                  : g === 'B'
+                                  ? 'partially_achieved'
+                                  : 'missed',
+                            });
+                          }}
+                          className="form-select"
+                        >
+                          {GRADE_RUBRIC.map((r) => (
+                            <option key={r.grade} value={r.grade}>
+                              {r.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">달성 결과 상태</label>
+                        <select
+                          value={adminEvalForm.status}
+                          onChange={(e) =>
+                            setAdminEvalForm({
+                              ...adminEvalForm,
+                              status: e.target.value as KpiStatus,
+                            })
+                          }
+                          className="form-select"
+                        >
+                          <option value="achieved">목표 달성</option>
+                          <option value="partially_achieved">부분 달성</option>
+                          <option value="missed">미달성 · 보완</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">최종 평가 총평 (근거 기반 피드백) *</label>
+                      <textarea
+                        rows={4}
+                        required
+                        placeholder="일정 준수(30%), 산출물 무결성(40%), 서비스/협업 기여(30%) 기준에 따른 최종 평가 의견을 작성해 주세요."
+                        value={adminEvalForm.comment}
+                        onChange={(e) =>
+                          setAdminEvalForm({ ...adminEvalForm, comment: e.target.value })
+                        }
+                        className="form-textarea"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      onClick={() => setActionModal({ type: null, kpi: null })}
+                      className="btn btn-secondary"
+                    >
+                      취소
+                    </button>
+                    <button type="submit" className="btn btn-primary">
+                      최종 평가 확정
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-
-            <form onSubmit={handleSaveAdminEval} className="tasks-modal-form">
-              <div className="modal-body">
-                <div className="kpi-modal-target-summary">
-                  <strong>
-                    [{actionModal.kpi.ownerName}] {actionModal.kpi.title}
-                  </strong>
-                  <span>완료 기준(DoD): {actionModal.kpi.targetValue}</span>
-                  {(actionModal.kpi.selfScore || actionModal.kpi.selfEvaluation) && (
-                    <span>
-                      본인 자가진단:{' '}
-                      {resolveSelfGrade(actionModal.kpi.selfScore)
-                        ? `${resolveSelfGrade(actionModal.kpi.selfScore)}등급`
-                        : '등급 미지정'}
-                      {actionModal.kpi.selfEvaluation ? ` — ${actionModal.kpi.selfEvaluation}` : ''}
-                    </span>
-                  )}
-                  <span>
-                    무기명 동료 피드백:{' '}
-                    {actionModal.kpi.peerReviews && actionModal.kpi.peerReviews.length > 0
-                      ? `${actionModal.kpi.peerReviews.length}명 참여 (종합 평균 ${
-                          actionModal.kpi.peerAvgScore ?? 5.0
-                        } / 5.0점)`
-                      : '등록된 동료 피드백 없음'}
-                  </span>
-                </div>
-
-                <div className="tasks-form-grid-2">
-                  <div className="form-group">
-                    <label className="form-label">최종 평가 등급 (루브릭 기준) *</label>
-                    <select
-                      value={adminEvalForm.grade}
-                      onChange={(e) => {
-                        const g = e.target.value as KpiGrade;
-                        setAdminEvalForm({
-                          ...adminEvalForm,
-                          grade: g,
-                          status:
-                            g === 'S' || g === 'A'
-                              ? 'achieved'
-                              : g === 'B'
-                              ? 'partially_achieved'
-                              : 'missed',
-                        });
-                      }}
-                      className="form-select"
-                    >
-                      {GRADE_RUBRIC.map((r) => (
-                        <option key={r.grade} value={r.grade}>
-                          {r.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">달성 결과 상태</label>
-                    <select
-                      value={adminEvalForm.status}
-                      onChange={(e) =>
-                        setAdminEvalForm({
-                          ...adminEvalForm,
-                          status: e.target.value as KpiStatus,
-                        })
-                      }
-                      className="form-select"
-                    >
-                      <option value="achieved">목표 달성</option>
-                      <option value="partially_achieved">부분 달성</option>
-                      <option value="missed">미달성 · 보완</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">최종 평가 총평 (근거 기반 피드백) *</label>
-                  <textarea
-                    rows={4}
-                    required
-                    placeholder="일정 준수(30%), 산출물 무결성(40%), 서비스/협업 기여(30%) 기준에 따른 최종 평가 의견을 작성해 주세요."
-                    value={adminEvalForm.comment}
-                    onChange={(e) =>
-                      setAdminEvalForm({ ...adminEvalForm, comment: e.target.value })
-                    }
-                    className="form-textarea"
-                  />
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  onClick={() => setActionModal({ type: null, kpi: null })}
-                  className="btn btn-secondary"
-                >
-                  취소
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  최종 평가 확정
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          );
+        })()}
     </div>
   );
 };
