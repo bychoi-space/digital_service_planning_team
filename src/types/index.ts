@@ -140,6 +140,7 @@ export interface KpiItem extends AuditBase {
   weight: number;             // 가중치 (%)
   achievementRate: number;    // 달성률 (%)
   status: KpiStatus;
+  linkedTaskIds?: string[];   // KPI 목표별 직접 매핑된 실무 수행 근거(Task) ID 목록
 
   // 4단계 라이프사이클 프로세스
   stage?: KpiProcessStage;

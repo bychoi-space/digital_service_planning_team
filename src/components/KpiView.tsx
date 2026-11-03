@@ -228,11 +228,16 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   const [isFrameworkOpen, setIsFrameworkOpen] = useState<boolean>(true);
   const [expandedEvidenceIds, setExpandedEvidenceIds] = useState<Record<string, boolean>>({});
 
-  // 평가/점검 모달: 'self_checkin' (실적·자가평가) | 'peer_review' (타 임직원 동료 피드백 작성) | 'admin_eval' (관리자 최종평가)
+  // 평가/점검 모달: 'self_checkin' (실적·자가평가) | 'peer_review' (타 임직원 동료 피드백 작성) | 'admin_eval' (관리자 최종평가) | 'task_mapping' (실무 과제 매핑)
   const [actionModal, setActionModal] = useState<{
-    type: 'self_checkin' | 'peer_review' | 'admin_eval' | null;
+    type: 'self_checkin' | 'peer_review' | 'admin_eval' | 'task_mapping' | null;
     kpi: KpiItem | null;
   }>({ type: null, kpi: null });
+
+  // KPI별 실무 과제 매핑 전용 모달 상태
+  const [mappingTaskIds, setMappingTaskIds] = useState<string[]>([]);
+  const [mappingSearch, setMappingSearch] = useState<string>('');
+  const [mappingShowAllTasks, setMappingShowAllTasks] = useState<boolean>(false);
 
   const isAdmin = currentUser.role === 'admin' || currentUser.name?.trim() === '최범열';
 
@@ -306,6 +311,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     status: 'in_progress' as KpiStatus,
     selfEvaluation: '',
     selfGrade: 'A' as KpiGrade,
+    linkedTaskIds: [] as string[],
   });
 
   // 동료 협업 피드백 입력 폼
@@ -336,6 +342,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     currentValue: '',
     weight: 35,
     status: 'in_progress' as KpiStatus,
+    linkedTaskIds: [] as string[],
   });
 
   const refreshKpis = () => {
@@ -343,19 +350,37 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     setTeamMembers(PlanningStorageService.getServicePlanningMembers());
   };
 
-  // 특정 KPI와 연관된 [서비스기획 업무 관리]의 실제 업무(Evidence) 정확 매칭
-  // - 팀 공통 과제(team): 해당 직무 파트 전체 업무 연동
-  // - 개인별 과제(individual): 해당 담당자 본인의 업무만 정확히 연동
+  // 특정 KPI에 담당자가 직접 매핑한 실무 과제(linkedTaskIds) 목록 조회
   const getLinkedTasksForKpi = (kpi: KpiItem): TaskItem[] => {
+    const ids = Array.isArray(kpi.linkedTaskIds) ? kpi.linkedTaskIds : [];
+    if (ids.length === 0) return [];
+    const idSet = new Set(ids);
+    return tasks.filter((t) => idSet.has(t.id));
+  };
+
+  // 매핑 모달/폼에서 선택 가능한 후보 실무 과제 목록 조회 (기본: 본인 담당 업무 또는 팀 파트 업무)
+  const getCandidateTasks = (params: {
+    targetScope: KpiTargetScope;
+    ownerName: string;
+    ownerId?: string;
+    track?: KpiTrack;
+    includeAll?: boolean;
+  }): TaskItem[] => {
+    if (params.includeAll) return tasks;
     return tasks.filter((t) => {
-      if (kpi.targetScope === 'team') {
-        return !kpi.track || t.track === kpi.track;
+      if (params.targetScope === 'team') {
+        return !params.track || t.track === params.track;
       }
       return (
-        t.assigneeName?.trim() === kpi.ownerName?.trim() ||
-        (kpi.ownerId ? String(t.assigneeId) === String(kpi.ownerId) : false)
+        t.assigneeName?.trim() === params.ownerName?.trim() ||
+        (params.ownerId ? String(t.assigneeId) === String(params.ownerId) : false)
       );
     });
+  };
+
+  // 배열 내 특정 업무 ID 토글 헬퍼
+  const toggleTaskIdInList = (list: string[], taskId: string): string[] => {
+    return list.includes(taskId) ? list.filter((id) => id !== taskId) : [...list, taskId];
   };
 
   // 직무별 표준 템플릿 적용
@@ -400,6 +425,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       currentValue: '',
       weight: 35,
       status: 'in_progress',
+      linkedTaskIds: [],
     });
     setIsModalOpen(true);
   };
@@ -431,6 +457,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       currentValue: item.currentValue || '',
       weight: item.weight,
       status: item.status,
+      linkedTaskIds: Array.isArray(item.linkedTaskIds) ? [...item.linkedTaskIds] : [],
     });
     setIsModalOpen(true);
   };
@@ -463,8 +490,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
           currentValue: formData.currentValue.trim(),
           weight: Number(formData.weight),
           status: formData.status,
+          linkedTaskIds: formData.linkedTaskIds,
         });
-        onShowToast('KPI 목표 정보가 수정되었습니다.', 'success');
+        onShowToast('KPI 목표 및 매핑 과제 정보가 수정되었습니다.', 'success');
       } else {
         PlanningStorageService.createKpi({
           year: Number(formData.year),
@@ -480,6 +508,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
           weight: Number(formData.weight),
           achievementRate: 0,
           status: formData.status,
+          linkedTaskIds: formData.linkedTaskIds,
           stage: 'aligned',
           selfEvaluation: '',
           finalEvaluation: '',
@@ -506,6 +535,33 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     }
   };
 
+  // 0) KPI별 실무 과제 매핑 전용 모달 열기 & 저장
+  const handleOpenTaskMappingModal = (kpi: KpiItem) => {
+    if (isViewer) return;
+    setActionModal({ type: 'task_mapping', kpi });
+    setMappingTaskIds(Array.isArray(kpi.linkedTaskIds) ? [...kpi.linkedTaskIds] : []);
+    setMappingSearch('');
+    setMappingShowAllTasks(false);
+  };
+
+  const handleSaveTaskMapping = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!actionModal.kpi) return;
+    try {
+      PlanningStorageService.updateKpi(actionModal.kpi.id, {
+        linkedTaskIds: mappingTaskIds,
+      });
+      onShowToast(
+        `해당 KPI에 실무 수행 근거 과제(${mappingTaskIds.length}건)가 매핑되었습니다.`,
+        'success'
+      );
+      setActionModal({ type: null, kpi: null });
+      refreshKpis();
+    } catch (err) {
+      onShowToast(err instanceof Error ? err.message : '과제 매핑 저장 실패', 'error');
+    }
+  };
+
   // 1) 실적 점검 및 본인 자가평가 모달 열기
   const handleOpenSelfModal = (kpi: KpiItem) => {
     const scoreToGrade: KpiGrade =
@@ -522,6 +578,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       status: kpi.status === 'planning' ? 'in_progress' : kpi.status,
       selfEvaluation: kpi.selfEvaluation || '',
       selfGrade: scoreToGrade,
+      linkedTaskIds: Array.isArray(kpi.linkedTaskIds) ? [...kpi.linkedTaskIds] : [],
     });
   };
 
@@ -535,8 +592,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         status: selfForm.status,
         selfEvaluation: selfForm.selfEvaluation.trim(),
         selfScore: rubric.score,
+        linkedTaskIds: selfForm.linkedTaskIds,
       });
-      onShowToast('수행 실적 및 본인 자가평가가 저장되었습니다.', 'success');
+      onShowToast('수행 실적, 매핑 과제 및 본인 자가평가가 저장되었습니다.', 'success');
       setActionModal({ type: null, kpi: null });
       refreshKpis();
     } catch (err) {
@@ -1156,23 +1214,34 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   </div>
                 </div>
 
-                {/* [서비스기획 업무 관리] 연동 근거 과제 (Evidence Tasks) */}
+                {/* [서비스기획 업무 관리] KPI별 직접 매핑 근거 과제 (Evidence Tasks) */}
                 <div className="kpi-evidence-section">
                   <div className="kpi-evidence-header">
                     <span className="kpi-evidence-title">
-                      <LinkIcon size={14} /> 연동된 실무 수행 근거 ({linkedTasks.length}건)
+                      <LinkIcon size={14} /> 매핑된 실무 수행 근거 ({linkedTasks.length}건)
                     </span>
-                    {linkedTasks.length > 0 && (
-                      <span className="kpi-evidence-summary-badge">
-                        완료 {doneLinkedCount} / 전체 {linkedTasks.length}건
-                      </span>
-                    )}
+                    <div className="kpi-evidence-header-right">
+                      {linkedTasks.length > 0 && (
+                        <span className="kpi-evidence-summary-badge">
+                          완료 {doneLinkedCount} / 매핑 {linkedTasks.length}건
+                        </span>
+                      )}
+                      {!isViewer && (isSelf || isAdmin) && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenTaskMappingModal(item)}
+                          className="kpi-evidence-map-btn"
+                        >
+                          {linkedTasks.length > 0 ? '과제 매핑 편집' : '+ 실무 과제 매핑'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {linkedTasks.length === 0 ? (
                     <div className="kpi-evidence-empty">
-                      [서비스기획 업무 관리]에 등록된{' '}
-                      {item.targetScope === 'team' ? '해당 직무 파트' : `${item.ownerName} 담당`}{' '}
-                      업무가 자동으로 이곳에 연결됩니다.
+                      {!isViewer && (isSelf || isAdmin)
+                        ? '아직 이 KPI 목표에 매핑된 실무 과제가 없습니다. 우측 상단 [+ 실무 과제 매핑] 버튼을 눌러 해당 업무를 직접 선택해 주세요.'
+                        : '아직 담당자가 이 KPI 목표에 매핑한 실무 수행 근거 과제가 없습니다.'}
                     </div>
                   ) : (
                     <div className="kpi-evidence-list">
@@ -1621,6 +1690,68 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   />
                 </div>
 
+                {/* KPI별 직접 매핑할 실무 수행 근거 과제 선택 */}
+                {(() => {
+                  const candidateTasks = getCandidateTasks({
+                    targetScope: formData.targetScope,
+                    ownerName: formData.ownerName,
+                    ownerId: formData.ownerId,
+                    track: formData.track,
+                  });
+                  return (
+                    <div className="form-group">
+                      <label className="form-label">
+                        실무 수행 근거 과제 매핑 (선택됨 {formData.linkedTaskIds.length}건 / 후보{' '}
+                        {candidateTasks.length}건)
+                      </label>
+                      {candidateTasks.length === 0 ? (
+                        <div className="kpi-task-map-empty">
+                          [서비스기획 업무 관리]에 등록된{' '}
+                          {formData.targetScope === 'team'
+                            ? `${formData.track} 파트`
+                            : `${formData.ownerName} 담당`}{' '}
+                          업무가 없습니다.
+                        </div>
+                      ) : (
+                        <div className="kpi-task-map-list is-compact">
+                          {candidateTasks.map((t) => {
+                            const isChecked = formData.linkedTaskIds.includes(t.id);
+                            return (
+                              <label
+                                key={t.id}
+                                className={`kpi-task-map-item ${isChecked ? 'is-checked' : ''}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  disabled={isViewer}
+                                  checked={isChecked}
+                                  onChange={() =>
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      linkedTaskIds: toggleTaskIdInList(prev.linkedTaskIds, t.id),
+                                    }))
+                                  }
+                                  className="kpi-task-map-checkbox"
+                                />
+                                <div className="kpi-task-map-info">
+                                  <div className="kpi-task-map-title-row">
+                                    <span className="tasks-badge-category">{t.category}</span>
+                                    <span className="kpi-task-map-title">{t.title}</span>
+                                  </div>
+                                  <span className="kpi-task-map-meta">
+                                    {t.assigneeName} · {t.startDate} ~ {t.dueDate} (
+                                    {t.status === 'done' ? '완료' : '진행/대기'})
+                                  </span>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {editingKpi && (
                   <div className="tasks-audit-bar">
                     <span>
@@ -1663,13 +1794,174 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         </div>
       )}
 
+      {/* 6-0. KPI별 실무 수행 근거 과제 전용 매핑 모달 */}
+      {actionModal.type === 'task_mapping' &&
+        actionModal.kpi &&
+        (() => {
+          const targetKpi = actionModal.kpi;
+          const baseCandidates = getCandidateTasks({
+            targetScope: targetKpi.targetScope,
+            ownerName: targetKpi.ownerName,
+            ownerId: targetKpi.ownerId,
+            track: targetKpi.track,
+            includeAll: mappingShowAllTasks,
+          });
+          const kw = mappingSearch.trim().toLowerCase();
+          const filteredCandidates = kw
+            ? baseCandidates.filter(
+                (t) =>
+                  t.title.toLowerCase().includes(kw) ||
+                  t.category.toLowerCase().includes(kw) ||
+                  t.assigneeName.toLowerCase().includes(kw)
+              )
+            : baseCandidates;
+
+          return (
+            <div
+              className="modal-overlay"
+              onClick={() => setActionModal({ type: null, kpi: null })}
+            >
+              <div className="modal-box kpi-modal-box" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3 className="modal-title">KPI별 실무 수행 근거 과제 매핑</h3>
+                  <button
+                    type="button"
+                    onClick={() => setActionModal({ type: null, kpi: null })}
+                    className="tasks-modal-close-btn"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveTaskMapping} className="tasks-modal-form">
+                  <div className="modal-body">
+                    <div className="kpi-modal-target-summary">
+                      <strong>
+                        [{targetKpi.ownerName}] {targetKpi.title}
+                      </strong>
+                      <span>
+                        이 KPI 목표를 달성하기 위해 수행한 실무 업무만 체크하여 연결해 주세요. (현재{' '}
+                        {mappingTaskIds.length}건 선택됨)
+                      </span>
+                    </div>
+
+                    <div className="kpi-task-map-toolbar">
+                      <input
+                        type="text"
+                        placeholder="업무명, 도메인, 담당자 검색..."
+                        value={mappingSearch}
+                        onChange={(e) => setMappingSearch(e.target.value)}
+                        className="form-input kpi-task-map-search"
+                      />
+                      <div className="kpi-task-map-actions">
+                        <label className="kpi-task-map-scope-toggle">
+                          <input
+                            type="checkbox"
+                            checked={mappingShowAllTasks}
+                            onChange={(e) => setMappingShowAllTasks(e.target.checked)}
+                          />
+                          <span>팀 전체 업무에서 찾기</span>
+                        </label>
+                        {filteredCandidates.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const allIds = filteredCandidates.map((t) => t.id);
+                              const allSelected = allIds.every((id) =>
+                                mappingTaskIds.includes(id)
+                              );
+                              if (allSelected) {
+                                setMappingTaskIds((prev) =>
+                                  prev.filter((id) => !allIds.includes(id))
+                                );
+                              } else {
+                                setMappingTaskIds((prev) =>
+                                  Array.from(new Set([...prev, ...allIds]))
+                                );
+                              }
+                            }}
+                            className="btn btn-secondary kpi-task-map-selectall-btn"
+                          >
+                            {filteredCandidates.every((t) => mappingTaskIds.includes(t.id))
+                              ? '목록 선택 해제'
+                              : '목록 전체 선택'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {filteredCandidates.length === 0 ? (
+                      <div className="kpi-task-map-empty">
+                        조건에 해당하는 실무 과제가 없습니다. 우측 상단 [팀 전체 업무에서 찾기]를 체크하거나 [서비스기획 업무 관리]에서 업무를 먼저 등록해 주세요.
+                      </div>
+                    ) : (
+                      <div className="kpi-task-map-list">
+                        {filteredCandidates.map((t) => {
+                          const isChecked = mappingTaskIds.includes(t.id);
+                          const tTrackCfg =
+                            TRACK_CONFIG[t.track || '기획'] || TRACK_CONFIG['기획'];
+                          return (
+                            <label
+                              key={t.id}
+                              className={`kpi-task-map-item ${isChecked ? 'is-checked' : ''}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() =>
+                                  setMappingTaskIds((prev) => toggleTaskIdInList(prev, t.id))
+                                }
+                                className="kpi-task-map-checkbox"
+                              />
+                              <div className="kpi-task-map-info">
+                                <div className="kpi-task-map-title-row">
+                                  <span className={`tasks-badge-track ${tTrackCfg.classKey}`}>
+                                    {tTrackCfg.label}
+                                  </span>
+                                  <span className="tasks-badge-category">{t.category}</span>
+                                  <span className="kpi-task-map-title">{t.title}</span>
+                                </div>
+                                <span className="kpi-task-map-meta">
+                                  담당: {t.assigneeName} · 일정: {t.startDate} ~ {t.dueDate} · 상태:{' '}
+                                  {t.status === 'done'
+                                    ? '완료'
+                                    : t.status === 'in_progress'
+                                    ? '진행중'
+                                    : '대기'}
+                                </span>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      onClick={() => setActionModal({ type: null, kpi: null })}
+                      className="btn btn-secondary"
+                    >
+                      취소
+                    </button>
+                    <button type="submit" className="btn btn-primary">
+                      매핑 저장 ({mappingTaskIds.length}건)
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          );
+        })()}
+
       {/* 6-A. 실적 점검 및 본인 자가평가 모달 */}
       {actionModal.type === 'self_checkin' && actionModal.kpi && (
         <div
           className="modal-overlay"
           onClick={() => setActionModal({ type: null, kpi: null })}
         >
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-box kpi-modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">수행 실적 기록 및 본인 자가평가</h3>
               <button
@@ -1723,6 +2015,62 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     </select>
                   </div>
                 </div>
+
+                {/* 자가평가 시에도 매핑 과제 바로 체크/해제 지원 */}
+                {(() => {
+                  const candidateTasks = getCandidateTasks({
+                    targetScope: actionModal.kpi.targetScope,
+                    ownerName: actionModal.kpi.ownerName,
+                    ownerId: actionModal.kpi.ownerId,
+                    track: actionModal.kpi.track,
+                  });
+                  return (
+                    <div className="form-group">
+                      <label className="form-label">
+                        매핑된 실무 수행 근거 과제 확인 (선택됨 {selfForm.linkedTaskIds.length}건)
+                      </label>
+                      {candidateTasks.length === 0 ? (
+                        <div className="kpi-task-map-empty">
+                          등록된 담당 업무가 없습니다.
+                        </div>
+                      ) : (
+                        <div className="kpi-task-map-list is-compact">
+                          {candidateTasks.map((t) => {
+                            const isChecked = selfForm.linkedTaskIds.includes(t.id);
+                            return (
+                              <label
+                                key={t.id}
+                                className={`kpi-task-map-item ${isChecked ? 'is-checked' : ''}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() =>
+                                    setSelfForm((prev) => ({
+                                      ...prev,
+                                      linkedTaskIds: toggleTaskIdInList(prev.linkedTaskIds, t.id),
+                                    }))
+                                  }
+                                  className="kpi-task-map-checkbox"
+                                />
+                                <div className="kpi-task-map-info">
+                                  <div className="kpi-task-map-title-row">
+                                    <span className="tasks-badge-category">{t.category}</span>
+                                    <span className="kpi-task-map-title">{t.title}</span>
+                                  </div>
+                                  <span className="kpi-task-map-meta">
+                                    {t.startDate} ~ {t.dueDate} (
+                                    {t.status === 'done' ? '완료' : '진행/대기'})
+                                  </span>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="form-group">
                   <label className="form-label">수행 실적 요약 *</label>

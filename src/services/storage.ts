@@ -429,6 +429,9 @@ export class PlanningStorageService {
                 mergedMap.set(ext.id, {
                   ...existing,
                   ...ext,
+                  linkedTaskIds: Array.isArray(ext.linkedTaskIds)
+                    ? ext.linkedTaskIds
+                    : existing.linkedTaskIds || [],
                   peerReviews: Array.isArray(ext.peerReviews) && ext.peerReviews.length > 0
                     ? ext.peerReviews
                     : existing.peerReviews || [],
@@ -1295,6 +1298,7 @@ export class PlanningStorageService {
     return raw.map((k) => ({
       ...k,
       stage: k.stage || (k.status === 'planning' ? 'draft' : 'aligned'),
+      linkedTaskIds: Array.isArray(k.linkedTaskIds) ? k.linkedTaskIds : [],
       checkins: Array.isArray(k.checkins) ? k.checkins : [],
       peerReviews: Array.isArray(k.peerReviews)
         ? k.peerReviews.map((pr) => ({
