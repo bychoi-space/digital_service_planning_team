@@ -6087,6 +6087,28 @@ button, input, select, textarea {
   margin: 0;
 }
 
+.kpi-framework-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.kpi-framework-toggle-btn:hover {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #94a3b8;
+}
+
 .kpi-pillars-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -6436,6 +6458,17 @@ button, input, select, textarea {
   gap: 6px;
 }
 
+.kpi-evidence-summary-badge {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
 .kpi-evidence-empty {
   font-size: 14px;
   color: var(--text-muted);
@@ -6469,6 +6502,11 @@ button, input, select, textarea {
 
 .kpi-evidence-check {
   color: #059669;
+  flex-shrink: 0;
+}
+
+.kpi-evidence-progress {
+  color: #2563eb;
   flex-shrink: 0;
 }
 
@@ -6506,6 +6544,30 @@ button, input, select, textarea {
 
 .kpi-evidence-link:hover {
   text-decoration: underline;
+}
+
+.kpi-evidence-more-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 10px;
+  margin-top: 2px;
+  border-radius: 6px;
+  border: 1px dashed #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.kpi-evidence-more-btn:hover {
+  background: #f8fafc;
+  color: #2563eb;
+  border-color: #93c5fd;
 }
 
 /* 평가 결과 요약 박스 */
