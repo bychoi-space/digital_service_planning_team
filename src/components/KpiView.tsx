@@ -796,6 +796,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         isTeam: boolean;
         track: KpiTrack;
         kpiCount: number;
+        selfDoneCount: number;
         finalizedCount: number;
         evaluatedCount: number;
         totalWeight: number;
@@ -809,6 +810,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       const ownerKey = isTeam ? 'team' : (item.ownerName || '미지정').trim();
       const ownerLabel = isTeam ? '서비스기획팀 공통' : ownerKey;
       const evalInfo = getKpiEvalMetrics(item);
+      const hasSelf = checkHasSelfEval(item);
 
       const existing = map.get(ownerKey) || {
         ownerKey,
@@ -816,6 +818,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         isTeam,
         track: (item.track || '기획') as KpiTrack,
         kpiCount: 0,
+        selfDoneCount: 0,
         finalizedCount: 0,
         evaluatedCount: 0,
         totalWeight: 0,
@@ -826,6 +829,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       existing.kpiCount += 1;
       existing.totalWeight += evalInfo.weight;
 
+      if (hasSelf) {
+        existing.selfDoneCount += 1;
+      }
       if (evalInfo.source === 'final') {
         existing.finalizedCount += 1;
       }
@@ -1439,7 +1445,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             </div>
           </div>
 
-          {/* 3-C. 대상별 가중치 합산 종합 산출 요약표 */}
+          {/* 3-C. 대상별 가중치 합산 종합 산출 요약표 (가로 풀와이드 1줄 성적표 바) */}
           {ownerScorecards.length > 0 && (
             <div className="card kpi-scorecard-card">
               <div className="kpi-scorecard-header">
@@ -1454,7 +1460,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                 </span>
               </div>
 
-              <div className="kpi-scorecard-grid">
+              <div className="kpi-scorecard-list">
                 {ownerScorecards.map((sc) => {
                   const trackCfg = TRACK_CONFIG[sc.track] || TRACK_CONFIG['기획'];
                   const TrackIcon = trackCfg.icon;
@@ -1469,18 +1475,33 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                         const targetFilter = sc.isTeam ? 'team' : sc.ownerKey;
                         setOwnerFilter((prev) => (prev === targetFilter ? 'all' : targetFilter));
                       }}
-                      className={`kpi-scorecard-item ${trackCfg.classKey} ${
+                      className={`kpi-scorecard-row ${trackCfg.classKey} ${
                         isSelectedOwner ? 'is-selected' : ''
                       }`}
                       title="클릭하여 해당 대상 KPI만 필터링"
                     >
-                      <div className="kpi-scorecard-item-top">
-                        <div className="kpi-scorecard-owner">
-                          <span className={`tasks-badge-track ${trackCfg.classKey}`}>
-                            <TrackIcon size={13} /> {trackCfg.label}
-                          </span>
-                          <strong className="kpi-scorecard-name">{sc.ownerLabel}</strong>
-                        </div>
+                      {/* 좌측: 파트 배지 · 대상자명 · 과제 수 · 가중치 합계 */}
+                      <div className="kpi-scorecard-row-left">
+                        <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                          <TrackIcon size={13} /> {trackCfg.label}
+                        </span>
+                        <strong className="kpi-scorecard-name">{sc.ownerLabel}</strong>
+                        <span className="kpi-scorecard-submeta">등록 과제 {sc.kpiCount}건</span>
+                        <span
+                          className={`kpi-scorecard-weight-pill ${
+                            sc.totalWeight === 100 ? 'is-valid' : 'is-warn'
+                          }`}
+                        >
+                          가중치 합계 {sc.totalWeight}%
+                        </span>
+                      </div>
+
+                      {/* 우측: 평가 진행 현황 + 가중 합산 득점 + 100점 환산 종합 + 등급 1줄 인라인 배치 */}
+                      <div className="kpi-scorecard-row-right">
+                        <span className="kpi-scorecard-stat-pill">
+                          자가평가 <strong>{sc.selfDoneCount}/{sc.kpiCount}건</strong>
+                        </span>
+
                         <span
                           className={`kpi-scorecard-stage ${
                             sc.isAllFinalized
@@ -1492,21 +1513,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                         >
                           {sc.evalStageLabel} ({sc.finalizedCount}/{sc.kpiCount}건 확정)
                         </span>
-                      </div>
 
-                      <div className="kpi-scorecard-metrics">
-                        <div className="kpi-scorecard-metric-col">
-                          <span className="kpi-scorecard-metric-label">가중치 합계</span>
-                          <strong
-                            className={`kpi-scorecard-metric-val ${
-                              sc.totalWeight === 100 ? 'is-valid' : 'is-warn'
-                            }`}
-                          >
-                            {sc.totalWeight}%
-                          </strong>
-                        </div>
+                        <span className="kpi-scorecard-divider" aria-hidden="true" />
 
-                        <div className="kpi-scorecard-metric-col">
+                        <div className="kpi-scorecard-inline-metric">
                           <span className="kpi-scorecard-metric-label">가중 합산 득점</span>
                           <strong className="kpi-scorecard-metric-val">
                             {sc.evaluatedCount > 0
@@ -1515,21 +1525,20 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                           </strong>
                         </div>
 
-                        <div className="kpi-scorecard-metric-col">
-                          <span className="kpi-scorecard-metric-label">100점 환산 종합</span>
-                          <div className="kpi-scorecard-final-wrap">
-                            <strong className="kpi-scorecard-metric-val is-highlight">
-                              {sc.normalizedScore !== null ? `${sc.normalizedScore}점` : '미산출'}
-                            </strong>
-                            {sc.overallGrade && (
-                              <span
-                                className={`kpi-grade-chip grade-${sc.overallGrade.toLowerCase()}`}
-                              >
-                                종합 {sc.overallGrade}등급
-                              </span>
-                            )}
-                          </div>
+                        <div className="kpi-scorecard-inline-metric">
+                          <span className="kpi-scorecard-metric-label">100점 환산</span>
+                          <strong className="kpi-scorecard-metric-val is-highlight">
+                            {sc.normalizedScore !== null ? `${sc.normalizedScore}점` : '미산출'}
+                          </strong>
                         </div>
+
+                        {sc.overallGrade && (
+                          <span
+                            className={`kpi-grade-chip grade-${sc.overallGrade.toLowerCase()}`}
+                          >
+                            종합 {sc.overallGrade}등급
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
