@@ -31,7 +31,6 @@ import {
   ExternalLink,
   Layers,
   Sparkles,
-  ArrowUpRight,
   Eye,
   Clock,
   CheckCircle2,
@@ -161,7 +160,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
   currentUser,
   isViewer,
   onShowToast,
-  onNavigateToTasks,
 }) => {
   const [todayStr] = useState<string>(() => formatLocalDate(new Date()));
 
@@ -184,15 +182,13 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
   const [filterType, setFilterType] = useState<'all' | 'vacation' | TaskTrack>('all');
   const [onlyActiveTasks, setOnlyActiveTasks] = useState<boolean>(true);
 
-  // 모달 상태
+  // 휴가 모달 상태
   const [isVacationModalOpen, setIsVacationModalOpen] = useState(false);
   const [editingVacation, setEditingVacation] = useState<VacationItem | null>(null);
 
-  // 신규 업무 등록 모달 상태 (서비스기획 업무 관리와 동일한 업무 등록 모달)
-  const [isTaskCreateModalOpen, setIsTaskCreateModalOpen] = useState(false);
-
-  // 업무 상세 보기 모달 상태
-  const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
+  // 업무 등록/상세/수정 통합 모달 상태 (서비스기획 업무 관리 화면과 100% 동일)
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
 
   // 일자별 전체 일정 더보기 모달 (데스크톱/태블릿용)
   const [selectedDayDetail, setSelectedDayDetail] = useState<{
@@ -237,6 +233,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     };
   });
 
+  // 업무 등록 모달 열기
   const handleOpenCreateTaskModal = () => {
     if (isViewer) {
       onShowToast('유관부서(읽기 전용) 모드에서는 새 업무를 등록할 수 없습니다.', 'error');
@@ -252,6 +249,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
         ? filterType
         : '기획';
 
+    setEditingTask(null);
     setTaskFormData({
       title: '',
       category: '신규기획',
@@ -265,14 +263,40 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       description: '',
       linkUrl: '',
     });
-    setIsTaskCreateModalOpen(true);
+    setIsTaskModalOpen(true);
 
     PlanningStorageService.syncFromSupabase().then(() => {
       setTeamMembers(PlanningStorageService.getServicePlanningMembers());
     });
   };
 
-  const handleSaveNewTask = (e: React.FormEvent) => {
+  // 업무 상세 조회 및 수정 모달 열기 (서비스기획 업무 관리와 동일)
+  const handleOpenEditTaskModal = (task: TaskItem) => {
+    const latestMembers = PlanningStorageService.getServicePlanningMembers();
+    setTeamMembers(latestMembers);
+    const matchedAssignee = latestMembers.find(
+      (m) => String(m.id) === String(task.assigneeId) || m.name.trim() === task.assigneeName?.trim()
+    );
+
+    setEditingTask(task);
+    setTaskFormData({
+      title: task.title,
+      category: task.category,
+      track: task.track || '기획',
+      assigneeId: matchedAssignee ? matchedAssignee.id : task.assigneeId,
+      assigneeName: matchedAssignee ? matchedAssignee.name : task.assigneeName,
+      priority: task.priority,
+      status: computeTaskStatusByDates(task.startDate, task.dueDate),
+      startDate: task.startDate,
+      dueDate: task.dueDate,
+      description: task.description,
+      linkUrl: task.links?.[0]?.url || task.artifactUrl || '',
+    });
+    setIsTaskModalOpen(true);
+  };
+
+  // 업무 저장 (신규 등록 / 기존 수정 통합)
+  const handleSaveTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (isViewer) {
       onShowToast('유관부서(읽기 전용) 모드에서는 변경 사항을 저장할 수 없습니다.', 'error');
@@ -298,29 +322,64 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     const normalizedLinks = trimmedUrl ? [{ title: '산출물 링크', url: trimmedUrl }] : [];
 
     try {
-      PlanningStorageService.createTask(
-        {
-          title: taskFormData.title.trim(),
-          category: taskFormData.category,
-          track: taskFormData.track,
-          assigneeId: taskFormData.assigneeId,
-          assigneeName: taskFormData.assigneeName,
-          priority: taskFormData.priority,
-          status: autoStatus,
-          startDate: taskFormData.startDate,
-          dueDate: taskFormData.dueDate,
-          progress: autoStatus === 'done' ? 100 : 0,
-          description: taskFormData.description,
-          links: normalizedLinks,
-        },
-        currentUser
-      );
-      onShowToast(`새로운 [${taskFormData.track}] 업무가 등록되었습니다.`, 'success');
-      setIsTaskCreateModalOpen(false);
+      if (editingTask) {
+        PlanningStorageService.updateTask(
+          editingTask.id,
+          {
+            title: taskFormData.title.trim(),
+            category: taskFormData.category,
+            track: taskFormData.track,
+            assigneeId: taskFormData.assigneeId,
+            assigneeName: taskFormData.assigneeName,
+            priority: taskFormData.priority,
+            status: autoStatus,
+            startDate: taskFormData.startDate,
+            dueDate: taskFormData.dueDate,
+            description: taskFormData.description,
+            links: normalizedLinks,
+          },
+          currentUser
+        );
+        onShowToast(`[${taskFormData.track}] 업무 정보가 성공적으로 수정되었습니다.`, 'success');
+      } else {
+        PlanningStorageService.createTask(
+          {
+            title: taskFormData.title.trim(),
+            category: taskFormData.category,
+            track: taskFormData.track,
+            assigneeId: taskFormData.assigneeId,
+            assigneeName: taskFormData.assigneeName,
+            priority: taskFormData.priority,
+            status: autoStatus,
+            startDate: taskFormData.startDate,
+            dueDate: taskFormData.dueDate,
+            progress: autoStatus === 'done' ? 100 : 0,
+            description: taskFormData.description,
+            links: normalizedLinks,
+          },
+          currentUser
+        );
+        onShowToast(`새로운 [${taskFormData.track}] 업무가 등록되었습니다.`, 'success');
+      }
+      setIsTaskModalOpen(false);
       refreshAll();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '작업 중 오류가 발생했습니다.';
       onShowToast(errorMsg, 'error');
+    }
+  };
+
+  // 업무 삭제
+  const handleDeleteTask = (taskId: string, title: string) => {
+    if (isViewer) {
+      onShowToast('유관부서(읽기 전용) 모드에서는 삭제할 수 없습니다.', 'error');
+      return;
+    }
+    if (window.confirm(`정말 "${title}" 업무를 삭제하시겠습니까? (감사 로그에 영구 기록됩니다)`)) {
+      PlanningStorageService.deleteTask(taskId);
+      onShowToast('업무가 삭제되었습니다.', 'info');
+      setIsTaskModalOpen(false);
+      refreshAll();
     }
   };
 
@@ -946,7 +1005,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             key={`task-${t.id}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedTask(t);
+                              handleOpenEditTaskModal(t);
                             }}
                             className={`schedule-event-badge is-task ${trackCfg.classKey}`}
                             title={`[${t.track}] ${t.title} (${t.assigneeName}) / 기간: ${t.startDate} ~ ${t.dueDate}`}
@@ -1066,7 +1125,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                   return (
                     <div
                       key={`mob-task-${t.id}`}
-                      onClick={() => setSelectedTask(t)}
+                      onClick={() => handleOpenEditTaskModal(t)}
                       className={`schedule-mobile-agenda-item is-task ${trackCfg.classKey}`}
                     >
                       <div className="schedule-mobile-agenda-top">
@@ -1288,7 +1347,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                           <td className="td-center">
                             <button
                               type="button"
-                              onClick={() => setSelectedTask(t)}
+                              onClick={() => handleOpenEditTaskModal(t)}
                               className="btn btn-secondary tasks-action-btn"
                             >
                               <Eye size={14} /> 상세 보기
@@ -1331,7 +1390,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                       </div>
 
                       <div
-                        onClick={() => setSelectedTask(t)}
+                        onClick={() => handleOpenEditTaskModal(t)}
                         className="tasks-mobile-list-title"
                       >
                         {t.title}
@@ -1343,7 +1402,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                         </span>
                         <button
                           type="button"
-                          onClick={() => setSelectedTask(t)}
+                          onClick={() => handleOpenEditTaskModal(t)}
                           className="btn btn-secondary tasks-action-btn"
                         >
                           <Eye size={14} /> 상세 보기
@@ -1562,145 +1621,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
         </div>
       )}
 
-      {/* 5. 캘린더에서 클릭한 업무 상세 모달 (Task Detail Modal) */}
-      {selectedTask && (
-        <div className="modal-overlay" onClick={() => setSelectedTask(null)}>
-          <div className="modal-box schedule-task-modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="tasks-modal-header-left">
-                {(() => {
-                  const trackCfg = TRACK_CONFIG[selectedTask.track] || TRACK_CONFIG['기획'];
-                  const TrackIcon = trackCfg.icon;
-                  return (
-                    <span className={`tasks-badge-track ${trackCfg.classKey}`}>
-                      <TrackIcon size={13} /> {selectedTask.track} 파트
-                    </span>
-                  );
-                })()}
-                <h3 className="modal-title">{selectedTask.title}</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedTask(null)}
-                className="tasks-modal-close-btn"
-                aria-label="모달 닫기"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="modal-body schedule-modal-stack">
-              {/* 속성 그리드 */}
-              <div className="schedule-task-meta-grid">
-                <div>
-                  <span className="schedule-meta-label">도메인:</span>{' '}
-                  <strong>{selectedTask.category}</strong>
-                </div>
-                <div>
-                  <span className="schedule-meta-label">담당자:</span>{' '}
-                  <strong>{selectedTask.assigneeName}</strong>
-                </div>
-                <div>
-                  <span className="schedule-meta-label">우선순위:</span>{' '}
-                  <span className={`tasks-badge-priority priority-${selectedTask.priority}`}>
-                    {selectedTask.priority === 'urgent'
-                      ? '긴급'
-                      : selectedTask.priority === 'high'
-                      ? '높음'
-                      : selectedTask.priority === 'medium'
-                      ? '보통'
-                      : '낮음'}
-                  </span>
-                </div>
-                <div>
-                  <span className="schedule-meta-label">진행 상태:</span>{' '}
-                  <span className="tasks-badge-category">
-                    {selectedTask.status === 'in_progress'
-                      ? '진행중'
-                      : selectedTask.status === 'review'
-                      ? '검토/QA'
-                      : selectedTask.status === 'done'
-                      ? '완료'
-                      : selectedTask.status === 'on_hold'
-                      ? '보류'
-                      : '대기'}
-                  </span>
-                </div>
-                <div className="schedule-task-meta-full">
-                  <span className="schedule-meta-label">업무 기간:</span>{' '}
-                  <strong>
-                    {selectedTask.startDate} ~ {selectedTask.dueDate}
-                  </strong>
-                </div>
-              </div>
-
-              {/* 상세 내용 */}
-              <div>
-                <label className="form-label">상세 업무 내용</label>
-                <div className="schedule-task-desc-box">
-                  {selectedTask.description || '상세 내용이 작성되지 않았습니다.'}
-                </div>
-              </div>
-
-              {/* 산출물 링크 */}
-              {((selectedTask.links && selectedTask.links.length > 0) ||
-                selectedTask.artifactUrl) && (
-                <div>
-                  <label className="form-label">산출물 링크</label>
-                  <div className="schedule-task-links">
-                    {selectedTask.links && selectedTask.links.length > 0 ? (
-                      selectedTask.links.map((link, lIdx) => (
-                        <a
-                          key={lIdx}
-                          href={link.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="schedule-task-link-anchor"
-                        >
-                          <ExternalLink size={14} /> {link.url}
-                        </a>
-                      ))
-                    ) : (
-                      <a
-                        href={selectedTask.artifactUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="schedule-task-link-anchor"
-                      >
-                        <ExternalLink size={14} /> {selectedTask.artifactUrl}
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="modal-footer">
-              {onNavigateToTasks && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedTask(null);
-                    onNavigateToTasks();
-                  }}
-                  className="btn btn-primary tasks-modal-delete-btn"
-                >
-                  <ArrowUpRight size={15} /> 업무 관리 화면에서 열기
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setSelectedTask(null)}
-                className="btn btn-secondary"
-              >
-                닫기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 6. 일자별 전체 일정 더보기 모달 (Day Schedule Modal) */}
+      {/* 5. 일자별 전체 일정 더보기 모달 (Day Schedule Modal) */}
       {selectedDayDetail && (
         <div className="modal-overlay" onClick={() => setSelectedDayDetail(null)}>
           <div className="modal-box schedule-day-modal-box" onClick={(e) => e.stopPropagation()}>
@@ -1784,7 +1705,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                           key={t.id}
                           onClick={() => {
                             setSelectedDayDetail(null);
-                            setSelectedTask(t);
+                            handleOpenEditTaskModal(t);
                           }}
                           className={`schedule-mobile-agenda-item is-task ${trackCfg.classKey}`}
                         >
@@ -1821,18 +1742,24 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
         </div>
       )}
 
-      {/* 7. 새로운 서비스기획 업무 등록 모달 (서비스기획 업무 관리와 동일) */}
-      {isTaskCreateModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsTaskCreateModalOpen(false)}>
+      {/* 6. 서비스기획 업무 등록 / 상세 조회 / 수정 통합 모달 (서비스기획 업무 관리와 100% 동일) */}
+      {isTaskModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsTaskModalOpen(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div className="tasks-modal-header-left">
-                <h3 className="modal-title">새로운 서비스기획 업무 등록</h3>
+                <h3 className="modal-title">
+                  {editingTask
+                    ? isViewer
+                      ? '서비스기획 업무 상세 조회 (읽기 전용)'
+                      : '서비스기획 업무 상세 및 수정'
+                    : '새로운 서비스기획 업무 등록'}
+                </h3>
                 {isViewer && <span className="tasks-viewer-chip">조회 전용</span>}
               </div>
               <button
                 type="button"
-                onClick={() => setIsTaskCreateModalOpen(false)}
+                onClick={() => setIsTaskModalOpen(false)}
                 className="tasks-modal-close-btn"
                 aria-label="모달 닫기"
               >
@@ -1840,7 +1767,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveNewTask} className="tasks-modal-form">
+            <form onSubmit={handleSaveTask} className="tasks-modal-form">
               <div className="modal-body">
                 {/* 0. 파트 구분 (기획 / 디자인 / 퍼블리싱 3단 세그먼트 버튼) */}
                 <div className="form-group tasks-modal-track-group">
@@ -2070,19 +1997,42 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                     )}
                   </div>
                 </div>
+
+                {/* 감사 정보 표시 (기존 데이터인 경우) */}
+                {editingTask && (
+                  <div className="tasks-audit-bar">
+                    <span>
+                      최초 등록: {editingTask.createdBy} (
+                      {new Date(editingTask.createdAt).toLocaleDateString()})
+                    </span>
+                    <span>
+                      최종 수정: {editingTask.updatedBy} (
+                      {new Date(editingTask.updatedAt).toLocaleTimeString()})
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="modal-footer">
+                {editingTask && !isViewer && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteTask(editingTask.id, editingTask.title)}
+                    className="btn btn-danger tasks-modal-delete-btn"
+                  >
+                    <Trash2 size={15} /> 삭제
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setIsTaskCreateModalOpen(false)}
+                  onClick={() => setIsTaskModalOpen(false)}
                   className="btn btn-secondary"
                 >
                   {isViewer ? '닫기' : '취소'}
                 </button>
                 {!isViewer && (
                   <button type="submit" className="btn btn-primary">
-                    업무 등록 완료
+                    {editingTask ? '변경사항 저장' : '업무 등록 완료'}
                   </button>
                 )}
               </div>
