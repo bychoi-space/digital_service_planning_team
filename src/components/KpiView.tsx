@@ -88,6 +88,7 @@ const GRADE_RUBRIC: {
   grade: KpiGrade;
   score: number;
   label: string;
+  shortLabel: string;
   desc: string;
   classKey: string;
 }[] = [
@@ -95,28 +96,32 @@ const GRADE_RUBRIC: {
     grade: 'S',
     score: 100,
     label: 'S등급 (탁월)',
-    desc: '목표 일정 준수 + 무결점 오픈 + 향후 반복 활용 가능한 표준 가이드·모듈 자산화',
+    shortLabel: 'S등급 (탁월)',
+    desc: '일정·품질 완수 및 표준 모듈 자산화',
     classKey: 'grade-s',
   },
   {
     grade: 'A',
     score: 90,
     label: 'A등급 (우수 · 기준)',
-    desc: '합의된 마일스톤 일정 내에 목표 스펙과 품질 기준을 충족하여 정상 오픈',
+    shortLabel: 'A등급 (기준)',
+    desc: '합의 일정 내 목표 스펙 무결점 오픈',
     classKey: 'grade-a',
   },
   {
     grade: 'B',
     score: 80,
     label: 'B등급 (보통)',
-    desc: '오픈은 완료했으나 내부 사유로 일정이 일부 지연되었거나 오픈 직후 보완 수정 발생',
+    shortLabel: 'B등급 (보통)',
+    desc: '일정 일부 지연 또는 오픈 후 보완 발생',
     classKey: 'grade-b',
   },
   {
     grade: 'C',
     score: 70,
     label: 'C등급 (미흡)',
-    desc: '주요 마일스톤 지연으로 일정에 차질이 발생했거나 핵심 요구사항 일부 누락',
+    shortLabel: 'C등급 (미흡)',
+    desc: '주요 일정 차질 또는 핵심 요구사항 누락',
     classKey: 'grade-c',
   },
 ];
@@ -128,7 +133,6 @@ interface KpiPreset {
   title: string;
   metric: string;
   targetValue: string;
-  weight: number;
 }
 
 const KPI_PRESETS: KpiPreset[] = [
@@ -139,7 +143,6 @@ const KPI_PRESETS: KpiPreset[] = [
     title: '시선닷컴 Front UI Renewal 및 제휴 프로모션 화면설계(SB) 적기 완수',
     metric: '연간 핵심 과제 및 시즌/제휴 프로모션 화면설계서(SB) 마일스톤 일정 준수 여부',
     targetValue: '합의된 착수·마감 일정 내 기획서 확정 및 유관부서 리뷰 완료',
-    weight: 35,
   },
   {
     track: '기획',
@@ -147,7 +150,6 @@ const KPI_PRESETS: KpiPreset[] = [
     title: '이커머스 주문·결제·혜택 정책 명세 무결성 확보 및 스펙 재작업 방지',
     metric: '개발·QA 단계에서 기획 정책 누락으로 인한 스펙 변경 및 오픈 후 크리티컬 장애 건수',
     targetValue: '예외 케이스 사전 정의를 통한 오픈 후 정책 결함 최소화 및 표준 가이드 정립',
-    weight: 35,
   },
   {
     track: '기획',
@@ -155,7 +157,6 @@ const KPI_PRESETS: KpiPreset[] = [
     title: '어드민(백오피스) 운영 프로세스 효율화 및 유관부서 협업 리드',
     metric: '온라인MD·마케팅·정보실 요구사항 조율 및 반복 수기 업무 개선 기여도',
     targetValue: '운영 현장 애로사항 반영 및 부서 간 R&R·업무 프로세스 표준화 완수',
-    weight: 30,
   },
   // 디자인 (녹색)
   {
@@ -164,7 +165,6 @@ const KPI_PRESETS: KpiPreset[] = [
     title: '시선닷컴 개편 화면 및 시즌 프로모션 UI/UX 시안 납기 준수',
     metric: '기획 인계 후 주요 화면 UI 시안 및 프로모션 그래픽 산출물 리드타임 준수 여부',
     targetValue: '목표 일정 내 고해상도 시안 확정 및 퍼블리싱 인계 완료',
-    weight: 35,
   },
   {
     track: '디자인',
@@ -172,7 +172,6 @@ const KPI_PRESETS: KpiPreset[] = [
     title: '브랜드 아이덴티티 기반 UI 디자인 시스템 및 공통 컴포넌트 규격 표준화',
     metric: '타이포그래피·컬러·공통 UI 요소의 페이지 간 일관성 및 디자인 QA 통과 여부',
     targetValue: '전 화면 시각적 위계 통일 및 재사용 가능한 UI 디자인 가이드 자산화',
-    weight: 35,
   },
   {
     track: '디자인',
@@ -180,7 +179,6 @@ const KPI_PRESETS: KpiPreset[] = [
     title: 'PC·모바일 디바이스별 쇼핑 탐색 가독성 및 시인성 개선',
     metric: '모바일·태블릿·데스크톱 환경에서의 상품 탐색 몰입도 및 디자인 핸드오프 명확성',
     targetValue: '전 해상도 최적화된 시각 경험 구현 및 기획·퍼블리싱 협업 만족도 확보',
-    weight: 30,
   },
   // 퍼블리싱 (보라색)
   {
@@ -189,7 +187,6 @@ const KPI_PRESETS: KpiPreset[] = [
     title: '시선닷컴 개편 및 프로모션 반응형 웹 마크업·인터랙션 적기 구현',
     metric: '디자인 인계 후 목표 마감일 내 마크업 및 UI 스크립트 구현 완료 여부',
     targetValue: '합의된 오픈 일정 내 퍼블리싱 산출물 인계 및 프론트엔드 반영 지원 완료',
-    weight: 35,
   },
   {
     track: '퍼블리싱',
@@ -197,7 +194,6 @@ const KPI_PRESETS: KpiPreset[] = [
     title: 'PC·태블릿·모바일 전 해상도 반응형 레이아웃 및 크로스브라우징 무결성 확보',
     metric: '디바이스·브라우저별 레이아웃 깨짐 및 UI 인터랙션 QA 결함 발생 여부',
     targetValue: '주요 기기·브라우저 검수 통과 및 웹 표준·접근성 준수 마크업 구현',
-    weight: 35,
   },
   {
     track: '퍼블리싱',
@@ -205,7 +201,6 @@ const KPI_PRESETS: KpiPreset[] = [
     title: '재사용 가능한 공통 UI 마크업 모듈화 및 유지보수 효율 강화',
     metric: '공통 컴포넌트 스타일시트(CSS)·마크업 구조화 및 신규 페이지 제작 대응력',
     targetValue: '반복 활용 가능한 표준 마크업 모듈 구축으로 프로모션·개편 제작 효율 개선',
-    weight: 30,
   },
 ];
 
@@ -391,7 +386,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       title: preset.title,
       targetMetric: preset.metric,
       targetValue: preset.targetValue,
-      weight: preset.weight,
     }));
     onShowToast(`[${preset.track} · ${preset.pillar}] 표준 KPI 템플릿이 적용되었습니다.`, 'info');
   };
@@ -881,7 +875,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
               <div className="kpi-pillar-box">
                 <div className="kpi-pillar-top">
                   <span className="kpi-pillar-name">① 일정 및 딜리버리 준수</span>
-                  <span className="kpi-pillar-weight">비중 30%</span>
                 </div>
                 <p className="kpi-pillar-desc">
                   연간/분기 로드맵 과제 및 제휴 프로모션의 합의된 마일스톤(착수~마감일) 적기 완수 여부
@@ -891,7 +884,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
               <div className="kpi-pillar-box">
                 <div className="kpi-pillar-top">
                   <span className="kpi-pillar-name">② 산출물 무결성 및 표준화</span>
-                  <span className="kpi-pillar-weight">비중 40%</span>
                 </div>
                 <p className="kpi-pillar-desc">
                   기획 정책 누락 방지, UI 디자인 일관성, 전 해상도 반응형 마크업 무결성 및 표준 모듈 자산화
@@ -901,7 +893,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
               <div className="kpi-pillar-box">
                 <div className="kpi-pillar-top">
                   <span className="kpi-pillar-name">③ 서비스·운영 개선 및 협업 기여</span>
-                  <span className="kpi-pillar-weight">비중 30%</span>
                 </div>
                 <p className="kpi-pillar-desc">
                   시선닷컴 탐색·주문 사용성 강화, 어드민 수기 공수 절감 및 기획➔디자인➔퍼블 인수인계 협업 품질
@@ -909,11 +900,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
               </div>
             </div>
 
-            {/* S / A / B / C 등급 판정 기준표 */}
+            {/* S / A / B / C 등급 판정 기준표 (4열 1줄 레이아웃) */}
             <div className="kpi-rubric-bar">
               {GRADE_RUBRIC.map((r) => (
                 <div key={r.grade} className={`kpi-rubric-item ${r.classKey}`}>
-                  <span className={`kpi-grade-chip ${r.classKey}`}>{r.label}</span>
+                  <span className={`kpi-grade-chip ${r.classKey}`}>{r.shortLabel}</span>
                   <span className="kpi-rubric-text">{r.desc}</span>
                 </div>
               ))}
@@ -1508,7 +1499,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                         >
                           <span className="kpi-preset-pillar">[{preset.pillar}]</span>
                           <span className="kpi-preset-title">{preset.title}</span>
-                          <span className="kpi-preset-weight">가중치 {preset.weight}%</span>
                         </button>
                       ))}
                     </div>
@@ -2260,10 +2250,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
           const modalPeerScore100 =
             modalPeerAvg5 !== null ? Math.round((modalPeerAvg5 / 5) * 100) : null;
 
-          // 다각도 참고 산출 점수 (본인 자가진단 70% + 다면 협업 피드백 환산 30%)
+          // 다각도 참고 산출 점수 (본인 자가진단 점수 및 다면 협업 피드백 환산 점수 평균)
           const referenceScore =
             modalSelfScore !== null && modalPeerScore100 !== null
-              ? Math.round((modalSelfScore * 0.7 + modalPeerScore100 * 0.3) * 10) / 10
+              ? Math.round(((modalSelfScore + modalPeerScore100) / 2) * 10) / 10
               : modalSelfScore !== null
               ? modalSelfScore
               : modalPeerScore100 !== null
@@ -2429,7 +2419,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       <textarea
                         rows={4}
                         required
-                        placeholder="일정 준수(30%), 산출물 무결성(40%), 서비스/협업 기여(30%) 기준에 따른 최종 평가 의견을 작성해 주세요."
+                        placeholder="일정 준수, 산출물 무결성, 서비스·협업 기여도 기준에 따른 최종 평가 의견을 작성해 주세요."
                         value={adminEvalForm.comment}
                         onChange={(e) =>
                           setAdminEvalForm({ ...adminEvalForm, comment: e.target.value })

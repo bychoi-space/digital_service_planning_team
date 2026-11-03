@@ -6157,8 +6157,8 @@ button, input, select, textarea {
 
 .kpi-rubric-bar {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
   padding-top: 12px;
   border-top: 1px solid var(--border-light);
 }
@@ -6166,17 +6166,18 @@ button, input, select, textarea {
 .kpi-rubric-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 8px 10px;
   border-radius: 8px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
+  min-width: 0;
 }
 
 .kpi-grade-chip {
   font-size: 14px;
   font-weight: 800;
-  padding: 3px 10px;
+  padding: 3px 8px;
   border-radius: 6px;
   white-space: nowrap;
   flex-shrink: 0;
@@ -6210,7 +6211,7 @@ button, input, select, textarea {
 .kpi-rubric-text {
   font-size: 14px;
   color: var(--text-secondary);
-  line-height: 1.45;
+  line-height: 1.4;
   word-break: keep-all;
 }
 
