@@ -6441,15 +6441,14 @@ button, input, select, textarea {
   flex-wrap: wrap;
 }
 
-/* 4. KPI 카드 그리드 */
-.kpi-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
+/* 4. KPI 1컬럼 목록형 (가로 3단 분할 리스트) */
+.kpi-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .kpi-empty-card {
-  grid-column: 1 / -1;
   padding: 48px 24px;
   text-align: center;
   display: flex;
@@ -6477,38 +6476,56 @@ button, input, select, textarea {
   line-height: 1.5;
 }
 
-.kpi-item-card {
-  padding: 20px;
+.kpi-list-item {
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-.kpi-item-card.track-planning {
-  border-top: 4px solid #2563eb;
+.kpi-list-item.track-planning {
+  border-left: 5px solid #2563eb;
 }
 
-.kpi-item-card.track-design {
-  border-top: 4px solid #059669;
+.kpi-list-item.track-design {
+  border-left: 5px solid #059669;
 }
 
-.kpi-item-card.track-publishing {
-  border-top: 4px solid #9333ea;
+.kpi-list-item.track-publishing {
+  border-left: 5px solid #9333ea;
 }
 
-.kpi-card-top {
+.kpi-list-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: 14px;
   flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
 }
 
-.kpi-card-grade-group {
+.kpi-list-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.kpi-list-header-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.kpi-list-body-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr;
+  gap: 14px;
+  align-items: stretch;
 }
 
 .kpi-weighted-point-badge {
@@ -7248,10 +7265,10 @@ button, input, select, textarea {
   }
 
   .kpi-rubric-bar {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .kpi-cards-grid {
+  .kpi-list-body-grid {
     grid-template-columns: 1fr;
   }
 
@@ -7264,6 +7281,10 @@ button, input, select, textarea {
 @media (max-width: 767px) {
   .kpi-container {
     gap: 14px;
+  }
+
+  .kpi-rubric-bar {
+    grid-template-columns: 1fr;
   }
 
   .kpi-scorecard-metrics {
