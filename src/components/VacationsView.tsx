@@ -994,10 +994,9 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                         );
                       })}
 
-                      {/* B. 업무 배지 노출 (요약 과제명) */}
+                      {/* B. 업무 배지 노출 (요약 과제명, 컬러로 파트 구분) */}
                       {displayTasks.map((t) => {
                         const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
-                        const TrackIcon = trackCfg.icon;
                         const summaryTitle = summarizeCalendarTaskTitle(t.title);
 
                         return (
@@ -1010,7 +1009,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             className={`schedule-event-badge is-task ${trackCfg.classKey}`}
                             title={`[${t.track}] ${t.title} (${t.assigneeName}) / 기간: ${t.startDate} ~ ${t.dueDate}`}
                           >
-                            <TrackIcon size={11} className="schedule-event-icon" />
                             <span className="schedule-event-text">{summaryTitle}</span>
                           </div>
                         );

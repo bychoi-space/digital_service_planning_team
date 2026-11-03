@@ -4718,15 +4718,10 @@ button, input, select, textarea {
   letter-spacing: -0.2px;
   display: flex;
   align-items: center;
-  gap: 3px;
   cursor: pointer;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
-}
-
-.schedule-event-icon {
-  flex-shrink: 0;
 }
 
 .schedule-event-text {
