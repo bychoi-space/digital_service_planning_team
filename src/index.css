@@ -4212,20 +4212,7 @@ button, input, select, textarea {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-}
-
-.schedule-summary-card.is-absent {
-  background: #fffbeb;
-  border-color: #fde68a;
-}
-
-.schedule-summary-card.is-present {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
-}
-
-.schedule-summary-card.is-tasks {
-  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  background: #ffffff;
   border-color: var(--border-light);
 }
 

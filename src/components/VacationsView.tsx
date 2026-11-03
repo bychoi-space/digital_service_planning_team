@@ -20,18 +20,14 @@ import {
   ChevronRight,
   Plus,
   UserX,
-  Phone,
   UserCheck,
   Trash2,
-  Edit2,
   X,
   FileText,
   Palette,
   Code,
   ExternalLink,
-  Layers,
   Sparkles,
-  Eye,
   Clock,
   CheckCircle2,
 } from 'lucide-react';
@@ -174,9 +170,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedMobileDate, setSelectedMobileDate] = useState<string>(todayStr);
-
-  const [viewTab, setViewTab] = useState<'calendar' | 'list'>('calendar');
-  const [listSubTab, setListSubTab] = useState<'vacation' | 'task'>('vacation');
 
   // 필터 상태: 'all' | 'vacation' | '기획' | '디자인' | '퍼블리싱'
   const [filterType, setFilterType] = useState<'all' | 'vacation' | TaskTrack>('all');
@@ -657,11 +650,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       {/* 1. 상단 2열 대시보드 위젯 (부재 현황 + 진행 업무 현황) */}
       <div className="schedule-summary-grid">
         {/* 카드 1: 오늘의 팀원 부재 현황 */}
-        <div
-          className={`card schedule-summary-card ${
-            todayAbsentList.length > 0 ? 'is-absent' : 'is-present'
-          }`}
-        >
+        <div className="card schedule-summary-card">
           <div className="schedule-summary-main">
             <div
               className={`schedule-summary-icon ${
@@ -708,7 +697,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
         </div>
 
         {/* 카드 2: 실시간 진행 업무 현황 (기획 · 디자인 · 퍼블리싱) */}
-        <div className="card schedule-summary-card is-tasks">
+        <div className="card schedule-summary-card">
           <div className="schedule-summary-main">
             <div className="schedule-summary-icon is-tasks">
               <Sparkles size={22} />
@@ -752,7 +741,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
 
       {/* 2. 캘린더 네비게이션 & 파트 필터 바 */}
       <div className="card schedule-control-card">
-        {/* 상단 컨트롤 라인: 월 이동 + 뷰 모드 전환 */}
+        {/* 상단 컨트롤 라인: 월 이동 */}
         <div className="schedule-nav-bar">
           <div className="schedule-month-nav">
             <button
@@ -782,24 +771,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
               className="btn btn-secondary schedule-today-btn"
             >
               이번 달
-            </button>
-          </div>
-
-          {/* 뷰 모드 탭 (월간 캘린더 vs 목록) */}
-          <div className="schedule-view-toggle">
-            <button
-              type="button"
-              onClick={() => setViewTab('calendar')}
-              className={`schedule-view-btn ${viewTab === 'calendar' ? 'active' : ''}`}
-            >
-              <CalendarIcon size={15} /> 월간 종합 캘린더
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewTab('list')}
-              className={`schedule-view-btn ${viewTab === 'list' ? 'active' : ''}`}
-            >
-              <Layers size={15} /> 통합 일정 목록
             </button>
           </div>
         </div>
@@ -876,9 +847,8 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
         </div>
       </div>
 
-      {/* 3-A. 캘린더 뷰 (월간 종합 캘린더) */}
-      {viewTab === 'calendar' ? (
-        <div className="schedule-calendar-section">
+      {/* 3. 월간 종합 캘린더 뷰 */}
+      <div className="schedule-calendar-section">
           <div className="card schedule-calendar-card">
             {/* 요일 헤더 (일: 레드, 토: 블루) */}
             <div className="schedule-weekdays">
@@ -1148,275 +1118,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
             )}
           </div>
         </div>
-      ) : (
-        /* 3-B. 통합 일정 목록 뷰 (탭 전환 가능) */
-        <div className="card schedule-list-card">
-          {/* 목록 서브 헤더 */}
-          <div className="schedule-list-subbar">
-            <div className="schedule-list-subtabs">
-              <button
-                type="button"
-                onClick={() => setListSubTab('vacation')}
-                className={`schedule-subtab-btn is-vacation ${
-                  listSubTab === 'vacation' ? 'active' : ''
-                }`}
-              >
-                <CalendarIcon size={15} />
-                <span>팀원 휴가 일정 목록 ({vacations.length})</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setListSubTab('task')}
-                className={`schedule-subtab-btn is-task ${listSubTab === 'task' ? 'active' : ''}`}
-              >
-                <Layers size={15} />
-                <span>진행 중인 기획·디자인·퍼블 업무 목록 ({activeTasks.length})</span>
-              </button>
-            </div>
-          </div>
-
-          {listSubTab === 'vacation' ? (
-            <>
-              {/* 데스크톱 & 태블릿 휴가 테이블 */}
-              <div className="schedule-table-scroll">
-                <table className="schedule-table">
-                  <thead>
-                    <tr>
-                      <th>대상자</th>
-                      <th>휴가 유형</th>
-                      <th>휴가 기간</th>
-                      <th>업무 대행자</th>
-                      <th>비상연락망</th>
-                      <th>인수인계 및 비고</th>
-                      <th className="th-center">관리</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vacations.map((item) => {
-                      const typeConfig =
-                        VACATION_TYPES.find((t) => t.key === item.type) || VACATION_TYPES[0];
-                      return (
-                        <tr key={item.id}>
-                          <td className="td-bold">{item.userName}</td>
-                          <td>
-                            <span className={`schedule-type-badge ${typeConfig.classKey}`}>
-                              {typeConfig.label}
-                            </span>
-                          </td>
-                          <td className="td-period">
-                            {item.startDate} ~ {item.endDate}
-                          </td>
-                          <td>
-                            <span className="schedule-inline-icon-text">
-                              <UserCheck size={14} className="icon-emerald" /> {item.deputyName}
-                            </span>
-                          </td>
-                          <td className="td-secondary">
-                            <span className="schedule-inline-icon-text">
-                              <Phone size={14} /> {item.contact || '-'}
-                            </span>
-                          </td>
-                          <td className="td-muted">{item.notes || '-'}</td>
-                          <td className="td-center">
-                            <div className="schedule-row-actions">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditModal(item)}
-                                className="btn btn-secondary tasks-action-btn"
-                              >
-                                <Edit2 size={14} /> {isViewer ? '조회' : '수정'}
-                              </button>
-                              {!isViewer && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteVacation(item.id, item.userName)}
-                                  className="btn btn-secondary tasks-delete-icon-btn"
-                                  title="휴가 취소"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {vacations.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="td-center td-empty">
-                          등록된 휴가 일정이 없습니다.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* 모바일 휴가 카드 리스트 */}
-              <div className="schedule-mobile-list">
-                {vacations.map((item) => {
-                  const typeConfig =
-                    VACATION_TYPES.find((t) => t.key === item.type) || VACATION_TYPES[0];
-                  return (
-                    <div key={item.id} className="schedule-mobile-card">
-                      <div className="schedule-mobile-card-top">
-                        <div className="schedule-mobile-user-wrap">
-                          <strong className="schedule-mobile-user-name">{item.userName}</strong>
-                          <span className={`schedule-type-badge ${typeConfig.classKey}`}>
-                            {typeConfig.label}
-                          </span>
-                        </div>
-                        <span className="schedule-mobile-period">
-                          {item.startDate} ~ {item.endDate}
-                        </span>
-                      </div>
-
-                      <div className="schedule-mobile-meta-grid">
-                        <span className="schedule-inline-icon-text">
-                          <UserCheck size={14} className="icon-emerald" /> 대행: {item.deputyName}
-                        </span>
-                        <span className="schedule-inline-icon-text">
-                          <Phone size={14} /> {item.contact || '-'}
-                        </span>
-                      </div>
-
-                      {item.notes && <div className="schedule-mobile-notes">{item.notes}</div>}
-
-                      <div className="schedule-mobile-card-actions">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditModal(item)}
-                          className="btn btn-secondary tasks-action-btn"
-                        >
-                          <Edit2 size={14} /> {isViewer ? '상세 조회' : '상세 및 수정'}
-                        </button>
-                        {!isViewer && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteVacation(item.id, item.userName)}
-                            className="btn btn-secondary tasks-delete-icon-btn"
-                          >
-                            <Trash2 size={14} /> 일정 취소
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {vacations.length === 0 && (
-                  <div className="tasks-empty-col">등록된 휴가 일정이 없습니다.</div>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              {/* 데스크톱 & 태블릿 진행 업무 테이블 */}
-              <div className="schedule-table-scroll">
-                <table className="schedule-table">
-                  <thead>
-                    <tr>
-                      <th>직무 파트</th>
-                      <th>도메인</th>
-                      <th>업무명</th>
-                      <th>담당자</th>
-                      <th>일정 기간</th>
-                      <th className="th-center">상세</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeTasks.map((t) => {
-                      const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
-                      const TrackIcon = trackCfg.icon;
-                      return (
-                        <tr key={t.id}>
-                          <td>
-                            <span className={`tasks-badge-track ${trackCfg.classKey}`}>
-                              <TrackIcon size={13} /> {t.track}
-                            </span>
-                          </td>
-                          <td>
-                            <span className="tasks-badge-category">{t.category}</span>
-                          </td>
-                          <td className="td-bold">{t.title}</td>
-                          <td className="td-period">{t.assigneeName}</td>
-                          <td className="td-secondary">
-                            {t.startDate} ~ {t.dueDate}
-                          </td>
-                          <td className="td-center">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditTaskModal(t)}
-                              className="btn btn-secondary tasks-action-btn"
-                            >
-                              <Eye size={14} /> 상세 보기
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {activeTasks.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="td-center td-empty">
-                          현재 진행 중인 업무가 없습니다.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* 모바일 진행 업무 카드 리스트 */}
-              <div className="schedule-mobile-list">
-                {activeTasks.map((t) => {
-                  const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
-                  const TrackIcon = trackCfg.icon;
-                  return (
-                    <div
-                      key={t.id}
-                      className={`schedule-mobile-card ${trackCfg.classKey}`}
-                    >
-                      <div className="schedule-mobile-card-top">
-                        <div className="tasks-card-badges">
-                          <span className={`tasks-badge-track ${trackCfg.classKey}`}>
-                            <TrackIcon size={13} /> {t.track}
-                          </span>
-                          <span className="tasks-badge-category">{t.category}</span>
-                        </div>
-                        <span className="schedule-inline-icon-text">
-                          <UserCheck size={14} /> {t.assigneeName}
-                        </span>
-                      </div>
-
-                      <div
-                        onClick={() => handleOpenEditTaskModal(t)}
-                        className="tasks-mobile-list-title"
-                      >
-                        {t.title}
-                      </div>
-
-                      <div className="schedule-mobile-card-footer">
-                        <span className="schedule-inline-icon-text">
-                          <Clock size={14} /> {t.startDate} ~ {t.dueDate}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditTaskModal(t)}
-                          className="btn btn-secondary tasks-action-btn"
-                        >
-                          <Eye size={14} /> 상세 보기
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-                {activeTasks.length === 0 && (
-                  <div className="tasks-empty-col">현재 진행 중인 업무가 없습니다.</div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      )}
 
       {/* 4. 휴가 등록/수정 모달 */}
       {isVacationModalOpen && (
