@@ -372,34 +372,6 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
               })}
             </div>
           </div>
-
-          {/* 파트별 빠른 등록 버튼 세트 (데스크톱/태블릿 노출) */}
-          {!isViewer && (
-            <div className="tasks-quick-create-group">
-              <span className="tasks-quick-create-label">빠른 등록:</span>
-              <button
-                type="button"
-                onClick={() => handleOpenCreateModal('기획')}
-                className="tasks-quick-btn track-planning"
-              >
-                <Plus size={14} /> 기획
-              </button>
-              <button
-                type="button"
-                onClick={() => handleOpenCreateModal('디자인')}
-                className="tasks-quick-btn track-design"
-              >
-                <Plus size={14} /> 디자인
-              </button>
-              <button
-                type="button"
-                onClick={() => handleOpenCreateModal('퍼블리싱')}
-                className="tasks-quick-btn track-publishing"
-              >
-                <Plus size={14} /> 퍼블리싱
-              </button>
-            </div>
-          )}
         </div>
 
         {/* 1-B. 검색, 상세 필터 및 뷰 전환 */}
