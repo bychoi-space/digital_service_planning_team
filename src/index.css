@@ -4729,15 +4729,6 @@ button, input, select, textarea {
   flex-shrink: 0;
 }
 
-.schedule-event-prefix {
-  font-weight: 800;
-  margin-right: 3px;
-}
-
-.schedule-event-prefix.is-due {
-  color: #dc2626;
-}
-
 .schedule-event-text {
   overflow: hidden;
   text-overflow: ellipsis;

@@ -765,12 +765,10 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                         );
                       })}
 
-                      {/* B. 업무 배지 노출 (요약 과제명 + 컴팩트 상태 표기) */}
+                      {/* B. 업무 배지 노출 (요약 과제명) */}
                       {displayTasks.map((t) => {
                         const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
                         const TrackIcon = trackCfg.icon;
-                        const isDueDay = cell.dateStr === t.dueDate;
-                        const isStartDay = cell.dateStr === t.startDate;
                         const summaryTitle = summarizeCalendarTaskTitle(t.title);
 
                         return (
@@ -784,15 +782,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             title={`[${t.track}] ${t.title} (${t.assigneeName}) / 기간: ${t.startDate} ~ ${t.dueDate}`}
                           >
                             <TrackIcon size={11} className="schedule-event-icon" />
-                            <span className="schedule-event-text">
-                              {isDueDay && (
-                                <strong className="schedule-event-prefix is-due">마감</strong>
-                              )}
-                              {isStartDay && !isDueDay && (
-                                <strong className="schedule-event-prefix is-start">착수</strong>
-                              )}
-                              {summaryTitle}
-                            </span>
+                            <span className="schedule-event-text">{summaryTitle}</span>
                           </div>
                         );
                       })}
@@ -903,7 +893,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                 {mobileSelectedData.tasks.map((t) => {
                   const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
                   const TrackIcon = trackCfg.icon;
-                  const isDueDay = mobileSelectedData.dateStr === t.dueDate;
                   return (
                     <div
                       key={`mob-task-${t.id}`}
@@ -916,7 +905,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             <TrackIcon size={13} /> {trackCfg.label}
                           </span>
                           <span className="tasks-badge-category">{t.category}</span>
-                          {isDueDay && <span className="schedule-due-tag">마감일</span>}
                         </div>
                         <span className="schedule-mobile-agenda-assignee">
                           <UserCheck size={14} /> {t.assigneeName}
@@ -1621,7 +1609,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                     {selectedDayDetail.tasks.map((t) => {
                       const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
                       const TrackIcon = trackCfg.icon;
-                      const isDue = selectedDayDetail.dateStr === t.dueDate;
                       return (
                         <div
                           key={t.id}
@@ -1636,7 +1623,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                               <span className={`tasks-badge-track ${trackCfg.classKey}`}>
                                 <TrackIcon size={13} /> {t.track}
                               </span>
-                              {isDue && <span className="schedule-due-tag">마감일</span>}
                               <strong className="schedule-mobile-user-name">{t.title}</strong>
                               <span className="schedule-mobile-agenda-sub">({t.assigneeName})</span>
                             </div>
