@@ -1,6 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import type { VacationItem, VacationType, User, TaskItem, TaskTrack } from '../types';
-import { PlanningStorageService } from '../services/storage';
+import type {
+  VacationItem,
+  VacationType,
+  User,
+  TaskItem,
+  TaskTrack,
+  TaskCategory,
+  TaskPriority,
+  TaskStatus,
+} from '../types';
+import {
+  PlanningStorageService,
+  computeTaskStatusByDates,
+  getTodayDateString,
+} from '../services/storage';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -21,6 +34,7 @@ import {
   ArrowUpRight,
   Eye,
   Clock,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface VacationsViewProps {
@@ -43,26 +57,63 @@ const TRACK_CONFIG: Record<
   TaskTrack,
   {
     label: string;
+    enLabel: string;
     classKey: string;
     icon: React.FC<{ size?: number; className?: string }>;
   }
 > = {
   기획: {
     label: '기획',
+    enLabel: 'Planning',
     classKey: 'track-planning',
     icon: FileText,
   },
   디자인: {
     label: '디자인',
+    enLabel: 'Design',
     classKey: 'track-design',
     icon: Palette,
   },
   퍼블리싱: {
     label: '퍼블리싱',
+    enLabel: 'Publishing',
     classKey: 'track-publishing',
     icon: Code,
   },
 };
+
+const TRACK_LIST: TaskTrack[] = ['기획', '디자인', '퍼블리싱'];
+
+const TASK_CATEGORIES: TaskCategory[] = [
+  '신규기획',
+  '기능개선',
+  '서비스운영',
+  '데이터분석',
+  '협업지원',
+  '정책수립',
+  '기획전',
+];
+
+const TASK_PRIORITIES: { key: TaskPriority; label: string; classKey: string }[] = [
+  { key: 'urgent', label: '긴급', classKey: 'priority-urgent' },
+  { key: 'high', label: '높음', classKey: 'priority-high' },
+  { key: 'medium', label: '보통', classKey: 'priority-medium' },
+  { key: 'low', label: '낮음', classKey: 'priority-low' },
+];
+
+const TASK_STATUSES: { key: TaskStatus; label: string; shortLabel: string; classKey: string }[] = [
+  { key: 'backlog', label: '대기 (Backlog)', shortLabel: '대기', classKey: 'status-backlog' },
+  { key: 'in_progress', label: '진행중 (In Progress)', shortLabel: '진행중', classKey: 'status-in_progress' },
+  { key: 'done', label: '완료 (Done)', shortLabel: '완료', classKey: 'status-done' },
+];
+
+function getDatePlusDaysString(days: number): string {
+  const d = new Date(Date.now() + days * 86400000);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 const WEEKDAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -137,6 +188,9 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
   const [isVacationModalOpen, setIsVacationModalOpen] = useState(false);
   const [editingVacation, setEditingVacation] = useState<VacationItem | null>(null);
 
+  // 신규 업무 등록 모달 상태 (서비스기획 업무 관리와 동일한 업무 등록 모달)
+  const [isTaskCreateModalOpen, setIsTaskCreateModalOpen] = useState(false);
+
   // 업무 상세 보기 모달 상태
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
 
@@ -155,6 +209,119 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     if (matched) return matched;
     if (currentUser.role !== 'viewer') return currentUser;
     return members[0] || currentUser;
+  };
+
+  const [taskFormData, setTaskFormData] = useState(() => {
+    const initialMembers = PlanningStorageService.getServicePlanningMembers();
+    const initialAssignee =
+      initialMembers.find(
+        (m) => String(m.id) === String(currentUser.id) || m.name.trim() === currentUser.name.trim()
+      ) ||
+      (currentUser.role !== 'viewer' ? currentUser : initialMembers[0]) ||
+      currentUser;
+
+    const defaultStart = getTodayDateString();
+    const defaultDue = getDatePlusDaysString(14);
+    return {
+      title: '',
+      category: '신규기획' as TaskCategory,
+      track: '기획' as TaskTrack,
+      assigneeId: initialAssignee.id,
+      assigneeName: initialAssignee.name,
+      priority: 'medium' as TaskPriority,
+      status: computeTaskStatusByDates(defaultStart, defaultDue),
+      startDate: defaultStart,
+      dueDate: defaultDue,
+      description: '',
+      linkUrl: '',
+    };
+  });
+
+  const handleOpenCreateTaskModal = () => {
+    if (isViewer) {
+      onShowToast('유관부서(읽기 전용) 모드에서는 새 업무를 등록할 수 없습니다.', 'error');
+      return;
+    }
+    const latestMembers = PlanningStorageService.getServicePlanningMembers();
+    setTeamMembers(latestMembers);
+    const defaultAssignee = resolveDefaultMember(latestMembers);
+    const defaultStart = getTodayDateString();
+    const defaultDue = getDatePlusDaysString(14);
+    const defaultTrack: TaskTrack =
+      filterType === '기획' || filterType === '디자인' || filterType === '퍼블리싱'
+        ? filterType
+        : '기획';
+
+    setTaskFormData({
+      title: '',
+      category: '신규기획',
+      track: defaultTrack,
+      assigneeId: defaultAssignee.id,
+      assigneeName: defaultAssignee.name,
+      priority: 'medium',
+      status: computeTaskStatusByDates(defaultStart, defaultDue),
+      startDate: defaultStart,
+      dueDate: defaultDue,
+      description: '',
+      linkUrl: '',
+    });
+    setIsTaskCreateModalOpen(true);
+
+    PlanningStorageService.syncFromSupabase().then(() => {
+      setTeamMembers(PlanningStorageService.getServicePlanningMembers());
+    });
+  };
+
+  const handleSaveNewTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isViewer) {
+      onShowToast('유관부서(읽기 전용) 모드에서는 변경 사항을 저장할 수 없습니다.', 'error');
+      return;
+    }
+
+    if (!taskFormData.title.trim()) {
+      onShowToast('업무 제목을 입력해 주세요.', 'error');
+      return;
+    }
+
+    if (
+      taskFormData.startDate &&
+      taskFormData.dueDate &&
+      taskFormData.startDate > taskFormData.dueDate
+    ) {
+      onShowToast('마감일은 시작일보다 이전일 수 없습니다.', 'error');
+      return;
+    }
+
+    const autoStatus = computeTaskStatusByDates(taskFormData.startDate, taskFormData.dueDate);
+    const trimmedUrl = taskFormData.linkUrl.trim();
+    const normalizedLinks = trimmedUrl ? [{ title: '산출물 링크', url: trimmedUrl }] : [];
+
+    try {
+      PlanningStorageService.createTask(
+        {
+          title: taskFormData.title.trim(),
+          category: taskFormData.category,
+          track: taskFormData.track,
+          assigneeId: taskFormData.assigneeId,
+          assigneeName: taskFormData.assigneeName,
+          priority: taskFormData.priority,
+          status: autoStatus,
+          startDate: taskFormData.startDate,
+          dueDate: taskFormData.dueDate,
+          progress: autoStatus === 'done' ? 100 : 0,
+          description: taskFormData.description,
+          links: normalizedLinks,
+        },
+        currentUser
+      );
+      onShowToast(`새로운 [${taskFormData.track}] 업무가 등록되었습니다.`, 'success');
+      setIsTaskCreateModalOpen(false);
+      refreshAll();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : '작업 중 오류가 발생했습니다.';
+      onShowToast(errorMsg, 'error');
+    }
   };
 
   const [formData, setFormData] = useState(() => {
@@ -508,16 +675,19 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
             </div>
           </div>
 
-          {onNavigateToTasks && (
-            <button
-              type="button"
-              onClick={onNavigateToTasks}
-              className="btn btn-secondary schedule-summary-action-btn"
-              title="서비스기획 업무 관리 메뉴로 이동"
-            >
-              업무 관리 <ArrowUpRight size={15} />
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleOpenCreateTaskModal}
+            className="btn btn-primary schedule-summary-action-btn"
+            disabled={isViewer}
+            title={
+              isViewer
+                ? '유관부서(읽기 전용) 모드에서는 등록이 제한됩니다'
+                : '새 기획/디자인/퍼블리싱 업무 등록'
+            }
+          >
+            <Plus size={16} /> 업무 등록
+          </button>
         </div>
       </div>
 
@@ -1647,6 +1817,276 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                 닫기
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. 새로운 서비스기획 업무 등록 모달 (서비스기획 업무 관리와 동일) */}
+      {isTaskCreateModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsTaskCreateModalOpen(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="tasks-modal-header-left">
+                <h3 className="modal-title">새로운 서비스기획 업무 등록</h3>
+                {isViewer && <span className="tasks-viewer-chip">조회 전용</span>}
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTaskCreateModalOpen(false)}
+                className="tasks-modal-close-btn"
+                aria-label="모달 닫기"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveNewTask} className="tasks-modal-form">
+              <div className="modal-body">
+                {/* 0. 파트 구분 (기획 / 디자인 / 퍼블리싱 3단 세그먼트 버튼) */}
+                <div className="form-group tasks-modal-track-group">
+                  <label className="form-label">업무 파트 구분 *</label>
+                  <div className="tasks-modal-track-grid">
+                    {TRACK_LIST.map((trackKey) => {
+                      const config = TRACK_CONFIG[trackKey];
+                      const isSelected = taskFormData.track === trackKey;
+                      const IconComponent = config.icon;
+                      return (
+                        <button
+                          key={trackKey}
+                          type="button"
+                          disabled={isViewer}
+                          onClick={() => setTaskFormData({ ...taskFormData, track: trackKey })}
+                          className={`tasks-modal-track-btn ${config.classKey} ${
+                            isSelected ? 'active' : ''
+                          }`}
+                        >
+                          <div className="tasks-modal-track-info">
+                            <div className="tasks-modal-track-icon-box">
+                              <IconComponent size={16} />
+                            </div>
+                            <div className="tasks-modal-track-text">
+                              <div className="tasks-modal-track-name">{config.label}</div>
+                              <div className="tasks-modal-track-en">{config.enLabel}</div>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <CheckCircle2 size={16} className="tasks-modal-track-check" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 1. 업무명 */}
+                <div className="form-group">
+                  <label className="form-label">업무명 *</label>
+                  <input
+                    type="text"
+                    disabled={isViewer}
+                    required
+                    value={taskFormData.title}
+                    onChange={(e) => setTaskFormData({ ...taskFormData, title: e.target.value })}
+                    placeholder="예: 통합 멤버십 등급 개편안 설계"
+                    className="form-input"
+                  />
+                </div>
+
+                {/* 2. 카테고리 & 담당자 */}
+                <div className="tasks-form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">카테고리</label>
+                    <select
+                      disabled={isViewer}
+                      value={taskFormData.category}
+                      onChange={(e) =>
+                        setTaskFormData({
+                          ...taskFormData,
+                          category: e.target.value as TaskCategory,
+                        })
+                      }
+                      className="form-select"
+                    >
+                      {TASK_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">담당자</label>
+                    <select
+                      disabled={isViewer}
+                      value={taskFormData.assigneeId}
+                      onChange={(e) => {
+                        const targetUser = teamMembers.find(
+                          (m) => String(m.id) === String(e.target.value)
+                        );
+                        setTaskFormData({
+                          ...taskFormData,
+                          assigneeId: e.target.value,
+                          assigneeName: targetUser ? targetUser.name : '',
+                        });
+                      }}
+                      className="form-select"
+                    >
+                      {teamMembers.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.department || '서비스기획팀'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* 3. 우선순위 & 상태 */}
+                <div className="tasks-form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">우선순위</label>
+                    <select
+                      disabled={isViewer}
+                      value={taskFormData.priority}
+                      onChange={(e) =>
+                        setTaskFormData({
+                          ...taskFormData,
+                          priority: e.target.value as TaskPriority,
+                        })
+                      }
+                      className="form-select"
+                    >
+                      {TASK_PRIORITIES.map((p) => (
+                        <option key={p.key} value={p.key}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">진행 상태</label>
+                    {(() => {
+                      const autoStatus = computeTaskStatusByDates(
+                        taskFormData.startDate,
+                        taskFormData.dueDate
+                      );
+                      const autoStatusCfg =
+                        TASK_STATUSES.find((s) => s.key === autoStatus) || TASK_STATUSES[1];
+                      return (
+                        <div
+                          className={`tasks-auto-status-box ${autoStatusCfg.classKey}`}
+                          aria-live="polite"
+                        >
+                          <span className="tasks-auto-status-main">
+                            <span className={`tasks-status-dot ${autoStatusCfg.classKey}`} />
+                            <span>{autoStatusCfg.label}</span>
+                          </span>
+                          <span className="tasks-auto-status-tag">일정 자동</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* 4. 일정 (시작일 & 마감일) */}
+                <div className="tasks-form-grid-2">
+                  <div className="form-group">
+                    <label className="form-label">시작일</label>
+                    <input
+                      type="date"
+                      disabled={isViewer}
+                      value={taskFormData.startDate}
+                      onChange={(e) => {
+                        const nextStart = e.target.value;
+                        setTaskFormData({
+                          ...taskFormData,
+                          startDate: nextStart,
+                          status: computeTaskStatusByDates(nextStart, taskFormData.dueDate),
+                        });
+                      }}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">마감일</label>
+                    <input
+                      type="date"
+                      disabled={isViewer}
+                      value={taskFormData.dueDate}
+                      onChange={(e) => {
+                        const nextDue = e.target.value;
+                        setTaskFormData({
+                          ...taskFormData,
+                          dueDate: nextDue,
+                          status: computeTaskStatusByDates(taskFormData.startDate, nextDue),
+                        });
+                      }}
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+
+                {/* 5. 상세 내용 */}
+                <div className="form-group">
+                  <label className="form-label">상세 기획 내용 및 요구사항</label>
+                  <textarea
+                    disabled={isViewer}
+                    rows={4}
+                    value={taskFormData.description}
+                    onChange={(e) =>
+                      setTaskFormData({ ...taskFormData, description: e.target.value })
+                    }
+                    placeholder="기획 배경, 주요 변경 범위, 개발 협의 이슈 등을 상세히 기록하세요..."
+                    className="form-textarea"
+                  />
+                </div>
+
+                {/* 6. 산출물 링크 (단일 입력 필드) */}
+                <div className="form-group">
+                  <label className="form-label">산출물 링크</label>
+                  <div className="tasks-single-link-row">
+                    <input
+                      type="url"
+                      disabled={isViewer}
+                      placeholder="https://..."
+                      value={taskFormData.linkUrl}
+                      onChange={(e) =>
+                        setTaskFormData({ ...taskFormData, linkUrl: e.target.value })
+                      }
+                      className="form-input tasks-single-link-input"
+                    />
+                    {taskFormData.linkUrl.trim() && (
+                      <a
+                        href={taskFormData.linkUrl.trim()}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary tasks-single-link-open-btn"
+                        title="새 창에서 산출물 링크 열기"
+                      >
+                        <ExternalLink size={15} /> 열기
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  onClick={() => setIsTaskCreateModalOpen(false)}
+                  className="btn btn-secondary"
+                >
+                  {isViewer ? '닫기' : '취소'}
+                </button>
+                {!isViewer && (
+                  <button type="submit" className="btn btn-primary">
+                    업무 등록 완료
+                  </button>
+                )}
+              </div>
+            </form>
           </div>
         </div>
       )}
