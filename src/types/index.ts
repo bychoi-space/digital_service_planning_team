@@ -23,7 +23,14 @@ export interface User {
 }
 
 // 1. 업무 관리(Task) 관련 타입
-export type TaskCategory = '신규기획' | '기능개선' | '서비스운영' | '데이터분석' | '협업지원' | '정책수립';
+export type TaskCategory =
+  | '신규기획'
+  | '기능개선'
+  | '서비스운영'
+  | '데이터분석'
+  | '협업지원'
+  | '정책수립'
+  | '기획전';
 export type TaskTrack = '기획' | '디자인' | '퍼블리싱';
 export type TaskPriority = 'urgent' | 'high' | 'medium' | 'low';
 export type TaskStatus = 'backlog' | 'in_progress' | 'review' | 'done' | 'on_hold';

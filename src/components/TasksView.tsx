@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import type { TaskItem, TaskCategory, TaskTrack, TaskPriority, TaskStatus, User } from '../types';
-import { PlanningStorageService } from '../services/storage';
+import {
+  PlanningStorageService,
+  computeTaskStatusByDates,
+  getTodayDateString,
+} from '../services/storage';
 import {
   Plus,
   Search,
@@ -70,7 +74,15 @@ const TRACK_CONFIG: Record<
 
 const TRACK_LIST: TaskTrack[] = ['기획', '디자인', '퍼블리싱'];
 
-const CATEGORIES: TaskCategory[] = ['신규기획', '기능개선', '서비스운영', '데이터분석', '협업지원', '정책수립'];
+const CATEGORIES: TaskCategory[] = [
+  '신규기획',
+  '기능개선',
+  '서비스운영',
+  '데이터분석',
+  '협업지원',
+  '정책수립',
+  '기획전',
+];
 
 const PRIORITIES: { key: TaskPriority; label: string; classKey: string }[] = [
   { key: 'urgent', label: '긴급', classKey: 'priority-urgent' },
@@ -82,10 +94,16 @@ const PRIORITIES: { key: TaskPriority; label: string; classKey: string }[] = [
 const STATUSES: { key: TaskStatus; label: string; shortLabel: string; classKey: string }[] = [
   { key: 'backlog', label: '대기 (Backlog)', shortLabel: '대기', classKey: 'status-backlog' },
   { key: 'in_progress', label: '진행중 (In Progress)', shortLabel: '진행중', classKey: 'status-in_progress' },
-  { key: 'review', label: '검토/QA (Review)', shortLabel: '검토/QA', classKey: 'status-review' },
   { key: 'done', label: '완료 (Done)', shortLabel: '완료', classKey: 'status-done' },
-  { key: 'on_hold', label: '보류 (On Hold)', shortLabel: '보류', classKey: 'status-on_hold' },
 ];
+
+function getDatePlusDaysString(days: number): string {
+  const d = new Date(Date.now() + days * 86400000);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onShowToast }) => {
   const [tasks, setTasks] = useState<TaskItem[]>(() => PlanningStorageService.getTasks());
@@ -122,6 +140,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       (currentUser.role !== 'viewer' ? currentUser : initialMembers[0]) ||
       currentUser;
 
+    const defaultStart = getTodayDateString();
+    const defaultDue = getDatePlusDaysString(14);
     return {
       title: '',
       category: '신규기획' as TaskCategory,
@@ -129,9 +149,9 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       assigneeId: initialAssignee.id,
       assigneeName: initialAssignee.name,
       priority: 'medium' as TaskPriority,
-      status: 'in_progress' as TaskStatus,
-      startDate: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+      status: computeTaskStatusByDates(defaultStart, defaultDue),
+      startDate: defaultStart,
+      dueDate: defaultDue,
       description: '',
       linkUrl: '',
     };
@@ -151,6 +171,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
     const latestMembers = PlanningStorageService.getServicePlanningMembers();
     setTeamMembers(latestMembers);
     const defaultAssignee = resolveDefaultAssignee(latestMembers);
+    const defaultStart = getTodayDateString();
+    const defaultDue = getDatePlusDaysString(14);
 
     setEditingTask(null);
     setFormData({
@@ -160,9 +182,9 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       assigneeId: defaultAssignee.id,
       assigneeName: defaultAssignee.name,
       priority: 'medium',
-      status: 'in_progress',
-      startDate: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+      status: computeTaskStatusByDates(defaultStart, defaultDue),
+      startDate: defaultStart,
+      dueDate: defaultDue,
       description: '',
       linkUrl: '',
     });
@@ -190,7 +212,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       assigneeId: matchedAssignee ? matchedAssignee.id : task.assigneeId,
       assigneeName: matchedAssignee ? matchedAssignee.name : task.assigneeName,
       priority: task.priority,
-      status: task.status,
+      status: computeTaskStatusByDates(task.startDate, task.dueDate),
       startDate: task.startDate,
       dueDate: task.dueDate,
       description: task.description,
@@ -212,6 +234,12 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       return;
     }
 
+    if (formData.startDate && formData.dueDate && formData.startDate > formData.dueDate) {
+      onShowToast('마감일은 시작일보다 이전일 수 없습니다.', 'error');
+      return;
+    }
+
+    const autoStatus = computeTaskStatusByDates(formData.startDate, formData.dueDate);
     const trimmedUrl = formData.linkUrl.trim();
     const normalizedLinks = trimmedUrl ? [{ title: '산출물 링크', url: trimmedUrl }] : [];
 
@@ -226,7 +254,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
             assigneeId: formData.assigneeId,
             assigneeName: formData.assigneeName,
             priority: formData.priority,
-            status: formData.status,
+            status: autoStatus,
             startDate: formData.startDate,
             dueDate: formData.dueDate,
             description: formData.description,
@@ -244,10 +272,10 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
             assigneeId: formData.assigneeId,
             assigneeName: formData.assigneeName,
             priority: formData.priority,
-            status: formData.status,
+            status: autoStatus,
             startDate: formData.startDate,
             dueDate: formData.dueDate,
-            progress: formData.status === 'done' ? 100 : 0,
+            progress: autoStatus === 'done' ? 100 : 0,
             description: formData.description,
             links: normalizedLinks,
           },
@@ -275,24 +303,6 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       if (isModalOpen) setIsModalOpen(false);
       refreshTasks();
     }
-  };
-
-  // 퀵 상태 변경
-  const handleQuickStatusChange = (taskId: string, newStatus: TaskStatus) => {
-    if (isViewer) {
-      onShowToast('읽기 전용 모드에서는 상태를 변경할 수 없습니다.', 'error');
-      return;
-    }
-    PlanningStorageService.updateTask(
-      taskId,
-      {
-        status: newStatus,
-        progress: newStatus === 'done' ? 100 : undefined,
-      },
-      currentUser
-    );
-    onShowToast('상태가 변경되었습니다.', 'success');
-    refreshTasks();
   };
 
   // 트랙별 집계 카운트
@@ -641,19 +651,10 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       </td>
                       <td className="tasks-table-assignee">{task.assigneeName}</td>
                       <td>
-                        <select
-                          disabled={isViewer}
-                          value={task.status}
-                          onChange={(e) => handleQuickStatusChange(task.id, e.target.value as TaskStatus)}
-                          className={`tasks-status-select ${statusCfg.classKey}`}
-                          aria-label={`${task.title} 상태 변경`}
-                        >
-                          {STATUSES.map((s) => (
-                            <option key={s.key} value={s.key}>
-                              {s.label}
-                            </option>
-                          ))}
-                        </select>
+                        <span className={`tasks-status-badge ${statusCfg.classKey}`}>
+                          <span className={`tasks-status-dot ${statusCfg.classKey}`} />
+                          <span>{statusCfg.shortLabel}</span>
+                        </span>
                       </td>
                       <td className="tasks-table-schedule">
                         {task.startDate} ~ {task.dueDate}
@@ -717,19 +718,10 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       <span className="tasks-badge-category">{task.category}</span>
                     </div>
 
-                    <select
-                      disabled={isViewer}
-                      value={task.status}
-                      onChange={(e) => handleQuickStatusChange(task.id, e.target.value as TaskStatus)}
-                      className={`tasks-status-select ${statusCfg.classKey}`}
-                      aria-label={`${task.title} 상태 변경`}
-                    >
-                      {STATUSES.map((s) => (
-                        <option key={s.key} value={s.key}>
-                          {s.shortLabel}
-                        </option>
-                      ))}
-                    </select>
+                    <span className={`tasks-status-badge ${statusCfg.classKey}`}>
+                      <span className={`tasks-status-dot ${statusCfg.classKey}`} />
+                      <span>{statusCfg.shortLabel}</span>
+                    </span>
                   </div>
 
                   <div
@@ -919,18 +911,26 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
 
                   <div className="form-group">
                     <label className="form-label">진행 상태</label>
-                    <select
-                      disabled={isViewer}
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as TaskStatus })}
-                      className="form-select"
-                    >
-                      {STATUSES.map((s) => (
-                        <option key={s.key} value={s.key}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
+                    {(() => {
+                      const autoStatus = computeTaskStatusByDates(
+                        formData.startDate,
+                        formData.dueDate
+                      );
+                      const autoStatusCfg =
+                        STATUSES.find((s) => s.key === autoStatus) || STATUSES[1];
+                      return (
+                        <div
+                          className={`tasks-auto-status-box ${autoStatusCfg.classKey}`}
+                          aria-live="polite"
+                        >
+                          <span className="tasks-auto-status-main">
+                            <span className={`tasks-status-dot ${autoStatusCfg.classKey}`} />
+                            <span>{autoStatusCfg.label}</span>
+                          </span>
+                          <span className="tasks-auto-status-tag">일정 자동</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -942,7 +942,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       type="date"
                       disabled={isViewer}
                       value={formData.startDate}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      onChange={(e) => {
+                        const nextStart = e.target.value;
+                        setFormData({
+                          ...formData,
+                          startDate: nextStart,
+                          status: computeTaskStatusByDates(nextStart, formData.dueDate),
+                        });
+                      }}
                       className="form-input"
                     />
                   </div>
@@ -953,7 +960,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       type="date"
                       disabled={isViewer}
                       value={formData.dueDate}
-                      onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                      onChange={(e) => {
+                        const nextDue = e.target.value;
+                        setFormData({
+                          ...formData,
+                          dueDate: nextDue,
+                          status: computeTaskStatusByDates(formData.startDate, nextDue),
+                        });
+                      }}
                       className="form-input"
                     />
                   </div>

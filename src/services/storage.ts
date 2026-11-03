@@ -1,6 +1,7 @@
 import type {
   User,
   TaskItem,
+  TaskStatus,
   VacationItem,
   KpiItem,
   KpiProcessStage,
@@ -134,6 +135,36 @@ export function generateUniqueId(prefix: string): string {
   return `${prefix}-${timestamp}-${randomStr}`;
 }
 
+// 로컬 타임존 기준 오늘 날짜 문자열(YYYY-MM-DD) 반환 헬퍼
+export function getTodayDateString(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// 시작일·마감일 기준 진행 상태 자동 산출 헬퍼
+// - 시작일이 도래하지 않았으면 (today < startDate): 'backlog' (대기)
+// - 시작일과 마감일 사이면 (startDate <= today <= dueDate): 'in_progress' (진행중)
+// - 마감일이 지나면 (today > dueDate): 'done' (완료)
+export function computeTaskStatusByDates(
+  startDate?: string,
+  dueDate?: string,
+  referenceDate: string = getTodayDateString()
+): TaskStatus {
+  const start = (startDate || '').trim();
+  const due = (dueDate || '').trim();
+
+  if (due && referenceDate > due) {
+    return 'done';
+  }
+  if (start && referenceDate < start) {
+    return 'backlog';
+  }
+  return 'in_progress';
+}
+
 export class PlanningStorageService {
   private static isSyncing = false;
 
@@ -222,32 +253,35 @@ export class PlanningStorageService {
       const { data: remoteTasks, error: taskErr } = await client.from('tasks').select('*');
       if (!taskErr && remoteTasks) {
         const filteredTasks = remoteTasks.filter((row) => !String(row.id).startsWith('task-10'));
-        const mappedRemoteTasks: TaskItem[] = filteredTasks.map((row) => ({
-          id: row.id,
-          title: row.title,
-          category: row.category,
-          track: (row.track as any) || '기획',
-          assigneeId: row.assignee_id,
-          assigneeName: row.assignee_name,
-          priority: row.priority,
-          status: row.status,
-          startDate: row.start_date,
-          dueDate: row.due_date,
-          progress: Number(row.progress || 0),
-          description: row.description || '',
-          links: row.links || [],
-          workspaceProjectId: row.workspace_project_id || undefined,
-          period: row.period || undefined,
-          notionUrl: row.notion_url || undefined,
-          jiraUrl: row.jira_url || undefined,
-          artifactUrl: row.artifact_url || undefined,
-          themeIndex: row.theme_index !== undefined ? Number(row.theme_index) : undefined,
-          version: row.version || '0.1',
-          createdBy: row.created_by,
-          createdAt: row.created_at,
-          updatedBy: row.updated_by,
-          updatedAt: row.updated_at,
-        }));
+        const mappedRemoteTasks: TaskItem[] = filteredTasks.map((row) => {
+          const autoStatus = computeTaskStatusByDates(row.start_date, row.due_date);
+          return {
+            id: row.id,
+            title: row.title,
+            category: row.category,
+            track: (row.track as any) || '기획',
+            assigneeId: row.assignee_id,
+            assigneeName: row.assignee_name,
+            priority: row.priority,
+            status: autoStatus,
+            startDate: row.start_date,
+            dueDate: row.due_date,
+            progress: autoStatus === 'done' ? 100 : Number(row.progress || 0),
+            description: row.description || '',
+            links: row.links || [],
+            workspaceProjectId: row.workspace_project_id || undefined,
+            period: row.period || undefined,
+            notionUrl: row.notion_url || undefined,
+            jiraUrl: row.jira_url || undefined,
+            artifactUrl: row.artifact_url || undefined,
+            themeIndex: row.theme_index !== undefined ? Number(row.theme_index) : undefined,
+            version: row.version || '0.1',
+            createdBy: row.created_by,
+            createdAt: row.created_at,
+            updatedBy: row.updated_by,
+            updatedAt: row.updated_at,
+          };
+        });
 
         // 로컬에 등록된 기존 데이터 보호 및 안전 병합
         const localTasks = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []).filter(
@@ -256,7 +290,14 @@ export class PlanningStorageService {
 
         const taskMap = new Map<string, TaskItem>();
         // 1-1. 로컬 데이터 먼저 맵에 등록 (사용자가 새로 등록한 작업 완벽 보존)
-        localTasks.forEach((t) => taskMap.set(t.id, t));
+        localTasks.forEach((t) => {
+          const autoStatus = computeTaskStatusByDates(t.startDate, t.dueDate);
+          taskMap.set(t.id, {
+            ...t,
+            status: autoStatus,
+            progress: autoStatus === 'done' ? 100 : t.progress,
+          });
+        });
 
         // 1-2. 원격 데이터 병합 (원격 정보 갱신, 단 로컬의 track 정보 보존)
         mappedRemoteTasks.forEach((remote) => {
@@ -916,12 +957,17 @@ export class PlanningStorageService {
   public static getTasks(): TaskItem[] {
     this.initialize();
     const stored = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []);
-    // track 필드 기본값 및 기존 세션 오류로 잘못 기록된 최초 등록자 보정
-    return stored.map((t) => ({
-      ...t,
-      track: t.track || '기획',
-      createdBy: t.id === 'task-mvk8olb8-z6sqd' && t.createdBy === '최범열' ? '박수민' : t.createdBy,
-    }));
+    // 시작일·마감일 기준 진행 상태 자동 산출 및 기본값 보정
+    return stored.map((t) => {
+      const autoStatus = computeTaskStatusByDates(t.startDate, t.dueDate);
+      return {
+        ...t,
+        track: t.track || '기획',
+        status: autoStatus,
+        progress: autoStatus === 'done' ? 100 : t.progress,
+        createdBy: t.id === 'task-mvk8olb8-z6sqd' && t.createdBy === '최범열' ? '박수민' : t.createdBy,
+      };
+    });
   }
 
   // Supabase 원격 DB로 업무 전송 (track 컬럼 유무와 무관한 스마트 2단계 전송)
@@ -930,6 +976,7 @@ export class PlanningStorageService {
     const client = getSupabaseClient();
     if (!client) return;
 
+    const autoStatus = computeTaskStatusByDates(task.startDate, task.dueDate);
     const payloadWithTrack = {
       id: task.id,
       title: task.title,
@@ -938,10 +985,10 @@ export class PlanningStorageService {
       assignee_id: task.assigneeId,
       assignee_name: task.assigneeName,
       priority: task.priority,
-      status: task.status,
+      status: autoStatus,
       start_date: task.startDate,
       due_date: task.dueDate,
-      progress: task.progress,
+      progress: autoStatus === 'done' ? 100 : task.progress,
       description: task.description,
       links: task.links,
       workspace_project_id: task.workspaceProjectId || null,
@@ -978,9 +1025,12 @@ export class PlanningStorageService {
     }
     const currentUser = actor || this.getCurrentUser();
     const now = new Date().toISOString();
+    const autoStatus = computeTaskStatusByDates(data.startDate, data.dueDate);
     const newTask: TaskItem = {
       ...data,
       track: data.track || '기획',
+      status: autoStatus,
+      progress: autoStatus === 'done' ? 100 : 0,
       id: generateUniqueId('task'),
       createdBy: currentUser.name,
       createdAt: now,
@@ -1020,10 +1070,17 @@ export class PlanningStorageService {
     const currentUser = actor || this.getCurrentUser();
     const original = tasks[index];
     const now = new Date().toISOString();
+    const nextStartDate = changes.startDate ?? original.startDate;
+    const nextDueDate = changes.dueDate ?? original.dueDate;
+    const autoStatus = computeTaskStatusByDates(nextStartDate, nextDueDate);
 
     const updatedTask: TaskItem = {
       ...original,
       ...changes,
+      startDate: nextStartDate,
+      dueDate: nextDueDate,
+      status: autoStatus,
+      progress: autoStatus === 'done' ? 100 : original.progress,
       track: changes.track || original.track || '기획',
       createdBy: original.createdBy,
       createdAt: original.createdAt,
