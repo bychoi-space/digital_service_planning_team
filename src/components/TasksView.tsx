@@ -204,11 +204,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       description: '',
       linkUrl: '',
       figmaUrl: '',
-      syncToNotion:
-        initialAssignee.name.trim() === '최범열' ||
-        currentUser.name.trim() === '최범열' ||
-        initialAssignee.name.trim() === '박수민' ||
-        currentUser.name.trim() === '박수민',
+      syncToNotion: true,
     };
   });
 
@@ -289,13 +285,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       description: '',
       linkUrl: '',
       figmaUrl: '',
-      syncToNotion:
-        defaultAssignee.name.trim() === '최범열' ||
-        currentUser.name.trim() === '최범열' ||
-        defaultAssignee.name.trim() === '박수민' ||
-        currentUser.name.trim() === '박수민' ||
-        defaultTrack === '디자인' ||
-        selectedTrack === '디자인',
+      syncToNotion: true,
     });
     setIsModalOpen(true);
 
@@ -746,8 +736,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                               {task.dueDate
                                 ? `~${task.dueDate.substring(5)}`
                                 : task.startDate
-                                ? `${task.startDate.substring(5)}~`
-                                : '일정 미정'}
+                                  ? `${task.startDate.substring(5)}~`
+                                  : '일정 미정'}
                             </span>
                           </div>
                         </div>
@@ -1256,8 +1246,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                     visibleCardsCount === 3
                       ? 'is-three-col'
                       : visibleCardsCount === 2
-                      ? 'is-two-col'
-                      : 'is-single-col';
+                        ? 'is-two-col'
+                        : 'is-single-col';
 
                   return (
                     <>
