@@ -1069,7 +1069,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
                           <div className="kpi-detail-task-meta">
                             <span className="kpi-evidence-date">
-                              <Clock size={14} /> {t.startDate} ~ {t.dueDate}
+                              <Clock size={14} />{' '}
+                              {t.startDate || t.dueDate
+                                ? `${t.startDate || '미정'} ~ ${t.dueDate || '미정'}`
+                                : '일정 미정'}
                             </span>
                             {outUrl && (
                               <a
@@ -2005,8 +2008,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                                     <span className="kpi-task-map-title">{t.title}</span>
                                   </div>
                                   <span className="kpi-task-map-meta">
-                                    {t.assigneeName} · {t.startDate} ~ {t.dueDate} (
-                                    {t.status === 'done' ? '완료' : '진행/대기'})
+                                    {t.assigneeName} ·{' '}
+                                    {t.startDate || t.dueDate
+                                      ? `${t.startDate || '미정'} ~ ${t.dueDate || '미정'}`
+                                      : '일정 미정'}{' '}
+                                    ({t.status === 'done' ? '완료' : '진행/대기'})
                                   </span>
                                 </div>
                               </label>
@@ -2188,7 +2194,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                                   <span className="kpi-task-map-title">{t.title}</span>
                                 </div>
                                 <span className="kpi-task-map-meta">
-                                  담당: {t.assigneeName} · 일정: {t.startDate} ~ {t.dueDate} · 상태:{' '}
+                                  담당: {t.assigneeName} · 일정:{' '}
+                                  {t.startDate || t.dueDate
+                                    ? `${t.startDate || '미정'} ~ ${t.dueDate || '미정'}`
+                                    : '일정 미정'}{' '}
+                                  · 상태:{' '}
                                   {t.status === 'done'
                                     ? '완료'
                                     : t.status === 'in_progress'
@@ -2325,8 +2335,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                                     <span className="kpi-task-map-title">{t.title}</span>
                                   </div>
                                   <span className="kpi-task-map-meta">
-                                    {t.startDate} ~ {t.dueDate} (
-                                    {t.status === 'done' ? '완료' : '진행/대기'})
+                                    {t.startDate || t.dueDate
+                                      ? `${t.startDate || '미정'} ~ ${t.dueDate || '미정'}`
+                                      : '일정 미정'}{' '}
+                                    ({t.status === 'done' ? '완료' : '진행/대기'})
                                   </span>
                                 </div>
                               </label>

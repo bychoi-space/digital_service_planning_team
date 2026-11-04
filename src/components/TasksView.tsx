@@ -264,9 +264,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       assigneeId: matchedAssignee ? matchedAssignee.id : task.assigneeId,
       assigneeName: matchedAssignee ? matchedAssignee.name : task.assigneeName,
       priority: task.priority,
-      status: computeTaskStatusByDates(task.startDate, task.dueDate),
-      startDate: task.startDate,
-      dueDate: task.dueDate,
+      status: computeTaskStatusByDates(
+        task.startDate,
+        task.dueDate,
+        getTodayDateString(),
+        task.status
+      ),
+      startDate: task.startDate || '',
+      dueDate: task.dueDate || '',
       description: task.description,
       linkUrl: task.links?.[0]?.url || task.artifactUrl || '',
       syncToNotion: isAlreadyNotionLinked,
@@ -292,7 +297,12 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       return;
     }
 
-    const autoStatus = computeTaskStatusByDates(formData.startDate, formData.dueDate);
+    const autoStatus = computeTaskStatusByDates(
+      formData.startDate,
+      formData.dueDate,
+      getTodayDateString(),
+      editingTask?.status
+    );
     const trimmedUrl = formData.linkUrl.trim();
     const normalizedLinks = trimmedUrl ? [{ title: '산출물 링크', url: trimmedUrl }] : [];
 
@@ -639,7 +649,12 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                               <UserCheck size={14} /> {task.assigneeName}
                             </span>
                             <span className="tasks-card-meta-item">
-                              <Clock size={14} /> ~{task.dueDate.substring(5)}
+                              <Clock size={14} />{' '}
+                              {task.dueDate
+                                ? `~${task.dueDate.substring(5)}`
+                                : task.startDate
+                                ? `${task.startDate.substring(5)}~`
+                                : '일정 미정'}
                             </span>
                           </div>
                         </div>
@@ -718,7 +733,9 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                         </span>
                       </td>
                       <td className="tasks-table-schedule">
-                        {task.startDate} ~ {task.dueDate}
+                        {task.startDate || task.dueDate
+                          ? `${task.startDate || '미정'} ~ ${task.dueDate || '미정'}`
+                          : '일정 미정'}
                       </td>
                       <td className="td-center">
                         <div className="tasks-row-actions">
@@ -809,7 +826,10 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       <UserCheck size={14} /> {task.assigneeName}
                     </span>
                     <span className="tasks-card-meta-item">
-                      <Clock size={14} /> {task.startDate} ~ {task.dueDate}
+                      <Clock size={14} />{' '}
+                      {task.startDate || task.dueDate
+                        ? `${task.startDate || '미정'} ~ ${task.dueDate || '미정'}`
+                        : '일정 미정'}
                     </span>
                   </div>
 

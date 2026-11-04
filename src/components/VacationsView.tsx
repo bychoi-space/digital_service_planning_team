@@ -279,9 +279,14 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       assigneeId: matchedAssignee ? matchedAssignee.id : task.assigneeId,
       assigneeName: matchedAssignee ? matchedAssignee.name : task.assigneeName,
       priority: task.priority,
-      status: computeTaskStatusByDates(task.startDate, task.dueDate),
-      startDate: task.startDate,
-      dueDate: task.dueDate,
+      status: computeTaskStatusByDates(
+        task.startDate,
+        task.dueDate,
+        getTodayDateString(),
+        task.status
+      ),
+      startDate: task.startDate || '',
+      dueDate: task.dueDate || '',
       description: task.description,
       linkUrl: task.links?.[0]?.url || task.artifactUrl || '',
     });
@@ -571,7 +576,12 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     let dayTasks =
       filterType === 'vacation'
         ? []
-        : tasks.filter((t) => dateStr >= t.startDate && dateStr <= t.dueDate);
+        : tasks.filter(
+            (t) =>
+              Boolean(t.startDate && t.dueDate) &&
+              dateStr >= t.startDate &&
+              dateStr <= t.dueDate
+          );
 
     if (filterType === '기획' || filterType === '디자인' || filterType === '퍼블리싱') {
       dayTasks = dayTasks.filter((t) => t.track === filterType);

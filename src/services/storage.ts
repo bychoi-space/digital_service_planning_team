@@ -145,17 +145,22 @@ export function getTodayDateString(): string {
 }
 
 // 시작일·마감일 기준 진행 상태 자동 산출 헬퍼
+// - 시작일과 마감일이 모두 비어있으면(null/빈 값): 기존 상태(fallbackStatus) 유지 (기본 'backlog')
 // - 시작일이 도래하지 않았으면 (today < startDate): 'backlog' (대기)
 // - 시작일과 마감일 사이면 (startDate <= today <= dueDate): 'in_progress' (진행중)
 // - 마감일이 지나면 (today > dueDate): 'done' (완료)
 export function computeTaskStatusByDates(
-  startDate?: string,
-  dueDate?: string,
-  referenceDate: string = getTodayDateString()
+  startDate?: string | null,
+  dueDate?: string | null,
+  referenceDate: string = getTodayDateString(),
+  fallbackStatus?: TaskStatus
 ): TaskStatus {
   const start = (startDate || '').trim();
   const due = (dueDate || '').trim();
 
+  if (!start && !due) {
+    return fallbackStatus || 'backlog';
+  }
   if (due && referenceDate > due) {
     return 'done';
   }
@@ -254,7 +259,12 @@ export class PlanningStorageService {
       if (!taskErr && remoteTasks) {
         const filteredTasks = remoteTasks.filter((row) => !String(row.id).startsWith('task-10'));
         const mappedRemoteTasks: TaskItem[] = filteredTasks.map((row) => {
-          const autoStatus = computeTaskStatusByDates(row.start_date, row.due_date);
+          const autoStatus = computeTaskStatusByDates(
+            row.start_date,
+            row.due_date,
+            getTodayDateString(),
+            (row.status as TaskStatus) || 'backlog'
+          );
           return {
             id: row.id,
             title: row.title,
@@ -264,8 +274,8 @@ export class PlanningStorageService {
             assigneeName: row.assignee_name,
             priority: row.priority,
             status: autoStatus,
-            startDate: row.start_date,
-            dueDate: row.due_date,
+            startDate: row.start_date || '',
+            dueDate: row.due_date || '',
             progress: autoStatus === 'done' ? 100 : Number(row.progress || 0),
             description: row.description || '',
             links: row.links || [],
@@ -291,9 +301,16 @@ export class PlanningStorageService {
         const taskMap = new Map<string, TaskItem>();
         // 1-1. 로컬 데이터 먼저 맵에 등록 (사용자가 새로 등록한 작업 완벽 보존)
         localTasks.forEach((t) => {
-          const autoStatus = computeTaskStatusByDates(t.startDate, t.dueDate);
+          const autoStatus = computeTaskStatusByDates(
+            t.startDate,
+            t.dueDate,
+            getTodayDateString(),
+            t.status
+          );
           taskMap.set(t.id, {
             ...t,
+            startDate: t.startDate || '',
+            dueDate: t.dueDate || '',
             status: autoStatus,
             progress: autoStatus === 'done' ? 100 : t.progress,
           });
@@ -972,9 +989,16 @@ export class PlanningStorageService {
     // 시작일·마감일 기준 진행 상태 자동 산출, 기본값 보정 및 파트별(기획 -> 디자인 -> 퍼블리싱) 일관 정렬
     return stored
       .map((t) => {
-        const autoStatus = computeTaskStatusByDates(t.startDate, t.dueDate);
+        const autoStatus = computeTaskStatusByDates(
+          t.startDate,
+          t.dueDate,
+          getTodayDateString(),
+          t.status
+        );
         return {
           ...t,
+          startDate: t.startDate || '',
+          dueDate: t.dueDate || '',
           track: t.track || '기획',
           status: autoStatus,
           progress: autoStatus === 'done' ? 100 : t.progress,
@@ -985,6 +1009,9 @@ export class PlanningStorageService {
       .sort((a, b) => {
         const trackDiff = (trackOrder[a.track] ?? 0) - (trackOrder[b.track] ?? 0);
         if (trackDiff !== 0) return trackDiff;
+        const aHasDate = Boolean(a.startDate || a.dueDate);
+        const bHasDate = Boolean(b.startDate || b.dueDate);
+        if (aHasDate !== bHasDate) return aHasDate ? -1 : 1;
         const startDiff = (b.startDate || '').localeCompare(a.startDate || '');
         if (startDiff !== 0) return startDiff;
         const dueDiff = (b.dueDate || '').localeCompare(a.dueDate || '');
@@ -999,7 +1026,12 @@ export class PlanningStorageService {
     const client = getSupabaseClient();
     if (!client) return;
 
-    const autoStatus = computeTaskStatusByDates(task.startDate, task.dueDate);
+    const autoStatus = computeTaskStatusByDates(
+      task.startDate,
+      task.dueDate,
+      getTodayDateString(),
+      task.status
+    );
     const payloadWithTrack = {
       id: task.id,
       title: task.title,
@@ -1009,8 +1041,8 @@ export class PlanningStorageService {
       assignee_name: task.assigneeName,
       priority: task.priority,
       status: autoStatus,
-      start_date: task.startDate,
-      due_date: task.dueDate,
+      start_date: task.startDate ? task.startDate : null,
+      due_date: task.dueDate ? task.dueDate : null,
       progress: autoStatus === 'done' ? 100 : task.progress,
       description: task.description,
       links: task.links,
@@ -1209,7 +1241,12 @@ export class PlanningStorageService {
     const now = new Date().toISOString();
     const nextStartDate = changes.startDate ?? original.startDate;
     const nextDueDate = changes.dueDate ?? original.dueDate;
-    const autoStatus = computeTaskStatusByDates(nextStartDate, nextDueDate);
+    const autoStatus = computeTaskStatusByDates(
+      nextStartDate,
+      nextDueDate,
+      getTodayDateString(),
+      changes.status || original.status
+    );
 
     const updatedTask: TaskItem = {
       ...original,
