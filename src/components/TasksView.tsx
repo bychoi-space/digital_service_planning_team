@@ -106,6 +106,19 @@ function getDatePlusDaysString(days: number): string {
   return `${year}-${month}-${day}`;
 }
 
+function resolveWorkspaceProjectId(task?: TaskItem | null, linkUrl?: string): string | null {
+  if (task?.workspaceProjectId) return task.workspaceProjectId;
+  const candidate = linkUrl || task?.artifactUrl || task?.links?.[0]?.url || '';
+  const match = candidate.match(/[?&]project=([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
+function resolveWorkspaceViewerUrl(task?: TaskItem | null, linkUrl?: string): string | null {
+  const wpId = resolveWorkspaceProjectId(task, linkUrl);
+  if (!wpId) return null;
+  return `https://bychoi-space.github.io/workspace/viewer.html?project=${wpId}`;
+}
+
 export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onShowToast }) => {
   const [tasks, setTasks] = useState<TaskItem[]>(() => PlanningStorageService.getTasks());
   const [teamMembers, setTeamMembers] = useState<User[]>(() => PlanningStorageService.getServicePlanningMembers());
@@ -191,7 +204,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
     };
   }, []);
 
-  // 수동 Notion 동기화 실행
+  // 수동 Notion · Workspace 동기화 실행
   const handleManualNotionSync = async () => {
     if (isSyncingNotion) return;
     setIsSyncingNotion(true);
@@ -200,11 +213,11 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       refreshTasks();
       if (res.success) {
         onShowToast(
-          `Notion (Sisun-Tasks) 양방향 동기화가 완료되었습니다. (연동 과제 ${res.syncedCount}건)`,
+          `Notion (Sisun-Tasks) 및 기획서 워크스페이스 동기화가 완료되었습니다. (${res.syncedCount}건)`,
           'success'
         );
       } else {
-        onShowToast(res.message || 'Notion 동기화 중 오류가 발생했습니다.', 'error');
+        onShowToast(res.message || '동기화 중 오류가 발생했습니다.', 'error');
       }
     } finally {
       setIsSyncingNotion(false);
@@ -634,6 +647,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                                   Notion
                                 </span>
                               )}
+                              {resolveWorkspaceProjectId(task) && (
+                                <span
+                                  className="tasks-badge-workspace"
+                                  title={`기획서 워크스페이스 (${resolveWorkspaceProjectId(task)}) · v${task.version || '0.1'}`}
+                                >
+                                  기획서 v{task.version || '0.1'}
+                                </span>
+                              )}
                             </div>
 
                             <span className={`tasks-badge-priority ${priorityCfg.classKey}`}>
@@ -719,6 +740,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                               Notion
                             </span>
                           )}
+                          {resolveWorkspaceProjectId(task) && (
+                            <span
+                              className="tasks-badge-workspace"
+                              title={`기획서 워크스페이스 (${resolveWorkspaceProjectId(task)}) · v${task.version || '0.1'}`}
+                            >
+                              기획서 v{task.version || '0.1'}
+                            </span>
+                          )}
                           {(task.links?.length ?? 0) > 0 && (
                             <LinkIcon size={14} className="tasks-link-indicator" />
                           )}
@@ -739,6 +768,17 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       </td>
                       <td className="td-center">
                         <div className="tasks-row-actions">
+                          {resolveWorkspaceViewerUrl(task) && (
+                            <a
+                              href={resolveWorkspaceViewerUrl(task)!}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-secondary tasks-action-btn tasks-workspace-open-btn"
+                              title="기획서 뷰어 새 창으로 열기"
+                            >
+                              <ExternalLink size={14} /> 기획서
+                            </a>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleOpenEditModal(task)}
@@ -799,6 +839,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                           Notion
                         </span>
                       )}
+                      {resolveWorkspaceProjectId(task) && (
+                        <span
+                          className="tasks-badge-workspace"
+                          title={`기획서 워크스페이스 (${resolveWorkspaceProjectId(task)}) · v${task.version || '0.1'}`}
+                        >
+                          기획서 v{task.version || '0.1'}
+                        </span>
+                      )}
                     </div>
 
                     <span className={`tasks-status-badge ${statusCfg.classKey}`}>
@@ -834,6 +882,16 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                   </div>
 
                   <div className="tasks-mobile-list-actions">
+                    {resolveWorkspaceViewerUrl(task) && (
+                      <a
+                        href={resolveWorkspaceViewerUrl(task)!}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary tasks-action-btn tasks-workspace-open-btn"
+                      >
+                        <ExternalLink size={14} /> 기획서 열기
+                      </a>
+                    )}
                     <button
                       type="button"
                       onClick={() => handleOpenEditModal(task)}
@@ -1096,6 +1154,37 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       </a>
                     )}
                   </div>
+                  {resolveWorkspaceProjectId(editingTask, formData.linkUrl) && (
+                    <div className="tasks-workspace-linked-bar">
+                      <div className="tasks-notion-linked-info">
+                        <span className="tasks-badge-workspace">
+                          기획서 v{editingTask?.version || '0.1'}
+                        </span>
+                        <span className="tasks-notion-linked-text">
+                          워크스페이스 프로젝트 ({resolveWorkspaceProjectId(editingTask, formData.linkUrl)})
+                          {editingTask?.period ? ` · ${editingTask.period}` : ''}
+                        </span>
+                      </div>
+                      <div className="tasks-workspace-linked-actions">
+                        <a
+                          href={resolveWorkspaceViewerUrl(editingTask, formData.linkUrl)!}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-secondary tasks-single-link-open-btn"
+                        >
+                          <ExternalLink size={14} /> 기획서 뷰어
+                        </a>
+                        <a
+                          href="https://bychoi-space.github.io/workspace/index.html"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-secondary tasks-single-link-open-btn"
+                        >
+                          <ExternalLink size={14} /> 워크스페이스
+                        </a>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 7. Notion (Sisun-Tasks) 양방향 연동 설정 */}

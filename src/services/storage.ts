@@ -1182,11 +1182,17 @@ export class PlanningStorageService {
     const currentUser = actor || this.getCurrentUser();
     const now = new Date().toISOString();
     const autoStatus = computeTaskStatusByDates(data.startDate, data.dueDate);
+    const primaryLinkUrl = data.links?.[0]?.url || data.artifactUrl || '';
+    const extractedWpMatch = primaryLinkUrl.match(/[?&]project=([a-zA-Z0-9_-]+)/);
+    const extractedWpId = extractedWpMatch ? extractedWpMatch[1] : data.workspaceProjectId;
+
     const newTask: TaskItem = {
       ...data,
       track: data.track || '기획',
       status: autoStatus,
       progress: autoStatus === 'done' ? 100 : 0,
+      workspaceProjectId: extractedWpId,
+      artifactUrl: primaryLinkUrl || data.artifactUrl,
       id: generateUniqueId('task'),
       createdBy: currentUser.name,
       createdAt: now,
@@ -1248,6 +1254,13 @@ export class PlanningStorageService {
       changes.status || original.status
     );
 
+    const nextLinks = changes.links ?? original.links;
+    const primaryLinkUrl = nextLinks?.[0]?.url || changes.artifactUrl || original.artifactUrl || '';
+    const extractedWpMatch = primaryLinkUrl.match(/[?&]project=([a-zA-Z0-9_-]+)/);
+    const nextWorkspaceProjectId = extractedWpMatch
+      ? extractedWpMatch[1]
+      : changes.workspaceProjectId ?? original.workspaceProjectId;
+
     const updatedTask: TaskItem = {
       ...original,
       ...changes,
@@ -1256,6 +1269,8 @@ export class PlanningStorageService {
       status: autoStatus,
       progress: autoStatus === 'done' ? 100 : original.progress,
       track: changes.track || original.track || '기획',
+      workspaceProjectId: nextWorkspaceProjectId,
+      artifactUrl: primaryLinkUrl || undefined,
       createdBy: original.createdBy,
       createdAt: original.createdAt,
       updatedBy: currentUser.name,

@@ -1732,7 +1732,74 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                       </a>
                     )}
                   </div>
+                  {(() => {
+                    const candidateUrl =
+                      taskFormData.linkUrl ||
+                      editingTask?.artifactUrl ||
+                      editingTask?.links?.[0]?.url ||
+                      '';
+                    const wpMatch = candidateUrl.match(/[?&]project=([a-zA-Z0-9_-]+)/);
+                    const wpId = editingTask?.workspaceProjectId || (wpMatch ? wpMatch[1] : null);
+                    if (!wpId) return null;
+                    const viewerUrl = `https://bychoi-space.github.io/workspace/viewer.html?project=${wpId}`;
+                    return (
+                      <div className="tasks-workspace-linked-bar">
+                        <div className="tasks-notion-linked-info">
+                          <span className="tasks-badge-workspace">
+                            기획서 v{editingTask?.version || '0.1'}
+                          </span>
+                          <span className="tasks-notion-linked-text">
+                            워크스페이스 프로젝트 ({wpId})
+                            {editingTask?.period ? ` · ${editingTask.period}` : ''}
+                          </span>
+                        </div>
+                        <div className="tasks-workspace-linked-actions">
+                          <a
+                            href={viewerUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-secondary tasks-single-link-open-btn"
+                          >
+                            <ExternalLink size={14} /> 기획서 뷰어
+                          </a>
+                          <a
+                            href="https://bychoi-space.github.io/workspace/index.html"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-secondary tasks-single-link-open-btn"
+                          >
+                            <ExternalLink size={14} /> 워크스페이스
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
+
+                {/* 7. Notion 연동 상태 표시 */}
+                {editingTask &&
+                  (Boolean(editingTask.notionUrl) || String(editingTask.id).startsWith('notion-')) && (
+                    <div className="tasks-notion-sync-box">
+                      <div className="tasks-notion-linked-row">
+                        <div className="tasks-notion-linked-info">
+                          <span className="tasks-badge-notion">Notion 연동</span>
+                          <span className="tasks-notion-linked-text">
+                            Sisun-Tasks 양방향 동기화 적용됨 (수정 저장 시 Notion에 자동 반영)
+                          </span>
+                        </div>
+                        {editingTask.notionUrl && (
+                          <a
+                            href={editingTask.notionUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-secondary tasks-single-link-open-btn"
+                          >
+                            <ExternalLink size={14} /> Notion 열기
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                 {/* 감사 정보 표시 (기존 데이터인 경우) */}
                 {editingTask && (

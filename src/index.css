@@ -8785,3 +8785,52 @@ textarea {
     align-items: stretch;
   }
 }
+
+/* =========================================================================
+   Workspace (기획서 워크스페이스) 연동 배지 및 액션 바
+   ========================================================================= */
+.tasks-badge-workspace {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  white-space: nowrap;
+}
+
+.tasks-workspace-open-btn {
+  text-decoration: none;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #f8fafc;
+}
+
+.tasks-workspace-open-btn:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.tasks-workspace-linked-bar {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tasks-workspace-linked-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
