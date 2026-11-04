@@ -963,17 +963,34 @@ export class PlanningStorageService {
   public static getTasks(): TaskItem[] {
     this.initialize();
     const stored = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []);
-    // 시작일·마감일 기준 진행 상태 자동 산출 및 기본값 보정
-    return stored.map((t) => {
-      const autoStatus = computeTaskStatusByDates(t.startDate, t.dueDate);
-      return {
-        ...t,
-        track: t.track || '기획',
-        status: autoStatus,
-        progress: autoStatus === 'done' ? 100 : t.progress,
-        createdBy: t.id === 'task-mvk8olb8-z6sqd' && t.createdBy === '최범열' ? '박수민' : t.createdBy,
-      };
-    });
+    const trackOrder: Record<string, number> = {
+      기획: 0,
+      디자인: 1,
+      퍼블리싱: 2,
+    };
+
+    // 시작일·마감일 기준 진행 상태 자동 산출, 기본값 보정 및 파트별(기획 -> 디자인 -> 퍼블리싱) 일관 정렬
+    return stored
+      .map((t) => {
+        const autoStatus = computeTaskStatusByDates(t.startDate, t.dueDate);
+        return {
+          ...t,
+          track: t.track || '기획',
+          status: autoStatus,
+          progress: autoStatus === 'done' ? 100 : t.progress,
+          createdBy:
+            t.id === 'task-mvk8olb8-z6sqd' && t.createdBy === '최범열' ? '박수민' : t.createdBy,
+        };
+      })
+      .sort((a, b) => {
+        const trackDiff = (trackOrder[a.track] ?? 0) - (trackOrder[b.track] ?? 0);
+        if (trackDiff !== 0) return trackDiff;
+        const startDiff = (b.startDate || '').localeCompare(a.startDate || '');
+        if (startDiff !== 0) return startDiff;
+        const dueDiff = (b.dueDate || '').localeCompare(a.dueDate || '');
+        if (dueDiff !== 0) return dueDiff;
+        return (a.title || '').localeCompare(b.title || '');
+      });
   }
 
   // Supabase 원격 DB로 업무 전송 (track 컬럼 유무와 무관한 스마트 2단계 전송)

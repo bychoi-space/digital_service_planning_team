@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type {
   VacationItem,
   VacationType,
@@ -407,6 +407,17 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     setTeamMembers(PlanningStorageService.getServicePlanningMembers());
   };
 
+  useEffect(() => {
+    const handleStorageUpdate = () => {
+      refreshAll();
+    };
+    window.addEventListener('ds-portal-tasks-updated', handleStorageUpdate);
+    PlanningStorageService.syncWithNotion();
+    return () => {
+      window.removeEventListener('ds-portal-tasks-updated', handleStorageUpdate);
+    };
+  }, []);
+
   // 모달 열기 (신규 휴가 신청 - 기본 대상자를 현재 로그인된 서비스기획팀원으로 지정)
   const handleOpenCreateModal = (presetDate?: string) => {
     if (isViewer) {
@@ -569,6 +580,22 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     if (onlyActiveTasks) {
       dayTasks = dayTasks.filter((t) => ['in_progress', 'review'].includes(t.status));
     }
+
+    // 파트 순서 (기획 -> 디자인 -> 퍼블리싱) 1순위, 동일 파트 내 시작일·마감일·제목 순 정렬
+    const trackOrder: Record<string, number> = {
+      기획: 0,
+      디자인: 1,
+      퍼블리싱: 2,
+    };
+    dayTasks = [...dayTasks].sort((a, b) => {
+      const trackDiff = (trackOrder[a.track] ?? 0) - (trackOrder[b.track] ?? 0);
+      if (trackDiff !== 0) return trackDiff;
+      const startDiff = (a.startDate || '').localeCompare(b.startDate || '');
+      if (startDiff !== 0) return startDiff;
+      const dueDiff = (a.dueDate || '').localeCompare(b.dueDate || '');
+      if (dueDiff !== 0) return dueDiff;
+      return (a.title || '').localeCompare(b.title || '');
+    });
 
     return { dayVacations, dayTasks };
   };
