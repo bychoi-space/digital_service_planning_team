@@ -4228,10 +4228,6 @@ textarea {
     min-height: 200px;
   }
 
-  .tasks-form-grid-3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .tasks-form-progress-group {
     grid-column: 1 / -1;
   }
@@ -4502,14 +4498,10 @@ textarea {
     display: none;
   }
 
-  .tasks-form-grid-2 {
+  .tasks-form-grid-2,
+  .tasks-form-grid-3 {
     grid-template-columns: 1fr;
     gap: 0;
-  }
-
-  .tasks-form-grid-3 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
   }
 
   .tasks-link-input-row {
@@ -8787,8 +8779,28 @@ textarea {
 }
 
 /* =========================================================================
-   Workspace (기획서 워크스페이스) 연동 배지 및 액션 바
+   업무 상세/수정 모달 와이드 레이아웃 (A안: 860px 3열 그리드 + 좌우 2열 연동 바)
    ========================================================================= */
+.modal-box.tasks-detail-modal-box {
+  max-width: 860px;
+}
+
+.tasks-detail-modal-box .modal-header {
+  padding: 16px 24px;
+}
+
+.tasks-detail-modal-box .modal-body {
+  padding: 18px 24px;
+}
+
+.tasks-detail-modal-box .form-group {
+  margin-bottom: 13px;
+}
+
+.tasks-detail-modal-box .tasks-modal-track-group {
+  margin-bottom: 14px;
+}
+
 .tasks-badge-workspace {
   display: inline-flex;
   align-items: center;
@@ -8815,22 +8827,79 @@ textarea {
   border-color: #93c5fd;
 }
 
-.tasks-workspace-linked-bar {
-  margin-top: 8px;
-  padding: 10px 12px;
+.tasks-integrations-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.tasks-integrations-grid.is-two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tasks-integrations-grid.is-single-col {
+  grid-template-columns: 1fr;
+}
+
+.tasks-integration-card {
+  padding: 11px 14px;
   border-radius: 10px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tasks-integrations-grid.is-single-col .tasks-integration-card {
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
   flex-wrap: wrap;
 }
 
-.tasks-workspace-linked-actions {
+.tasks-integration-card.is-workspace {
+  background: #f8fbff;
+  border-color: #dbeafe;
+}
+
+.tasks-integration-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.tasks-integration-meta {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tasks-integration-card-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
+
+.tasks-integration-card-actions .tasks-single-link-open-btn {
+  padding: 6px 12px;
+}
+
+@media (max-width: 767px) {
+  .tasks-integrations-grid.is-two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .tasks-integration-meta {
+    white-space: normal;
+  }
+}
+

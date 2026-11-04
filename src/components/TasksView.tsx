@@ -923,7 +923,10 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       {/* 3. 업무 등록 / 수정 / 조회 모달 다이얼로그 */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-box tasks-detail-modal-box"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-header">
               <div className="tasks-modal-header-left">
                 <h3 className="modal-title">
@@ -993,8 +996,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                   />
                 </div>
 
-                {/* 2. 카테고리 & 담당자 */}
-                <div className="tasks-form-grid-2">
+                {/* 2. 메타데이터 1행 (3열): 카테고리 & 담당자 & 우선순위 */}
+                <div className="tasks-form-grid-3">
                   <div className="form-group">
                     <label className="form-label">카테고리</label>
                     <select
@@ -1033,10 +1036,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       ))}
                     </select>
                   </div>
-                </div>
 
-                {/* 3. 우선순위 & 상태 */}
-                <div className="tasks-form-grid-2">
                   <div className="form-group">
                     <label className="form-label">우선순위</label>
                     <select
@@ -1052,34 +1052,10 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       ))}
                     </select>
                   </div>
-
-                  <div className="form-group">
-                    <label className="form-label">진행 상태</label>
-                    {(() => {
-                      const autoStatus = computeTaskStatusByDates(
-                        formData.startDate,
-                        formData.dueDate
-                      );
-                      const autoStatusCfg =
-                        STATUSES.find((s) => s.key === autoStatus) || STATUSES[1];
-                      return (
-                        <div
-                          className={`tasks-auto-status-box ${autoStatusCfg.classKey}`}
-                          aria-live="polite"
-                        >
-                          <span className="tasks-auto-status-main">
-                            <span className={`tasks-status-dot ${autoStatusCfg.classKey}`} />
-                            <span>{autoStatusCfg.label}</span>
-                          </span>
-                          <span className="tasks-auto-status-tag">일정 자동</span>
-                        </div>
-                      );
-                    })()}
-                  </div>
                 </div>
 
-                {/* 4. 일정 (시작일 & 마감일) */}
-                <div className="tasks-form-grid-2">
+                {/* 3. 메타데이터 2행 (3열): 시작일 & 마감일 & 진행 상태 */}
+                <div className="tasks-form-grid-3">
                   <div className="form-group">
                     <label className="form-label">시작일</label>
                     <input
@@ -1115,14 +1091,40 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       className="form-input"
                     />
                   </div>
+
+                  <div className="form-group">
+                    <label className="form-label">진행 상태</label>
+                    {(() => {
+                      const autoStatus = computeTaskStatusByDates(
+                        formData.startDate,
+                        formData.dueDate,
+                        getTodayDateString(),
+                        editingTask?.status
+                      );
+                      const autoStatusCfg =
+                        STATUSES.find((s) => s.key === autoStatus) || STATUSES[1];
+                      return (
+                        <div
+                          className={`tasks-auto-status-box ${autoStatusCfg.classKey}`}
+                          aria-live="polite"
+                        >
+                          <span className="tasks-auto-status-main">
+                            <span className={`tasks-status-dot ${autoStatusCfg.classKey}`} />
+                            <span>{autoStatusCfg.label}</span>
+                          </span>
+                          <span className="tasks-auto-status-tag">일정 자동</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
 
-                {/* 5. 상세 내용 */}
+                {/* 4. 상세 내용 */}
                 <div className="form-group">
                   <label className="form-label">상세 기획 내용 및 요구사항</label>
                   <textarea
                     disabled={isViewer}
-                    rows={4}
+                    rows={3}
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="기획 배경, 주요 변경 범위, 개발 협의 이슈 등을 상세히 기록하세요..."
@@ -1130,102 +1132,122 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                   />
                 </div>
 
-                {/* 6. 산출물 링크 (단일 입력 필드) */}
-                <div className="form-group">
-                  <label className="form-label">산출물 링크</label>
-                  <div className="tasks-single-link-row">
-                    <input
-                      type="url"
-                      disabled={isViewer}
-                      placeholder="https://..."
-                      value={formData.linkUrl}
-                      onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
-                      className="form-input tasks-single-link-input"
-                    />
-                    {formData.linkUrl.trim() && (
-                      <a
-                        href={formData.linkUrl.trim()}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-secondary tasks-single-link-open-btn"
-                        title="새 창에서 산출물 링크 열기"
-                      >
-                        <ExternalLink size={15} /> 열기
-                      </a>
-                    )}
-                  </div>
-                  {resolveWorkspaceProjectId(editingTask, formData.linkUrl) && (
-                    <div className="tasks-workspace-linked-bar">
-                      <div className="tasks-notion-linked-info">
-                        <span className="tasks-badge-workspace">
-                          기획서 v{editingTask?.version || '0.1'}
-                        </span>
-                        <span className="tasks-notion-linked-text">
-                          워크스페이스 프로젝트 ({resolveWorkspaceProjectId(editingTask, formData.linkUrl)})
-                          {editingTask?.period ? ` · ${editingTask.period}` : ''}
-                        </span>
-                      </div>
-                      <div className="tasks-workspace-linked-actions">
-                        <a
-                          href={resolveWorkspaceViewerUrl(editingTask, formData.linkUrl)!}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="btn btn-secondary tasks-single-link-open-btn"
-                        >
-                          <ExternalLink size={14} /> 기획서 뷰어
-                        </a>
-                        <a
-                          href="https://bychoi-space.github.io/workspace/index.html"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="btn btn-secondary tasks-single-link-open-btn"
-                        >
-                          <ExternalLink size={14} /> 워크스페이스
-                        </a>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                {/* 5. 산출물 링크 (단일 입력 필드 - Workspace 연동 시 중복 열기 버튼 생략) */}
+                {(() => {
+                  const activeWpId = resolveWorkspaceProjectId(editingTask, formData.linkUrl);
+                  const activeWpViewerUrl = resolveWorkspaceViewerUrl(editingTask, formData.linkUrl);
+                  const isNotionLinked =
+                    editingTask &&
+                    (Boolean(editingTask.notionUrl) || String(editingTask.id).startsWith('notion-'));
 
-                {/* 7. Notion (Sisun-Tasks) 양방향 연동 설정 */}
-                <div className="tasks-notion-sync-box">
-                  {editingTask &&
-                  (Boolean(editingTask.notionUrl) || String(editingTask.id).startsWith('notion-')) ? (
-                    <div className="tasks-notion-linked-row">
-                      <div className="tasks-notion-linked-info">
-                        <span className="tasks-badge-notion">Notion 연동</span>
-                        <span className="tasks-notion-linked-text">
-                          Sisun-Tasks 양방향 동기화 적용됨 (수정 저장 시 Notion에 자동 반영)
-                        </span>
+                  return (
+                    <>
+                      <div className="form-group">
+                        <label className="form-label">산출물 링크</label>
+                        <div className="tasks-single-link-row">
+                          <input
+                            type="url"
+                            disabled={isViewer}
+                            placeholder="https://..."
+                            value={formData.linkUrl}
+                            onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
+                            className="form-input tasks-single-link-input"
+                          />
+                          {formData.linkUrl.trim() && !activeWpId && (
+                            <a
+                              href={formData.linkUrl.trim()}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-secondary tasks-single-link-open-btn"
+                              title="새 창에서 산출물 링크 열기"
+                            >
+                              <ExternalLink size={15} /> 열기
+                            </a>
+                          )}
+                        </div>
                       </div>
-                      {editingTask.notionUrl && (
-                        <a
-                          href={editingTask.notionUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="btn btn-secondary tasks-single-link-open-btn"
-                        >
-                          <ExternalLink size={14} /> Notion 열기
-                        </a>
-                      )}
-                    </div>
-                  ) : (
-                    <label className="tasks-notion-checkbox-label">
-                      <input
-                        type="checkbox"
-                        disabled={isViewer}
-                        checked={formData.syncToNotion}
-                        onChange={(e) =>
-                          setFormData({ ...formData, syncToNotion: e.target.checked })
-                        }
-                        className="tasks-notion-checkbox"
-                      />
-                      <span>
-                        저장 시 Notion (Sisun-Tasks)에 과제를 동시 생성하고 양방향 동기화 연결
-                      </span>
-                    </label>
-                  )}
-                </div>
+
+                      {/* 6. 외부 시스템 연동 카드 (Workspace & Notion 좌우 2열 병합) */}
+                      <div
+                        className={`tasks-integrations-grid ${
+                          activeWpId ? 'is-two-col' : 'is-single-col'
+                        }`}
+                      >
+                        {activeWpId && activeWpViewerUrl && (
+                          <div className="tasks-integration-card is-workspace">
+                            <div className="tasks-integration-card-top">
+                              <span className="tasks-badge-workspace">
+                                기획서 v{editingTask?.version || '0.1'}
+                              </span>
+                              <span className="tasks-integration-meta">
+                                워크스페이스 ({activeWpId})
+                                {editingTask?.period ? ` · ${editingTask.period}` : ''}
+                              </span>
+                            </div>
+                            <div className="tasks-integration-card-actions">
+                              <a
+                                href={activeWpViewerUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-secondary tasks-single-link-open-btn"
+                              >
+                                <ExternalLink size={14} /> 기획서 뷰어
+                              </a>
+                              <a
+                                href="https://bychoi-space.github.io/workspace/index.html"
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-secondary tasks-single-link-open-btn"
+                              >
+                                <ExternalLink size={14} /> 워크스페이스
+                              </a>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="tasks-integration-card is-notion">
+                          {isNotionLinked ? (
+                            <>
+                              <div className="tasks-integration-card-top">
+                                <span className="tasks-badge-notion">Notion 연동</span>
+                                <span className="tasks-integration-meta">
+                                  Sisun-Tasks 양방향 동기화 적용됨
+                                </span>
+                              </div>
+                              {editingTask?.notionUrl && (
+                                <div className="tasks-integration-card-actions">
+                                  <a
+                                    href={editingTask.notionUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="btn btn-secondary tasks-single-link-open-btn"
+                                  >
+                                    <ExternalLink size={14} /> Notion 열기
+                                  </a>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <label className="tasks-notion-checkbox-label">
+                              <input
+                                type="checkbox"
+                                disabled={isViewer}
+                                checked={formData.syncToNotion}
+                                onChange={(e) =>
+                                  setFormData({ ...formData, syncToNotion: e.target.checked })
+                                }
+                                className="tasks-notion-checkbox"
+                              />
+                              <span>
+                                저장 시 Notion (Sisun-Tasks)에 과제를 동시 생성하고 양방향 동기화 연결
+                              </span>
+                            </label>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
 
                 {/* 감사 정보 표시 (기존 데이터인 경우) */}
                 {editingTask && (
