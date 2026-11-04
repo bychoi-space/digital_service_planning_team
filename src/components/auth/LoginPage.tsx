@@ -121,6 +121,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
   // 로그인 상태 (초기값 항상 빈 값 유지)
   const [loginName, setLoginName] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const loginPwInputRef = useRef<HTMLInputElement | null>(null);
 
   // 회원가입 상태
   const [regName, setRegName] = useState('');
@@ -417,6 +418,15 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                     placeholder="등록된 성명 입력"
                     value={loginName}
                     onChange={(e) => setLoginName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Tab' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (loginPwInputRef.current) {
+                          loginPwInputRef.current.removeAttribute('readonly');
+                          loginPwInputRef.current.focus();
+                        }
+                      }
+                    }}
                     className="form-input"
                   />
                 </div>
@@ -428,6 +438,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                     </label>
                     <button
                       type="button"
+                      tabIndex={-1}
                       onClick={handleOpenResetModal}
                       className="login-forgot-pw-btn"
                     >
@@ -435,6 +446,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                     </button>
                   </div>
                   <input
+                    ref={loginPwInputRef}
                     type="password"
                     required
                     readOnly
