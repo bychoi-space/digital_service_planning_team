@@ -53,10 +53,11 @@ export interface TaskItem extends AuditBase {
   progress: number; // 0 ~ 100
   description: string;
   links: TaskLink[];
-  // 개인 업무공간(bychoi workspace) 연동 필드
+  // 개인 업무공간(bychoi workspace) · Notion · Figma 통합 연동 필드
   workspaceProjectId?: string;
   period?: string;
   notionUrl?: string;
+  figmaUrl?: string;
   jiraUrl?: string;
   artifactUrl?: string;
   themeIndex?: number;

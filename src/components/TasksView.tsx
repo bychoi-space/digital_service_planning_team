@@ -106,17 +106,51 @@ function getDatePlusDaysString(days: number): string {
   return `${year}-${month}-${day}`;
 }
 
+function resolvePlanningLinkUrl(task?: TaskItem | null): string {
+  if (!task) return '';
+  if (task.artifactUrl && !task.artifactUrl.includes('figma.com')) {
+    return task.artifactUrl;
+  }
+  const nonFigmaLink = task.links?.find((l) => l.url && !l.url.includes('figma.com'));
+  return nonFigmaLink?.url || '';
+}
+
 function resolveWorkspaceProjectId(task?: TaskItem | null, linkUrl?: string): string | null {
-  if (task?.workspaceProjectId) return task.workspaceProjectId;
-  const candidate = linkUrl || task?.artifactUrl || task?.links?.[0]?.url || '';
+  const candidate = linkUrl !== undefined ? linkUrl.trim() : resolvePlanningLinkUrl(task);
   const match = candidate.match(/[?&]project=([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : null;
+  if (match) return match[1];
+  if (linkUrl === undefined && task?.workspaceProjectId) return task.workspaceProjectId;
+  return null;
 }
 
 function resolveWorkspaceViewerUrl(task?: TaskItem | null, linkUrl?: string): string | null {
   const wpId = resolveWorkspaceProjectId(task, linkUrl);
   if (!wpId) return null;
   return `https://bychoi-space.github.io/workspace/viewer.html?project=${wpId}`;
+}
+
+function resolveFigmaUrl(task?: TaskItem | null, figmaInput?: string): string | null {
+  if (figmaInput !== undefined) {
+    const trimmed = figmaInput.trim();
+    return trimmed ? trimmed : null;
+  }
+  if (!task) return null;
+  if (task.figmaUrl && task.figmaUrl.trim()) return task.figmaUrl.trim();
+  const figmaFromLinks = task.links?.find((l) => l.url && l.url.includes('figma.com'))?.url;
+  if (figmaFromLinks) return figmaFromLinks;
+  if (task.artifactUrl && task.artifactUrl.includes('figma.com')) return task.artifactUrl;
+  return null;
+}
+
+function resolveFigmaMetaLabel(figmaUrl: string): string {
+  let fileLabel = 'Figma 디자인 시안';
+  if (figmaUrl.includes('l9Zw8nYYaKBs1mmAqxx5ZF')) {
+    fileLabel = '100. 운영';
+  } else if (figmaUrl.includes('5tx1QKw7gAPwrJy4DlC3FD')) {
+    fileLabel = '01. 상품';
+  }
+  const nodeMatch = figmaUrl.match(/[?&]node-id=([0-9]+-[0-9]+)/);
+  return nodeMatch ? `${fileLabel} · 노드 #${nodeMatch[1]}` : fileLabel;
 }
 
 export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onShowToast }) => {
@@ -169,6 +203,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       dueDate: defaultDue,
       description: '',
       linkUrl: '',
+      figmaUrl: '',
       syncToNotion: initialAssignee.name.trim() === '최범열' || currentUser.name.trim() === '최범열',
     };
   });
@@ -204,7 +239,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
     };
   }, []);
 
-  // 수동 Notion · Workspace 동기화 실행
+  // 수동 Notion · Workspace · Figma 동기화 실행
   const handleManualNotionSync = async () => {
     if (isSyncingNotion) return;
     setIsSyncingNotion(true);
@@ -213,7 +248,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       refreshTasks();
       if (res.success) {
         onShowToast(
-          `Notion (Sisun-Tasks) 및 기획서 워크스페이스 동기화가 완료되었습니다. (${res.syncedCount}건)`,
+          `Notion · 기획서 워크스페이스 · Figma 디자인 동기화가 완료되었습니다. (${res.syncedCount}건)`,
           'success'
         );
       } else {
@@ -249,6 +284,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       dueDate: defaultDue,
       description: '',
       linkUrl: '',
+      figmaUrl: '',
       syncToNotion: defaultAssignee.name.trim() === '최범열' || currentUser.name.trim() === '최범열',
     });
     setIsModalOpen(true);
@@ -286,7 +322,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       startDate: task.startDate || '',
       dueDate: task.dueDate || '',
       description: task.description,
-      linkUrl: task.links?.[0]?.url || task.artifactUrl || '',
+      linkUrl: resolvePlanningLinkUrl(task),
+      figmaUrl: resolveFigmaUrl(task) || '',
       syncToNotion: isAlreadyNotionLinked,
     });
     setIsModalOpen(true);
@@ -317,7 +354,20 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       editingTask?.status
     );
     const trimmedUrl = formData.linkUrl.trim();
-    const normalizedLinks = trimmedUrl ? [{ title: '산출물 링크', url: trimmedUrl }] : [];
+    const trimmedFigma = formData.figmaUrl.trim();
+    const normalizedLinks: { title: string; url: string }[] = [];
+    if (trimmedUrl) {
+      normalizedLinks.push({
+        title: trimmedUrl.includes('workspace') ? '기획서 뷰어' : '산출물 링크',
+        url: trimmedUrl,
+      });
+    }
+    if (trimmedFigma) {
+      normalizedLinks.push({
+        title: 'Figma 디자인 시안',
+        url: trimmedFigma,
+      });
+    }
 
     try {
       if (editingTask) {
@@ -336,6 +386,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
             startDate: formData.startDate,
             dueDate: formData.dueDate,
             description: formData.description,
+            artifactUrl: trimmedUrl || undefined,
+            figmaUrl: trimmedFigma || undefined,
             links: normalizedLinks,
           },
           currentUser,
@@ -361,6 +413,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
             dueDate: formData.dueDate,
             progress: autoStatus === 'done' ? 100 : 0,
             description: formData.description,
+            artifactUrl: trimmedUrl || undefined,
+            figmaUrl: trimmedFigma || undefined,
             links: normalizedLinks,
           },
           currentUser,
@@ -655,6 +709,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                                   기획서 v{task.version || '0.1'}
                                 </span>
                               )}
+                              {resolveFigmaUrl(task) && (
+                                <span
+                                  className="tasks-badge-figma"
+                                  title={`Figma 디자인 시안 (${resolveFigmaMetaLabel(resolveFigmaUrl(task)!)})`}
+                                >
+                                  Figma
+                                </span>
+                              )}
                             </div>
 
                             <span className={`tasks-badge-priority ${priorityCfg.classKey}`}>
@@ -748,6 +810,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                               기획서 v{task.version || '0.1'}
                             </span>
                           )}
+                          {resolveFigmaUrl(task) && (
+                            <span
+                              className="tasks-badge-figma"
+                              title={`Figma 디자인 시안 (${resolveFigmaMetaLabel(resolveFigmaUrl(task)!)})`}
+                            >
+                              Figma
+                            </span>
+                          )}
                           {(task.links?.length ?? 0) > 0 && (
                             <LinkIcon size={14} className="tasks-link-indicator" />
                           )}
@@ -777,6 +847,17 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                               title="기획서 뷰어 새 창으로 열기"
                             >
                               <ExternalLink size={14} /> 기획서
+                            </a>
+                          )}
+                          {resolveFigmaUrl(task) && (
+                            <a
+                              href={resolveFigmaUrl(task)!}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-secondary tasks-action-btn tasks-figma-open-btn"
+                              title="Figma 디자인 시안 새 창으로 열기"
+                            >
+                              <ExternalLink size={14} /> Figma
                             </a>
                           )}
                           <button
@@ -847,6 +928,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                           기획서 v{task.version || '0.1'}
                         </span>
                       )}
+                      {resolveFigmaUrl(task) && (
+                        <span
+                          className="tasks-badge-figma"
+                          title={`Figma 디자인 시안 (${resolveFigmaMetaLabel(resolveFigmaUrl(task)!)})`}
+                        >
+                          Figma
+                        </span>
+                      )}
                     </div>
 
                     <span className={`tasks-status-badge ${statusCfg.classKey}`}>
@@ -890,6 +979,16 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                         className="btn btn-secondary tasks-action-btn tasks-workspace-open-btn"
                       >
                         <ExternalLink size={14} /> 기획서 열기
+                      </a>
+                    )}
+                    {resolveFigmaUrl(task) && (
+                      <a
+                        href={resolveFigmaUrl(task)!}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary tasks-action-btn tasks-figma-open-btn"
+                      >
+                        <ExternalLink size={14} /> Figma 열기
                       </a>
                     )}
                     <button
@@ -1132,47 +1231,71 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                   />
                 </div>
 
-                {/* 5. 산출물 링크 (단일 입력 필드 - Workspace 연동 시 중복 열기 버튼 생략) */}
+                {/* 5. 기획서(Workspace) & 디자인 시안(Figma) 산출물 링크 2열 입력 */}
                 {(() => {
                   const activeWpId = resolveWorkspaceProjectId(editingTask, formData.linkUrl);
                   const activeWpViewerUrl = resolveWorkspaceViewerUrl(editingTask, formData.linkUrl);
+                  const activeFigmaUrl = resolveFigmaUrl(editingTask, formData.figmaUrl);
                   const isNotionLinked =
                     editingTask &&
                     (Boolean(editingTask.notionUrl) || String(editingTask.id).startsWith('notion-'));
 
+                  const visibleCardsCount =
+                    (activeWpId ? 1 : 0) + (activeFigmaUrl ? 1 : 0) + 1;
+                  const gridColClass =
+                    visibleCardsCount === 3
+                      ? 'is-three-col'
+                      : visibleCardsCount === 2
+                      ? 'is-two-col'
+                      : 'is-single-col';
+
                   return (
                     <>
-                      <div className="form-group">
-                        <label className="form-label">산출물 링크</label>
-                        <div className="tasks-single-link-row">
-                          <input
-                            type="url"
-                            disabled={isViewer}
-                            placeholder="https://..."
-                            value={formData.linkUrl}
-                            onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
-                            className="form-input tasks-single-link-input"
-                          />
-                          {formData.linkUrl.trim() && !activeWpId && (
-                            <a
-                              href={formData.linkUrl.trim()}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-secondary tasks-single-link-open-btn"
-                              title="새 창에서 산출물 링크 열기"
-                            >
-                              <ExternalLink size={15} /> 열기
-                            </a>
-                          )}
+                      <div className="tasks-form-grid-2">
+                        <div className="form-group">
+                          <label className="form-label">기획서 / 산출물 링크 (Workspace)</label>
+                          <div className="tasks-single-link-row">
+                            <input
+                              type="url"
+                              disabled={isViewer}
+                              placeholder="https://bychoi-space.github.io/workspace/viewer.html?project=..."
+                              value={formData.linkUrl}
+                              onChange={(e) => setFormData({ ...formData, linkUrl: e.target.value })}
+                              className="form-input tasks-single-link-input"
+                            />
+                            {formData.linkUrl.trim() && !activeWpId && (
+                              <a
+                                href={formData.linkUrl.trim()}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-secondary tasks-single-link-open-btn"
+                                title="새 창에서 산출물 링크 열기"
+                              >
+                                <ExternalLink size={15} /> 열기
+                              </a>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="form-group">
+                          <label className="form-label">디자인 시안 링크 (Figma)</label>
+                          <div className="tasks-single-link-row">
+                            <input
+                              type="url"
+                              disabled={isViewer}
+                              placeholder="https://www.figma.com/design/..."
+                              value={formData.figmaUrl}
+                              onChange={(e) =>
+                                setFormData({ ...formData, figmaUrl: e.target.value })
+                              }
+                              className="form-input tasks-single-link-input"
+                            />
+                          </div>
                         </div>
                       </div>
 
-                      {/* 6. 외부 시스템 연동 카드 (Workspace & Notion 좌우 2열 병합) */}
-                      <div
-                        className={`tasks-integrations-grid ${
-                          activeWpId ? 'is-two-col' : 'is-single-col'
-                        }`}
-                      >
+                      {/* 6. 외부 시스템 연동 카드 (Workspace 기획서 · Figma 디자인 · Notion 일감 통합 허브) */}
+                      <div className={`tasks-integrations-grid ${gridColClass}`}>
                         {activeWpId && activeWpViewerUrl && (
                           <div className="tasks-integration-card is-workspace">
                             <div className="tasks-integration-card-top">
@@ -1200,6 +1323,27 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                                 className="btn btn-secondary tasks-single-link-open-btn"
                               >
                                 <ExternalLink size={14} /> 워크스페이스
+                              </a>
+                            </div>
+                          </div>
+                        )}
+
+                        {activeFigmaUrl && (
+                          <div className="tasks-integration-card is-figma">
+                            <div className="tasks-integration-card-top">
+                              <span className="tasks-badge-figma">Figma 시안</span>
+                              <span className="tasks-integration-meta">
+                                {resolveFigmaMetaLabel(activeFigmaUrl)}
+                              </span>
+                            </div>
+                            <div className="tasks-integration-card-actions">
+                              <a
+                                href={activeFigmaUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-secondary tasks-single-link-open-btn"
+                              >
+                                <ExternalLink size={14} /> Figma 시안 열기
                               </a>
                             </div>
                           </div>

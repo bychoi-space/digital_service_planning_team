@@ -282,6 +282,7 @@ export class PlanningStorageService {
             workspaceProjectId: row.workspace_project_id || undefined,
             period: row.period || undefined,
             notionUrl: row.notion_url || undefined,
+            figmaUrl: row.figma_url || undefined,
             jiraUrl: row.jira_url || undefined,
             artifactUrl: row.artifact_url || undefined,
             themeIndex: row.theme_index !== undefined ? Number(row.theme_index) : undefined,
@@ -1049,6 +1050,7 @@ export class PlanningStorageService {
       workspace_project_id: task.workspaceProjectId || null,
       period: task.period || null,
       notion_url: task.notionUrl || null,
+      figma_url: task.figmaUrl || null,
       jira_url: task.jiraUrl || null,
       artifact_url: task.artifactUrl || null,
       theme_index: task.themeIndex ?? 0,
@@ -1182,8 +1184,9 @@ export class PlanningStorageService {
     const currentUser = actor || this.getCurrentUser();
     const now = new Date().toISOString();
     const autoStatus = computeTaskStatusByDates(data.startDate, data.dueDate);
-    const primaryLinkUrl = data.links?.[0]?.url || data.artifactUrl || '';
-    const extractedWpMatch = primaryLinkUrl.match(/[?&]project=([a-zA-Z0-9_-]+)/);
+    const planningLink = data.links?.find((l) => !l.url.includes('figma.com'))?.url || data.artifactUrl || '';
+    const figmaLink = data.figmaUrl || data.links?.find((l) => l.url.includes('figma.com'))?.url || '';
+    const extractedWpMatch = planningLink.match(/[?&]project=([a-zA-Z0-9_-]+)/);
     const extractedWpId = extractedWpMatch ? extractedWpMatch[1] : data.workspaceProjectId;
 
     const newTask: TaskItem = {
@@ -1192,7 +1195,8 @@ export class PlanningStorageService {
       status: autoStatus,
       progress: autoStatus === 'done' ? 100 : 0,
       workspaceProjectId: extractedWpId,
-      artifactUrl: primaryLinkUrl || data.artifactUrl,
+      artifactUrl: planningLink || undefined,
+      figmaUrl: figmaLink || undefined,
       id: generateUniqueId('task'),
       createdBy: currentUser.name,
       createdAt: now,
@@ -1255,8 +1259,15 @@ export class PlanningStorageService {
     );
 
     const nextLinks = changes.links ?? original.links;
-    const primaryLinkUrl = nextLinks?.[0]?.url || changes.artifactUrl || original.artifactUrl || '';
-    const extractedWpMatch = primaryLinkUrl.match(/[?&]project=([a-zA-Z0-9_-]+)/);
+    const planningLink =
+      nextLinks?.find((l) => !l.url.includes('figma.com'))?.url ||
+      (changes.artifactUrl !== undefined ? changes.artifactUrl : original.artifactUrl) ||
+      '';
+    const figmaLink =
+      (changes.figmaUrl !== undefined ? changes.figmaUrl : original.figmaUrl) ||
+      nextLinks?.find((l) => l.url.includes('figma.com'))?.url ||
+      '';
+    const extractedWpMatch = planningLink.match(/[?&]project=([a-zA-Z0-9_-]+)/);
     const nextWorkspaceProjectId = extractedWpMatch
       ? extractedWpMatch[1]
       : changes.workspaceProjectId ?? original.workspaceProjectId;
@@ -1270,7 +1281,8 @@ export class PlanningStorageService {
       progress: autoStatus === 'done' ? 100 : original.progress,
       track: changes.track || original.track || '기획',
       workspaceProjectId: nextWorkspaceProjectId,
-      artifactUrl: primaryLinkUrl || undefined,
+      artifactUrl: planningLink || undefined,
+      figmaUrl: figmaLink || undefined,
       createdBy: original.createdBy,
       createdAt: original.createdAt,
       updatedBy: currentUser.name,
