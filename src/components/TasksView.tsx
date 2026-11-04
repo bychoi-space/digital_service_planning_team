@@ -169,8 +169,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [isSyncingNotion, setIsSyncingNotion] = useState(true);
 
-  // 로그인된 회원을 기본 담당자로 반환하는 헬퍼
-  const resolveDefaultAssignee = (members: User[]): User => {
+  // 로그인된 회원을 기본 담당자로 반환하는 헬퍼 (파트 지정 시 해당 파트 전담자 우선 매칭)
+  const resolveDefaultAssignee = (members: User[], targetTrack?: TaskTrack): User => {
+    if (targetTrack) {
+      const trackDefaultName =
+        targetTrack === '디자인' ? '박수민' : targetTrack === '퍼블리싱' ? '김리아' : '최범열';
+      const matchedByTrack = members.find((m) => m.name.trim() === trackDefaultName);
+      if (matchedByTrack) return matchedByTrack;
+    }
     const matchedCurrent = members.find(
       (m) => String(m.id) === String(currentUser.id) || m.name.trim() === currentUser.name.trim()
     );
@@ -267,15 +273,17 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
     }
     const latestMembers = PlanningStorageService.getServicePlanningMembers();
     setTeamMembers(latestMembers);
-    const defaultAssignee = resolveDefaultAssignee(latestMembers);
+    const resolvedTrack: TaskTrack =
+      defaultTrack || (selectedTrack !== 'all' ? (selectedTrack as TaskTrack) : '기획');
+    const defaultAssignee = resolveDefaultAssignee(latestMembers, resolvedTrack);
     const defaultStart = getTodayDateString();
     const defaultDue = getDatePlusDaysString(14);
 
     setEditingTask(null);
     setFormData({
       title: '',
-      category: '신규기획',
-      track: defaultTrack || (selectedTrack !== 'all' ? (selectedTrack as TaskTrack) : '기획'),
+      category: resolvedTrack === '퍼블리싱' ? '기획전' : '신규기획',
+      track: resolvedTrack,
       assigneeId: defaultAssignee.id,
       assigneeName: defaultAssignee.name,
       priority: 'medium',
@@ -1062,7 +1070,19 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                           key={trackKey}
                           type="button"
                           disabled={isViewer}
-                          onClick={() => setFormData({ ...formData, track: trackKey })}
+                          onClick={() => {
+                            if (!editingTask) {
+                              const nextAssignee = resolveDefaultAssignee(teamMembers, trackKey);
+                              setFormData({
+                                ...formData,
+                                track: trackKey,
+                                assigneeId: nextAssignee.id,
+                                assigneeName: nextAssignee.name,
+                              });
+                            } else {
+                              setFormData({ ...formData, track: trackKey });
+                            }
+                          }}
                           className={`tasks-modal-track-btn ${config.classKey} ${isSelected ? 'active' : ''}`}
                         >
                           <div className="tasks-modal-track-info">

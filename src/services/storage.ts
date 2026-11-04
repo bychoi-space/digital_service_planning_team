@@ -1291,7 +1291,11 @@ export class PlanningStorageService {
         newTask.assigneeName?.trim() === '최범열' ||
         currentUser.name.trim() === '박수민' ||
         newTask.assigneeName?.trim() === '박수민' ||
-        newTask.track === '디자인');
+        currentUser.name.trim() === '김리아' ||
+        newTask.assigneeName?.trim() === '김리아' ||
+        newTask.track === '기획' ||
+        newTask.track === '디자인' ||
+        newTask.track === '퍼블리싱');
     if (shouldSyncNotion) {
       this.pushTaskCreateToNotion(newTask);
     }
