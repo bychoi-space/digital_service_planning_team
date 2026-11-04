@@ -204,7 +204,11 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       description: '',
       linkUrl: '',
       figmaUrl: '',
-      syncToNotion: initialAssignee.name.trim() === '최범열' || currentUser.name.trim() === '최범열',
+      syncToNotion:
+        initialAssignee.name.trim() === '최범열' ||
+        currentUser.name.trim() === '최범열' ||
+        initialAssignee.name.trim() === '박수민' ||
+        currentUser.name.trim() === '박수민',
     };
   });
 
@@ -285,7 +289,13 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       description: '',
       linkUrl: '',
       figmaUrl: '',
-      syncToNotion: defaultAssignee.name.trim() === '최범열' || currentUser.name.trim() === '최범열',
+      syncToNotion:
+        defaultAssignee.name.trim() === '최범열' ||
+        currentUser.name.trim() === '최범열' ||
+        defaultAssignee.name.trim() === '박수민' ||
+        currentUser.name.trim() === '박수민' ||
+        defaultTrack === '디자인' ||
+        selectedTrack === '디자인',
     });
     setIsModalOpen(true);
 

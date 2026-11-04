@@ -257,7 +257,19 @@ export class PlanningStorageService {
       // 1. tasks 동기화 (로컬 데이터 절대 보존 및 안전 병합 정책)
       const { data: remoteTasks, error: taskErr } = await client.from('tasks').select('*');
       if (!taskErr && remoteTasks) {
-        const filteredTasks = remoteTasks.filter((row) => !String(row.id).startsWith('task-10'));
+        const SUPERSEDED_MANUAL_DESIGN_TASK_IDS = new Set([
+          'task-mvyiimh8-qp6sq',
+          'task-mvyifvxj-u3ajq',
+          'task-mvpzirjl-ji6dz',
+          'task-mvowcjk1-vycle',
+          'task-mvowbzus-ahlsu',
+          'task-mvk8olb8-z6sqd',
+        ]);
+        const filteredTasks = remoteTasks.filter(
+          (row) =>
+            !String(row.id).startsWith('task-10') &&
+            !SUPERSEDED_MANUAL_DESIGN_TASK_IDS.has(String(row.id))
+        );
         const mappedRemoteTasks: TaskItem[] = filteredTasks.map((row) => {
           const autoStatus = computeTaskStatusByDates(
             row.start_date,
@@ -296,7 +308,9 @@ export class PlanningStorageService {
 
         // 로컬에 등록된 기존 데이터 보호 및 안전 병합
         const localTasks = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []).filter(
-          (t) => !String(t.id).startsWith('task-10')
+          (t) =>
+            !String(t.id).startsWith('task-10') &&
+            !SUPERSEDED_MANUAL_DESIGN_TASK_IDS.has(String(t.id))
         );
 
         const taskMap = new Map<string, TaskItem>();
@@ -980,7 +994,17 @@ export class PlanningStorageService {
   // --- 1. 업무 관리 (Task) CRUD ---
   public static getTasks(): TaskItem[] {
     this.initialize();
-    const stored = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []);
+    const supersededIds = new Set([
+      'task-mvyiimh8-qp6sq',
+      'task-mvyifvxj-u3ajq',
+      'task-mvpzirjl-ji6dz',
+      'task-mvowcjk1-vycle',
+      'task-mvowbzus-ahlsu',
+      'task-mvk8olb8-z6sqd',
+    ]);
+    const stored = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []).filter(
+      (t) => !supersededIds.has(String(t.id))
+    );
     const trackOrder: Record<string, number> = {
       기획: 0,
       디자인: 1,
@@ -1223,7 +1247,11 @@ export class PlanningStorageService {
     // Notion (Sisun-Tasks) 양방향 동시 등록
     const shouldSyncNotion =
       options?.syncToNotion ??
-      (currentUser.name.trim() === '최범열' || newTask.assigneeName?.trim() === '최범열');
+      (currentUser.name.trim() === '최범열' ||
+        newTask.assigneeName?.trim() === '최범열' ||
+        currentUser.name.trim() === '박수민' ||
+        newTask.assigneeName?.trim() === '박수민' ||
+        newTask.track === '디자인');
     if (shouldSyncNotion) {
       this.pushTaskCreateToNotion(newTask);
     }
