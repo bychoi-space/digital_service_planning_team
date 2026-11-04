@@ -9566,6 +9566,16 @@ textarea {
   white-space: nowrap;
 }
 
+.tasks-attachment-name.is-clickable {
+  text-decoration: none;
+}
+
+.tasks-attachment-name.is-clickable:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .tasks-attachment-size {
   font-size: 14px;
   color: #64748b;
@@ -9577,6 +9587,24 @@ textarea {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.tasks-attachment-view-btn {
+  padding: 5px 11px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.tasks-attachment-view-btn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
 }
 
 .tasks-attachment-dl-btn {

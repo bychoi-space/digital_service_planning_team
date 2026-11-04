@@ -171,6 +171,53 @@ export function computeTaskStatusByDates(
   return 'in_progress';
 }
 
+// 첨부파일 원본 다운로드 전용 URL 반환 (?download=원본파일명 보장)
+export function resolveAttachmentDownloadUrl(att: TaskAttachment): string {
+  const rawUrl = (att.url || '').split('?')[0];
+  if (!rawUrl) return '#';
+  return `${rawUrl}?download=${encodeURIComponent(att.name || 'attachment')}`;
+}
+
+// 브라우저 새 탭에서 읽기 모드로 바로 열람 가능한지 여부 (MS Office 웹 뷰어 또는 브라우저 내장 뷰어)
+export function isWebViewableAttachment(att: TaskAttachment): boolean {
+  const ext = (att.ext || att.name?.split('.').pop() || '').toLowerCase();
+  return [
+    'xlsx',
+    'xls',
+    'pptx',
+    'ppt',
+    'docx',
+    'doc',
+    'pdf',
+    'png',
+    'jpg',
+    'jpeg',
+    'webp',
+    'gif',
+    'svg',
+  ].includes(ext);
+}
+
+// 첨부파일 브라우저 읽기 모드 바로 열기 URL 반환 (MS Office 파일은 공식 Office Web Viewer 연동)
+export function resolveAttachmentViewerUrl(att: TaskAttachment): string {
+  const rawUrl = (att.url || '').split('?')[0];
+  if (!rawUrl) return '#';
+  const ext = (att.ext || att.name?.split('.').pop() || '').toLowerCase();
+
+  // MS Office 문서 (Excel, PowerPoint, Word) -> Microsoft 공식 Office Web Viewer 새 탭 열람
+  if (['xlsx', 'xls', 'pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
+    return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(rawUrl)}`;
+  }
+
+  // PDF 및 이미지 -> ?download 파라미터를 제거한 순수 URL로 브라우저 내장 뷰어에서 즉시 열람
+  if (['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) {
+    return rawUrl;
+  }
+
+  // 그 외(ZIP, HWP 등)는 다운로드 URL 반환
+  return resolveAttachmentDownloadUrl(att);
+}
+
 export class PlanningStorageService {
   private static isSyncing = false;
 
@@ -1117,11 +1164,23 @@ export class PlanningStorageService {
     const uniqueKey = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     const storagePath = `tasks/${uniqueKey}.${safeExt}`;
 
+    const mimeByExt: Record<string, string> = {
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      xls: 'application/vnd.ms-excel',
+      csv: 'text/csv; charset=utf-8',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      ppt: 'application/vnd.ms-powerpoint',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      doc: 'application/msword',
+      pdf: 'application/pdf',
+    };
+    const resolvedContentType = file.type || mimeByExt[ext] || 'application/octet-stream';
+
     const { error: uploadErr } = await client.storage
       .from('task-attachments')
       .upload(storagePath, file, {
         upsert: true,
-        contentType: file.type || 'application/octet-stream',
+        contentType: resolvedContentType,
       });
 
     if (uploadErr) {

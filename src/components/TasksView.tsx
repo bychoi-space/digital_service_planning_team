@@ -12,6 +12,9 @@ import {
   PlanningStorageService,
   computeTaskStatusByDates,
   getTodayDateString,
+  resolveAttachmentViewerUrl,
+  resolveAttachmentDownloadUrl,
+  isWebViewableAttachment,
 } from '../services/storage';
 import {
   Plus,
@@ -1009,18 +1012,27 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                                   )}
                                   {task.attachments?.map((att) => {
                                     const attMeta = getAttachmentMeta(att.ext);
+                                    const isViewable = isWebViewableAttachment(att);
                                     return (
                                       <a
                                         key={att.id}
-                                        href={att.url}
-                                        download={att.name}
+                                        href={resolveAttachmentViewerUrl(att)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={(e) => e.stopPropagation()}
                                         className={`tasks-card-link-chip ${attMeta.classKey}`}
-                                        title={`첨부파일 다운로드: ${att.name} (${formatFileSize(att.size)})`}
+                                        title={
+                                          isViewable
+                                            ? `${att.name} (${formatFileSize(att.size)}) 브라우저 읽기 모드로 바로 열기`
+                                            : `${att.name} (${formatFileSize(att.size)}) 다운로드`
+                                        }
                                       >
-                                        <Download size={12} /> {attMeta.chipLabel}
+                                        {attMeta.chipLabel}{' '}
+                                        {isViewable ? (
+                                          <ExternalLink size={12} />
+                                        ) : (
+                                          <Download size={12} />
+                                        )}
                                       </a>
                                     );
                                   })}
@@ -1148,18 +1160,27 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                           )}
                           {task.attachments?.map((att) => {
                             const attMeta = getAttachmentMeta(att.ext);
+                            const isViewable = isWebViewableAttachment(att);
                             return (
                               <a
                                 key={att.id}
-                                href={att.url}
-                                download={att.name}
+                                href={resolveAttachmentViewerUrl(att)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
                                 className={`tasks-card-link-chip ${attMeta.classKey}`}
-                                title={`첨부파일 다운로드: ${att.name} (${formatFileSize(att.size)})`}
+                                title={
+                                  isViewable
+                                    ? `${att.name} (${formatFileSize(att.size)}) 브라우저 읽기 모드로 바로 열기`
+                                    : `${att.name} (${formatFileSize(att.size)}) 다운로드`
+                                }
                               >
-                                <Download size={12} /> {attMeta.chipLabel}
+                                {attMeta.chipLabel}{' '}
+                                {isViewable ? (
+                                  <ExternalLink size={12} />
+                                ) : (
+                                  <Download size={12} />
+                                )}
                               </a>
                             );
                           })}
@@ -1733,6 +1754,9 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                             <div className="tasks-attachments-list">
                               {formData.attachments.map((att) => {
                                 const attMeta = getAttachmentMeta(att.ext);
+                                const isViewable = isWebViewableAttachment(att);
+                                const viewerUrl = resolveAttachmentViewerUrl(att);
+                                const dlUrl = resolveAttachmentDownloadUrl(att);
                                 return (
                                   <div key={att.id} className="tasks-attachment-row">
                                     <div className="tasks-attachment-info">
@@ -1741,24 +1765,43 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                                       >
                                         {attMeta.badge}
                                       </span>
-                                      <span
-                                        className="tasks-attachment-name"
-                                        title={att.name}
+                                      <a
+                                        href={viewerUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="tasks-attachment-name is-clickable"
+                                        title={
+                                          isViewable
+                                            ? `${att.name} 브라우저 새 탭에서 읽기 모드로 열기`
+                                            : `${att.name} 다운로드`
+                                        }
                                       >
                                         {att.name}
-                                      </span>
+                                      </a>
                                       <span className="tasks-attachment-size">
                                         ({formatFileSize(att.size)})
                                       </span>
                                     </div>
 
                                     <div className="tasks-attachment-actions">
+                                      {isViewable && (
+                                        <a
+                                          href={viewerUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="btn btn-secondary tasks-attachment-view-btn"
+                                          title="MS Office 웹 뷰어 / 브라우저 새 탭에서 읽기 모드로 바로 열기"
+                                        >
+                                          <ExternalLink size={14} /> 열람
+                                        </a>
+                                      )}
                                       <a
-                                        href={att.url}
+                                        href={dlUrl}
                                         download={att.name}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="btn btn-secondary tasks-attachment-dl-btn"
+                                        title="원본 파일 다운로드"
                                       >
                                         <Download size={14} /> 다운로드
                                       </a>
