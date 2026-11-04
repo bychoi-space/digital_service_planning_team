@@ -3492,6 +3492,42 @@ textarea {
   white-space: nowrap;
 }
 
+.tasks-badge-notion {
+  font-size: 14px;
+  font-weight: 700;
+  background: #1e293b;
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tasks-notion-sync-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@keyframes notionSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin-icon {
+  animation: notionSpin 1s linear infinite;
+}
+
 .tasks-badge-priority {
   font-size: 14px;
   font-weight: 700;
@@ -4062,6 +4098,52 @@ textarea {
   flex-shrink: 0;
   text-decoration: none;
   white-space: nowrap;
+}
+
+.tasks-notion-sync-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-top: 4px;
+}
+
+.tasks-notion-linked-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tasks-notion-linked-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tasks-notion-linked-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.tasks-notion-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  cursor: pointer;
+}
+
+.tasks-notion-checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+  cursor: pointer;
 }
 
 .tasks-audit-bar {

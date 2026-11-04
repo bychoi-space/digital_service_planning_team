@@ -12,7 +12,7 @@ import type {
   UserRole,
   WorkInfoItem,
 } from '../types';
-import { getSupabaseClient, isSupabaseEnabled } from './supabase';
+import { getSupabaseClient, isSupabaseEnabled, SUPABASE_URL } from './supabase';
 
 const STORAGE_KEYS = {
   USERS: 'ds_planning_users_v2',
@@ -310,6 +310,9 @@ export class PlanningStorageService {
 
         const mergedTasks = Array.from(taskMap.values());
         localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(mergedTasks));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ds-portal-tasks-updated'));
+        }
 
         // 1-3. 로컬에만 있고 원격에 아직 반영 안 된 항목이 있으면 자동 백그라운드 푸시
         for (const localTask of localTasks) {
@@ -1019,9 +1022,110 @@ export class PlanningStorageService {
     }
   }
 
+  // --- Notion (Sisun-Tasks) 양방향 실시간 동기화 (Supabase Edge Function 연동) ---
+  public static async syncWithNotion(options?: {
+    force?: boolean;
+  }): Promise<{ success: boolean; syncedCount: number; message?: string }> {
+    if (!isSupabaseEnabled()) {
+      return { success: false, syncedCount: 0, message: '클라우드 DB 연결이 비활성화되어 있습니다.' };
+    }
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/notion-sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'pull',
+          force: Boolean(options?.force),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.success) {
+        return {
+          success: false,
+          syncedCount: 0,
+          message: data?.error || data?.message || 'Notion 동기화 요청에 실패했습니다.',
+        };
+      }
+      await this.syncFromSupabase();
+      return {
+        success: true,
+        syncedCount: Number(data.syncedCount || 0),
+      };
+    } catch (error) {
+      console.warn('[Notion Sync] Pull error:', error);
+      return {
+        success: false,
+        syncedCount: 0,
+        message: error instanceof Error ? error.message : 'Notion 동기화 중 네트워크 오류가 발생했습니다.',
+      };
+    }
+  }
+
+  public static async pushTaskUpdateToNotion(
+    task: TaskItem
+  ): Promise<{ success: boolean; notionUrl?: string }> {
+    if (!isSupabaseEnabled()) return { success: false };
+    const isNotionLinked = String(task.id).startsWith('notion-') || Boolean(task.notionUrl);
+    if (!isNotionLinked) return { success: false };
+
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/notion-sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'push_update',
+          task,
+        }),
+      });
+      const data = await response.json();
+      return {
+        success: Boolean(data?.success),
+        notionUrl: data?.notionUrl,
+      };
+    } catch (error) {
+      console.warn('[Notion Sync] Push update error:', error);
+      return { success: false };
+    }
+  }
+
+  public static async pushTaskCreateToNotion(
+    task: TaskItem
+  ): Promise<{ success: boolean; notionUrl?: string }> {
+    if (!isSupabaseEnabled()) return { success: false };
+
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/notion-sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'push_create',
+          task,
+        }),
+      });
+      const data = await response.json();
+      if (data?.success && data?.notionUrl) {
+        const stored = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []);
+        const updated = stored.map((t) =>
+          t.id === task.id ? { ...t, notionUrl: data.notionUrl } : t
+        );
+        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(updated));
+        await this.pushTaskToRemote({ ...task, notionUrl: data.notionUrl });
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ds-portal-tasks-updated'));
+        }
+        return { success: true, notionUrl: data.notionUrl };
+      }
+      return { success: false };
+    } catch (error) {
+      console.warn('[Notion Sync] Push create error:', error);
+      return { success: false };
+    }
+  }
+
   public static createTask(
     data: Omit<TaskItem, 'id' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>,
-    actor?: User
+    actor?: User,
+    options?: { syncToNotion?: boolean }
   ): TaskItem {
     if (this.isViewer()) {
       throw new Error('유관부서(읽기 전용) 모드에서는 업무를 등록할 수 없습니다.');
@@ -1057,10 +1161,23 @@ export class PlanningStorageService {
     // Supabase DB 비동기 반영 (스마트 2단계 전송)
     this.pushTaskToRemote(newTask);
 
+    // Notion (Sisun-Tasks) 양방향 동시 등록
+    const shouldSyncNotion =
+      options?.syncToNotion ??
+      (currentUser.name.trim() === '최범열' || newTask.assigneeName?.trim() === '최범열');
+    if (shouldSyncNotion) {
+      this.pushTaskCreateToNotion(newTask);
+    }
+
     return newTask;
   }
 
-  public static updateTask(taskId: string, changes: Partial<TaskItem>, actor?: User): TaskItem {
+  public static updateTask(
+    taskId: string,
+    changes: Partial<TaskItem>,
+    actor?: User,
+    options?: { syncToNotion?: boolean }
+  ): TaskItem {
     if (this.isViewer()) {
       throw new Error('유관부서(읽기 전용) 모드에서는 업무를 수정할 수 없습니다.');
     }
@@ -1122,6 +1239,15 @@ export class PlanningStorageService {
 
     // Supabase DB 비동기 반영 (스마트 2단계 전송)
     this.pushTaskToRemote(updatedTask);
+
+    // Notion (Sisun-Tasks) 양방향 업데이트 반영
+    const isAlreadyNotionLinked =
+      String(updatedTask.id).startsWith('notion-') || Boolean(updatedTask.notionUrl);
+    if (isAlreadyNotionLinked) {
+      this.pushTaskUpdateToNotion(updatedTask);
+    } else if (options?.syncToNotion) {
+      this.pushTaskCreateToNotion(updatedTask);
+    }
 
     return updatedTask;
   }

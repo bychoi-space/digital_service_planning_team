@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { TaskItem, TaskCategory, TaskTrack, TaskPriority, TaskStatus, User } from '../types';
 import {
   PlanningStorageService,
@@ -22,6 +22,7 @@ import {
   Code,
   Layers,
   CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
 
 interface TasksViewProps {
@@ -119,6 +120,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
   // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
+  const [isSyncingNotion, setIsSyncingNotion] = useState(true);
 
   // 로그인된 회원을 기본 담당자로 반환하는 헬퍼
   const resolveDefaultAssignee = (members: User[]): User => {
@@ -154,12 +156,59 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       dueDate: defaultDue,
       description: '',
       linkUrl: '',
+      syncToNotion: initialAssignee.name.trim() === '최범열' || currentUser.name.trim() === '최범열',
     };
   });
 
   const refreshTasks = () => {
     setTasks(PlanningStorageService.getTasks());
     setTeamMembers(PlanningStorageService.getServicePlanningMembers());
+  };
+
+  // 화면 진입 시 Notion (Sisun-Tasks) 자동 동기화 및 이벤트 리스너 등록
+  useEffect(() => {
+    const handleStorageUpdate = () => {
+      refreshTasks();
+    };
+    window.addEventListener('ds-portal-tasks-updated', handleStorageUpdate);
+
+    let isMounted = true;
+    PlanningStorageService.syncWithNotion()
+      .then((res) => {
+        if (isMounted && res.success) {
+          refreshTasks();
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsSyncingNotion(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('ds-portal-tasks-updated', handleStorageUpdate);
+    };
+  }, []);
+
+  // 수동 Notion 동기화 실행
+  const handleManualNotionSync = async () => {
+    if (isSyncingNotion) return;
+    setIsSyncingNotion(true);
+    try {
+      const res = await PlanningStorageService.syncWithNotion();
+      refreshTasks();
+      if (res.success) {
+        onShowToast(
+          `Notion (Sisun-Tasks) 양방향 동기화가 완료되었습니다. (연동 과제 ${res.syncedCount}건)`,
+          'success'
+        );
+      } else {
+        onShowToast(res.message || 'Notion 동기화 중 오류가 발생했습니다.', 'error');
+      }
+    } finally {
+      setIsSyncingNotion(false);
+    }
   };
 
   // 모달 열기 (등록 - 기본 담당자를 로그인된 회원으로 자동 지정)
@@ -187,6 +236,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       dueDate: defaultDue,
       description: '',
       linkUrl: '',
+      syncToNotion: defaultAssignee.name.trim() === '최범열' || currentUser.name.trim() === '최범열',
     });
     setIsModalOpen(true);
 
@@ -203,6 +253,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
     const matchedAssignee = latestMembers.find(
       (m) => String(m.id) === String(task.assigneeId) || m.name.trim() === task.assigneeName?.trim()
     );
+    const isAlreadyNotionLinked =
+      String(task.id).startsWith('notion-') || Boolean(task.notionUrl);
 
     setEditingTask(task);
     setFormData({
@@ -217,6 +269,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       dueDate: task.dueDate,
       description: task.description,
       linkUrl: task.links?.[0]?.url || task.artifactUrl || '',
+      syncToNotion: isAlreadyNotionLinked,
     });
     setIsModalOpen(true);
   };
@@ -245,6 +298,8 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
 
     try {
       if (editingTask) {
+        const isAlreadyNotionLinked =
+          String(editingTask.id).startsWith('notion-') || Boolean(editingTask.notionUrl);
         PlanningStorageService.updateTask(
           editingTask.id,
           {
@@ -260,9 +315,15 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
             description: formData.description,
             links: normalizedLinks,
           },
-          currentUser
+          currentUser,
+          { syncToNotion: formData.syncToNotion }
         );
-        onShowToast(`[${formData.track}] 업무 정보가 성공적으로 수정되었습니다.`, 'success');
+        onShowToast(
+          isAlreadyNotionLinked || formData.syncToNotion
+            ? `[${formData.track}] 업무가 수정되었으며 Notion (Sisun-Tasks)에 양방향 반영됩니다.`
+            : `[${formData.track}] 업무 정보가 성공적으로 수정되었습니다.`,
+          'success'
+        );
       } else {
         PlanningStorageService.createTask(
           {
@@ -279,9 +340,15 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
             description: formData.description,
             links: normalizedLinks,
           },
-          currentUser
+          currentUser,
+          { syncToNotion: formData.syncToNotion }
         );
-        onShowToast(`새로운 [${formData.track}] 업무가 등록되었습니다.`, 'success');
+        onShowToast(
+          formData.syncToNotion
+            ? `새로운 [${formData.track}] 업무가 등록되었으며 Notion (Sisun-Tasks)에 동시 생성됩니다.`
+            : `새로운 [${formData.track}] 업무가 등록되었습니다.`,
+          'success'
+        );
       }
       setIsModalOpen(false);
       refreshTasks();
@@ -455,6 +522,18 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
               </button>
             </div>
 
+            {/* Notion 양방향 수동/즉시 동기화 버튼 */}
+            <button
+              type="button"
+              onClick={handleManualNotionSync}
+              disabled={isSyncingNotion}
+              className="btn btn-secondary tasks-notion-sync-btn"
+              title="Notion (Sisun-Tasks) 최신 과제 동기화"
+            >
+              <RefreshCw size={15} className={isSyncingNotion ? 'spin-icon' : ''} />
+              <span>{isSyncingNotion ? '동기화 중...' : 'Notion 동기화'}</span>
+            </button>
+
             {/* 메인 업무 등록 버튼 */}
             <button
               type="button"
@@ -540,6 +619,11 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                                 <TrackIcon size={13} /> {trackCfg.label}
                               </span>
                               <span className="tasks-badge-category">{task.category}</span>
+                              {(Boolean(task.notionUrl) || String(task.id).startsWith('notion-')) && (
+                                <span className="tasks-badge-notion" title="Notion (Sisun-Tasks) 양방향 연동 과제">
+                                  Notion
+                                </span>
+                              )}
                             </div>
 
                             <span className={`tasks-badge-priority ${priorityCfg.classKey}`}>
@@ -615,6 +699,11 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                           className="tasks-table-title-cell"
                         >
                           <span>{task.title}</span>
+                          {(Boolean(task.notionUrl) || String(task.id).startsWith('notion-')) && (
+                            <span className="tasks-badge-notion" title="Notion (Sisun-Tasks) 양방향 연동 과제">
+                              Notion
+                            </span>
+                          )}
                           {(task.links?.length ?? 0) > 0 && (
                             <LinkIcon size={14} className="tasks-link-indicator" />
                           )}
@@ -688,6 +777,11 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                         <TrackIcon size={13} /> {trackCfg.label}
                       </span>
                       <span className="tasks-badge-category">{task.category}</span>
+                      {(Boolean(task.notionUrl) || String(task.id).startsWith('notion-')) && (
+                        <span className="tasks-badge-notion" title="Notion (Sisun-Tasks) 양방향 연동 과제">
+                          Notion
+                        </span>
+                      )}
                     </div>
 
                     <span className={`tasks-status-badge ${statusCfg.classKey}`}>
@@ -982,6 +1076,46 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       </a>
                     )}
                   </div>
+                </div>
+
+                {/* 7. Notion (Sisun-Tasks) 양방향 연동 설정 */}
+                <div className="tasks-notion-sync-box">
+                  {editingTask &&
+                  (Boolean(editingTask.notionUrl) || String(editingTask.id).startsWith('notion-')) ? (
+                    <div className="tasks-notion-linked-row">
+                      <div className="tasks-notion-linked-info">
+                        <span className="tasks-badge-notion">Notion 연동</span>
+                        <span className="tasks-notion-linked-text">
+                          Sisun-Tasks 양방향 동기화 적용됨 (수정 저장 시 Notion에 자동 반영)
+                        </span>
+                      </div>
+                      {editingTask.notionUrl && (
+                        <a
+                          href={editingTask.notionUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-secondary tasks-single-link-open-btn"
+                        >
+                          <ExternalLink size={14} /> Notion 열기
+                        </a>
+                      )}
+                    </div>
+                  ) : (
+                    <label className="tasks-notion-checkbox-label">
+                      <input
+                        type="checkbox"
+                        disabled={isViewer}
+                        checked={formData.syncToNotion}
+                        onChange={(e) =>
+                          setFormData({ ...formData, syncToNotion: e.target.checked })
+                        }
+                        className="tasks-notion-checkbox"
+                      />
+                      <span>
+                        저장 시 Notion (Sisun-Tasks)에 과제를 동시 생성하고 양방향 동기화 연결
+                      </span>
+                    </label>
+                  )}
                 </div>
 
                 {/* 감사 정보 표시 (기존 데이터인 경우) */}
