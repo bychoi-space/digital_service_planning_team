@@ -8939,3 +8939,409 @@ textarea {
   }
 }
 
+/* =========================================================================
+   서비스기획 업무 관리 보드 뷰 (B안: 파트별 가로 스윔레인 + 3열 균형 카드 그리드)
+   ========================================================================= */
+
+.tasks-swimlane-board {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.tasks-swimlane-section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 18px 20px 20px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tasks-swimlane-section.track-planning {
+  border-top: 4px solid #2563eb;
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.45) 0%, #ffffff 72px);
+}
+
+.tasks-swimlane-section.track-design {
+  border-top: 4px solid #059669;
+  background: linear-gradient(180deg, rgba(240, 253, 244, 0.45) 0%, #ffffff 72px);
+}
+
+.tasks-swimlane-section.track-publishing {
+  border-top: 4px solid #9333ea;
+  background: linear-gradient(180deg, rgba(250, 245, 255, 0.45) 0%, #ffffff 72px);
+}
+
+.tasks-swimlane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tasks-swimlane-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tasks-swimlane-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tasks-swimlane-icon-box.track-planning {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.tasks-swimlane-icon-box.track-design {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.tasks-swimlane-icon-box.track-publishing {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+.tasks-swimlane-title-texts {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tasks-swimlane-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+}
+
+.tasks-swimlane-owner {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 2px 9px;
+  border-radius: 6px;
+}
+
+.tasks-swimlane-total-badge {
+  font-size: 14px;
+  font-weight: 800;
+  color: #1e293b;
+  background: #e2e8f0;
+  padding: 3px 10px;
+  border-radius: 9999px;
+}
+
+.tasks-swimlane-meta-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tasks-swimlane-status-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tasks-swimlane-stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.tasks-swimlane-stat-pill strong {
+  font-weight: 800;
+}
+
+.tasks-swimlane-stat-pill.is-in-progress {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.tasks-swimlane-stat-pill.is-backlog {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.tasks-swimlane-stat-pill.is-done {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #047857;
+}
+
+.tasks-swimlane-stat-pill.is-done.is-interactive {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tasks-swimlane-stat-pill.is-done.is-interactive:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.tasks-swimlane-add-btn {
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.tasks-swimlane-add-btn.track-planning {
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.tasks-swimlane-add-btn.track-planning:hover {
+  background: #dbeafe;
+}
+
+.tasks-swimlane-add-btn.track-design {
+  color: #047857;
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+}
+
+.tasks-swimlane-add-btn.track-design:hover {
+  background: #d1fae5;
+}
+
+.tasks-swimlane-add-btn.track-publishing {
+  color: #7e22ce;
+  border-color: #e9d5ff;
+  background: #faf5ff;
+}
+
+.tasks-swimlane-add-btn.track-publishing:hover {
+  background: #f3e8ff;
+}
+
+/* 3열 균형 카드 그리드 */
+.tasks-swimlane-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
+.tasks-swimlane-card-grid .tasks-kanban-card {
+  height: 100%;
+  justify-content: space-between;
+  padding: 15px 16px;
+  gap: 12px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.tasks-swimlane-card-grid .tasks-kanban-card.track-planning {
+  border-left: 4px solid #2563eb;
+}
+
+.tasks-swimlane-card-grid .tasks-kanban-card.track-design {
+  border-left: 4px solid #059669;
+}
+
+.tasks-swimlane-card-grid .tasks-kanban-card.track-publishing {
+  border-left: 4px solid #9333ea;
+}
+
+.tasks-swimlane-card-grid .tasks-kanban-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  transform: translateY(-2px);
+}
+
+.tasks-swimlane-card-grid .tasks-kanban-card.is-done {
+  background: #f8fafc;
+}
+
+.tasks-swimlane-card-grid .tasks-kanban-card.is-done .tasks-card-title {
+  color: #334155;
+}
+
+/* 카드 1단: 상태 캡슐 배지 */
+.tasks-card-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tasks-card-status-pill.status-in_progress {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.tasks-card-status-pill.status-backlog {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.tasks-card-status-pill.status-done {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+/* 카드 2단: 제목 가독성 강화 */
+.tasks-swimlane-card-grid .tasks-card-title {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.45;
+  word-break: keep-all;
+}
+
+/* 카드 3단: 좌측 담당자·기간 + 우측 원클릭 산출물 바로가기 칩 */
+.tasks-card-meta-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #475569;
+  font-weight: 600;
+}
+
+.tasks-card-action-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.tasks-card-link-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.tasks-card-link-chip.is-workspace {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.tasks-card-link-chip.is-workspace:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.tasks-card-link-chip.is-figma {
+  background: #f0fdf4;
+  color: #047857;
+  border: 1px solid #bbf7d0;
+}
+
+.tasks-card-link-chip.is-figma:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.tasks-card-link-chip.is-notion {
+  background: #f1f5f9;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+}
+
+.tasks-card-link-chip.is-notion:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+/* 완료 업무 더보기 / 접기 토글 바 */
+.tasks-swimlane-more-btn {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px dashed #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.tasks-swimlane-more-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+@media (max-width: 1180px) {
+  .tasks-swimlane-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .tasks-swimlane-section {
+    padding: 14px;
+  }
+
+  .tasks-swimlane-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tasks-swimlane-meta-group {
+    justify-content: space-between;
+  }
+
+  .tasks-swimlane-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+

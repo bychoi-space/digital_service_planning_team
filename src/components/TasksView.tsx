@@ -23,6 +23,8 @@ import {
   Layers,
   CheckCircle2,
   RefreshCw,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface TasksViewProps {
@@ -153,6 +155,65 @@ function resolveFigmaMetaLabel(figmaUrl: string): string {
   return nodeMatch ? `${fileLabel} · 노드 #${nodeMatch[1]}` : fileLabel;
 }
 
+const TRACK_OWNER_NAME: Record<TaskTrack, string> = {
+  기획: '최범열',
+  디자인: '박수민',
+  퍼블리싱: '김리아',
+};
+
+const PRIORITY_SORT_ORDER: Record<TaskPriority, number> = {
+  urgent: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
+function formatTaskScheduleCompact(startDate?: string, dueDate?: string): string {
+  const fmt = (d?: string) => (d && d.length >= 10 ? d.substring(5).replace('-', '.') : '');
+  const s = fmt(startDate);
+  const e = fmt(dueDate);
+  if (s && e) {
+    return s === e ? s : `${s} ~ ${e}`;
+  }
+  if (e) return `~ ${e}`;
+  if (s) return `${s} ~`;
+  return '일정 미정';
+}
+
+function sortSwimlaneTasks(list: TaskItem[]): TaskItem[] {
+  const statusRank: Record<TaskStatus, number> = {
+    in_progress: 0,
+    review: 0,
+    backlog: 1,
+    on_hold: 1,
+    done: 2,
+  };
+  return [...list].sort((a, b) => {
+    const rankA = statusRank[a.status] ?? 1;
+    const rankB = statusRank[b.status] ?? 1;
+    if (rankA !== rankB) return rankA - rankB;
+
+    if (a.status === 'in_progress') {
+      const dueA = a.dueDate || '9999-12-31';
+      const dueB = b.dueDate || '9999-12-31';
+      if (dueA !== dueB) return dueA.localeCompare(dueB);
+      return (PRIORITY_SORT_ORDER[a.priority] ?? 2) - (PRIORITY_SORT_ORDER[b.priority] ?? 2);
+    }
+
+    if (a.status === 'backlog') {
+      const startA = a.startDate || a.dueDate || '9999-12-31';
+      const startB = b.startDate || b.dueDate || '9999-12-31';
+      if (startA !== startB) return startA.localeCompare(startB);
+      return (PRIORITY_SORT_ORDER[a.priority] ?? 2) - (PRIORITY_SORT_ORDER[b.priority] ?? 2);
+    }
+
+    const doneDateA = a.dueDate || a.startDate || '';
+    const doneDateB = b.dueDate || b.startDate || '';
+    if (doneDateA !== doneDateB) return doneDateB.localeCompare(doneDateA);
+    return 0;
+  });
+}
+
 export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onShowToast }) => {
   const [tasks, setTasks] = useState<TaskItem[]>(() => PlanningStorageService.getTasks());
   const [teamMembers, setTeamMembers] = useState<User[]>(() => PlanningStorageService.getServicePlanningMembers());
@@ -162,7 +223,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [mobileKanbanStatus, setMobileKanbanStatus] = useState<'all' | TaskStatus>('all');
+  const [expandedDoneTracks, setExpandedDoneTracks] = useState<Record<string, boolean>>({});
 
   // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -633,133 +694,254 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
         </div>
       </div>
 
-      {/* 2. 업무 목록 본문 (칸반 보드 vs 리스트 뷰) */}
+      {/* 2. 업무 목록 본문 (파트별 스윔레인 3열 보드 vs 리스트 뷰) */}
       {viewMode === 'kanban' ? (
-        <>
-          {/* 모바일 전용 상태 스포트라이트 바 (767px 이하 노출) */}
-          <div className="tasks-mobile-status-bar" role="tablist" aria-label="칸반 상태별 보기">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mobileKanbanStatus === 'all'}
-              onClick={() => setMobileKanbanStatus('all')}
-              className={`tasks-mobile-status-tab ${mobileKanbanStatus === 'all' ? 'active' : ''}`}
-            >
-              <span>전체</span>
-              <span className="tasks-mobile-status-count">{filteredTasks.length}</span>
-            </button>
-            {STATUSES.map((statusObj) => {
-              const count = filteredTasks.filter((t) => t.status === statusObj.key).length;
-              const isSelected = mobileKanbanStatus === statusObj.key;
-              return (
-                <button
-                  key={statusObj.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={isSelected}
-                  onClick={() => setMobileKanbanStatus(statusObj.key)}
-                  className={`tasks-mobile-status-tab ${isSelected ? 'active' : ''}`}
-                >
-                  <span className={`tasks-status-dot ${statusObj.classKey}`} />
-                  <span>{statusObj.shortLabel}</span>
-                  <span className="tasks-mobile-status-count">{count}</span>
-                </button>
-              );
-            })}
-          </div>
+        <div className="tasks-swimlane-board">
+          {(selectedTrack === 'all' ? TRACK_LIST : [selectedTrack as TaskTrack]).map((trackKey) => {
+            const trackCfg = TRACK_CONFIG[trackKey] || TRACK_CONFIG['기획'];
+            const TrackIcon = trackCfg.icon;
+            const ownerName = TRACK_OWNER_NAME[trackKey];
+            const trackTasks = sortSwimlaneTasks(
+              filteredTasks.filter((t) => (t.track || '기획') === trackKey)
+            );
+            const inProgressTasks = trackTasks.filter((t) => t.status === 'in_progress');
+            const backlogTasks = trackTasks.filter((t) => t.status === 'backlog');
+            const doneTasks = trackTasks.filter((t) => t.status === 'done');
+            const activeTasks = [...inProgressTasks, ...backlogTasks];
 
-          <div className="tasks-kanban-grid">
-            {STATUSES.map((statusObj) => {
-              const columnTasks = filteredTasks.filter((t) => t.status === statusObj.key);
-              const isMobileHidden = mobileKanbanStatus !== 'all' && mobileKanbanStatus !== statusObj.key;
-              return (
-                <div
-                  key={statusObj.key}
-                  className={`tasks-kanban-col ${isMobileHidden ? 'mobile-hidden' : ''}`}
-                >
-                  {/* 컬럼 헤더 */}
-                  <div className="tasks-kanban-col-header">
-                    <div className="tasks-kanban-col-title-wrap">
-                      <span className={`tasks-status-dot ${statusObj.classKey}`} />
-                      <span className="tasks-kanban-col-title">{statusObj.label}</span>
+            const isForceExpanded =
+              selectedStatus === 'done' || Boolean(searchQuery.trim()) || selectedTrack !== 'all';
+            const isDoneExpanded = isForceExpanded || Boolean(expandedDoneTracks[trackKey]);
+
+            let defaultVisibleDoneCount =
+              activeTasks.length < 6
+                ? 6 - activeTasks.length
+                : activeTasks.length % 3 === 0
+                  ? 0
+                  : 3 - (activeTasks.length % 3);
+
+            if (doneTasks.length - defaultVisibleDoneCount <= 2) {
+              defaultVisibleDoneCount = doneTasks.length;
+            }
+
+            const visibleDoneTasks = isDoneExpanded
+              ? doneTasks
+              : doneTasks.slice(0, Math.max(0, defaultVisibleDoneCount));
+            const hiddenDoneCount = Math.max(0, doneTasks.length - visibleDoneTasks.length);
+            const displayTasks = [...activeTasks, ...visibleDoneTasks];
+            const canToggleDone =
+              !isForceExpanded && doneTasks.length > defaultVisibleDoneCount;
+
+            return (
+              <section
+                key={trackKey}
+                className={`tasks-swimlane-section ${trackCfg.classKey}`}
+              >
+                {/* 파트 스윔레인 헤더 */}
+                <div className="tasks-swimlane-header">
+                  <div className="tasks-swimlane-title-group">
+                    <span className={`tasks-swimlane-icon-box ${trackCfg.classKey}`}>
+                      <TrackIcon size={18} />
+                    </span>
+                    <div className="tasks-swimlane-title-texts">
+                      <h3 className="tasks-swimlane-title">{trackCfg.label} 업무</h3>
+                      <span className="tasks-swimlane-owner">전담: {ownerName}</span>
                     </div>
-                    <span className="tasks-kanban-col-count">{columnTasks.length}</span>
+                    <span className="tasks-swimlane-total-badge">{trackTasks.length}건</span>
                   </div>
 
-                  {/* 카드 목록 */}
-                  <div className="tasks-kanban-cards">
-                    {columnTasks.map((task) => {
-                      const priorityCfg = PRIORITIES.find((p) => p.key === task.priority) || PRIORITIES[2];
-                      const trackCfg = TRACK_CONFIG[task.track || '기획'] || TRACK_CONFIG['기획'];
-                      const TrackIcon = trackCfg.icon;
-                      return (
-                        <div
-                          key={task.id}
-                          className={`card tasks-kanban-card ${trackCfg.classKey}`}
-                          onClick={() => handleOpenEditModal(task)}
-                        >
-                          <div className="tasks-card-top">
-                            <div className="tasks-card-badges">
-                              <span className={`tasks-badge-track ${trackCfg.classKey}`}>
-                                <TrackIcon size={13} /> {trackCfg.label}
-                              </span>
-                              <span className="tasks-badge-category">{task.category}</span>
-                              {(Boolean(task.notionUrl) || String(task.id).startsWith('notion-')) && (
-                                <span className="tasks-badge-notion" title="Notion (Sisun-Tasks) 양방향 연동 과제">
-                                  Notion
-                                </span>
-                              )}
-                              {resolveWorkspaceProjectId(task) && (
+                  <div className="tasks-swimlane-meta-group">
+                    <div className="tasks-swimlane-status-pills">
+                      <span className="tasks-swimlane-stat-pill is-in-progress">
+                        <span className="tasks-status-dot status-in_progress" />
+                        진행중 <strong>{inProgressTasks.length}</strong>
+                      </span>
+                      <span className="tasks-swimlane-stat-pill is-backlog">
+                        <span className="tasks-status-dot status-backlog" />
+                        대기 <strong>{backlogTasks.length}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (canToggleDone) {
+                            setExpandedDoneTracks((prev) => ({
+                              ...prev,
+                              [trackKey]: !prev[trackKey],
+                            }));
+                          }
+                        }}
+                        className={`tasks-swimlane-stat-pill is-done ${canToggleDone ? 'is-interactive' : ''}`}
+                        title={
+                          canToggleDone
+                            ? isDoneExpanded
+                              ? '클릭하여 완료 업무 접기'
+                              : `클릭하여 완료 업무 ${hiddenDoneCount}건 더보기`
+                            : '완료된 업무 수'
+                        }
+                      >
+                        <span className="tasks-status-dot status-done" />
+                        완료 <strong>{doneTasks.length}</strong>
+                      </button>
+                    </div>
+
+                    {!isViewer && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenCreateModal(trackKey)}
+                        className={`btn btn-secondary tasks-swimlane-add-btn ${trackCfg.classKey}`}
+                      >
+                        <Plus size={14} /> {trackCfg.label} 등록
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 파트 내 3열 균형 카드 그리드 */}
+                {displayTasks.length > 0 ? (
+                  <>
+                    <div className="tasks-swimlane-card-grid">
+                      {displayTasks.map((task) => {
+                        const priorityCfg =
+                          PRIORITIES.find((p) => p.key === task.priority) || PRIORITIES[2];
+                        const statusObj =
+                          STATUSES.find((s) => s.key === task.status) || STATUSES[0];
+                        const showPriorityBadge =
+                          task.priority === 'urgent' || task.priority === 'high';
+                        const workspaceViewerUrl = resolveWorkspaceViewerUrl(task);
+                        const figmaUrl = resolveFigmaUrl(task);
+                        const notionUrl = task.notionUrl?.trim() || null;
+
+                        return (
+                          <div
+                            key={task.id}
+                            className={`card tasks-kanban-card ${trackCfg.classKey} ${task.status === 'done' ? 'is-done' : ''}`}
+                            onClick={() => handleOpenEditModal(task)}
+                          >
+                            {/* 1단: 상태 배지 + 도메인 카테고리 + (긴급/높음 시에만) 우선순위 */}
+                            <div className="tasks-card-top">
+                              <div className="tasks-card-badges">
                                 <span
-                                  className="tasks-badge-workspace"
-                                  title={`기획서 워크스페이스 (${resolveWorkspaceProjectId(task)}) · v${task.version || '0.1'}`}
+                                  className={`tasks-card-status-pill ${statusObj.classKey}`}
                                 >
-                                  기획서 v{task.version || '0.1'}
+                                  {task.status === 'done' ? (
+                                    <CheckCircle2 size={13} />
+                                  ) : (
+                                    <span
+                                      className={`tasks-status-dot ${statusObj.classKey}`}
+                                    />
+                                  )}
+                                  {statusObj.shortLabel}
                                 </span>
-                              )}
-                              {resolveFigmaUrl(task) && (
+                                <span className="tasks-badge-category">{task.category}</span>
+                              </div>
+
+                              {showPriorityBadge && (
                                 <span
-                                  className="tasks-badge-figma"
-                                  title={`Figma 디자인 시안 (${resolveFigmaMetaLabel(resolveFigmaUrl(task)!)})`}
+                                  className={`tasks-badge-priority ${priorityCfg.classKey}`}
                                 >
-                                  Figma
+                                  {priorityCfg.label}
                                 </span>
                               )}
                             </div>
 
-                            <span className={`tasks-badge-priority ${priorityCfg.classKey}`}>
-                              {priorityCfg.label}
-                            </span>
-                          </div>
+                            {/* 2단: 핵심 업무명 */}
+                            <h4 className="tasks-card-title">{task.title}</h4>
 
-                          <h4 className="tasks-card-title">{task.title}</h4>
+                            {/* 3단: 담당자 · 전체 일정 + 우측 원클릭 산출물 바로가기 칩 */}
+                            <div className="tasks-card-footer">
+                              <div className="tasks-card-meta-group">
+                                <span className="tasks-card-meta-item">
+                                  <UserCheck size={14} /> {task.assigneeName}
+                                </span>
+                                <span className="tasks-card-meta-item">
+                                  <Clock size={14} />{' '}
+                                  {formatTaskScheduleCompact(task.startDate, task.dueDate)}
+                                </span>
+                              </div>
 
-                          {/* 카드 하단 메타 */}
-                          <div className="tasks-card-footer">
-                            <span className="tasks-card-meta-item">
-                              <UserCheck size={14} /> {task.assigneeName}
-                            </span>
-                            <span className="tasks-card-meta-item">
-                              <Clock size={14} />{' '}
-                              {task.dueDate
-                                ? `~${task.dueDate.substring(5)}`
-                                : task.startDate
-                                  ? `${task.startDate.substring(5)}~`
-                                  : '일정 미정'}
-                            </span>
+                              {(workspaceViewerUrl || figmaUrl || notionUrl) && (
+                                <div className="tasks-card-action-chips">
+                                  {workspaceViewerUrl && (
+                                    <a
+                                      href={workspaceViewerUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="tasks-card-link-chip is-workspace"
+                                      title={`기획서 워크스페이스 (${resolveWorkspaceProjectId(task)}) · v${task.version || '0.1'} 열기`}
+                                    >
+                                      기획서 v{task.version || '0.1'}{' '}
+                                      <ExternalLink size={12} />
+                                    </a>
+                                  )}
+                                  {figmaUrl && (
+                                    <a
+                                      href={figmaUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="tasks-card-link-chip is-figma"
+                                      title={`Figma 시안 열기 (${resolveFigmaMetaLabel(figmaUrl)})`}
+                                    >
+                                      Figma <ExternalLink size={12} />
+                                    </a>
+                                  )}
+                                  {notionUrl && (
+                                    <a
+                                      href={notionUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="tasks-card-link-chip is-notion"
+                                      title="Notion (Sisun-Tasks) 페이지 열기"
+                                    >
+                                      Notion <ExternalLink size={12} />
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                    {columnTasks.length === 0 && (
-                      <div className="tasks-empty-col">업무가 없습니다</div>
+                        );
+                      })}
+                    </div>
+
+                    {canToggleDone && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedDoneTracks((prev) => ({
+                            ...prev,
+                            [trackKey]: !prev[trackKey],
+                          }))
+                        }
+                        className="tasks-swimlane-more-btn"
+                      >
+                        {isDoneExpanded ? (
+                          <>
+                            <ChevronUp size={16} />
+                            <span>
+                              {trackCfg.label} 파트 완료된 업무 접기
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown size={16} />
+                            <span>
+                              완료된 업무 {hiddenDoneCount}건 더보기 (전체 완료 {doneTasks.length}건)
+                            </span>
+                          </>
+                        )}
+                      </button>
                     )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
+                  </>
+                ) : (
+                  <div className="tasks-empty-col">조건에 해당하는 {trackCfg.label} 업무가 없습니다</div>
+                )}
+              </section>
+            );
+          })}
+        </div>
       ) : (
         /* 2-B. 리스트 뷰 (데스크톱/태블릿 테이블 & 모바일 전용 카드 리스트) */
         <div className="card tasks-list-card">
