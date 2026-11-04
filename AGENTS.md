@@ -158,6 +158,7 @@ interface TaskItem extends AuditBase {
   figmaUrl?: string;           // Figma 디자인 시안 URL
   jiraUrl?: string;
   artifactUrl?: string;        // 기획서 뷰어 대표 URL
+  attachments?: TaskAttachment[]; // 첨부파일 목록 (Excel, PPT, PDF, Word 등 - Supabase Storage 'task-attachments')
   themeIndex?: number;
   version?: string;            // 기획서 버전 (예: '0.1')
 }
