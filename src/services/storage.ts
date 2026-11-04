@@ -198,20 +198,42 @@ export function isWebViewableAttachment(att: TaskAttachment): boolean {
   ].includes(ext);
 }
 
-// 첨부파일 브라우저 읽기 모드 바로 열기 URL 반환 (MS Office 파일은 공식 Office Web Viewer 연동)
+// 원본 파일명이 URL 경로 마지막 세그먼트와 Content-Disposition 헤더에 보존되는 스트리밍 프록시 URL 생성
+export function resolveNamedAttachmentProxyUrl(att: TaskAttachment): string {
+  const rawUrl = (att.url || '').split('?')[0];
+  if (!rawUrl) return '#';
+  const marker = '/task-attachments/';
+  const markerIdx = rawUrl.indexOf(marker);
+  const storagePath = (
+    att.storagePath || (markerIdx !== -1 ? rawUrl.slice(markerIdx + marker.length) : '')
+  ).replace(/^\/+/, '');
+
+  if (storagePath && att.name) {
+    const encodedPath = storagePath
+      .split('/')
+      .filter(Boolean)
+      .map((seg) => encodeURIComponent(seg))
+      .join('/');
+    return `${SUPABASE_URL}/functions/v1/notion-sync/file/${encodedPath}/${encodeURIComponent(att.name)}`;
+  }
+  return rawUrl;
+}
+
+// 첨부파일 브라우저 읽기 모드 바로 열기 URL 반환 (MS Office 파일은 원본 파일명이 보존된 공식 Office Web Viewer 연동)
 export function resolveAttachmentViewerUrl(att: TaskAttachment): string {
   const rawUrl = (att.url || '').split('?')[0];
   if (!rawUrl) return '#';
   const ext = (att.ext || att.name?.split('.').pop() || '').toLowerCase();
+  const namedFileUrl = resolveNamedAttachmentProxyUrl(att);
 
-  // MS Office 문서 (Excel, PowerPoint, Word) -> Microsoft 공식 Office Web Viewer 새 탭 열람
+  // MS Office 문서 (Excel, PowerPoint, Word) -> 원본 한글 파일명이 표시되는 Microsoft 공식 Office Web Viewer 새 탭 열람
   if (['xlsx', 'xls', 'pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
-    return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(rawUrl)}`;
+    return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(namedFileUrl)}`;
   }
 
-  // PDF 및 이미지 -> ?download 파라미터를 제거한 순수 URL로 브라우저 내장 뷰어에서 즉시 열람
+  // PDF 및 이미지 -> 원본 한글 파일명이 보존된 인라인 스트리밍 URL로 브라우저 내장 뷰어에서 즉시 열람
   if (['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) {
-    return rawUrl;
+    return namedFileUrl;
   }
 
   // 그 외(ZIP, HWP 등)는 다운로드 URL 반환
