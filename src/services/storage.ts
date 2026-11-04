@@ -257,18 +257,37 @@ export class PlanningStorageService {
       // 1. tasks 동기화 (로컬 데이터 절대 보존 및 안전 병합 정책)
       const { data: remoteTasks, error: taskErr } = await client.from('tasks').select('*');
       if (!taskErr && remoteTasks) {
-        const SUPERSEDED_MANUAL_DESIGN_TASK_IDS = new Set([
+        const SUPERSEDED_MANUAL_TASK_IDS = new Set([
+          // 디자인 구 수기 등록 6건
           'task-mvyiimh8-qp6sq',
           'task-mvyifvxj-u3ajq',
           'task-mvpzirjl-ji6dz',
           'task-mvowcjk1-vycle',
           'task-mvowbzus-ahlsu',
           'task-mvk8olb8-z6sqd',
+          // 퍼블리싱 구 수기 등록 17건 (Notion 원본 과제로 통합 대체됨)
+          'task-mw07wx9y-qj1ri',
+          'task-mw07we5u-5j3gf',
+          'task-mw07vop4-ehgh4',
+          'task-mw07ulct-bx6n9',
+          'task-mw07t7ws-g881o',
+          'task-mw07twhn-8yqxt',
+          'task-mw07iwf3-2wsmj',
+          'task-mw07ha9v-nwa0p',
+          'task-mw07gkqd-jsy3t',
+          'task-mw07fdc8-hy2vg',
+          'task-mw07dwff-2lo18',
+          'task-mw07ckeq-frl6e',
+          'task-mw07bpxz-5hjc0',
+          'task-mw07ay8l-ftqdx',
+          'task-mw075vzi-mlwsa',
+          'task-mw077vd8-8jx92',
+          'task-mw079msk-vkmyz',
         ]);
         const filteredTasks = remoteTasks.filter(
           (row) =>
             !String(row.id).startsWith('task-10') &&
-            !SUPERSEDED_MANUAL_DESIGN_TASK_IDS.has(String(row.id))
+            !SUPERSEDED_MANUAL_TASK_IDS.has(String(row.id))
         );
         const mappedRemoteTasks: TaskItem[] = filteredTasks.map((row) => {
           const autoStatus = computeTaskStatusByDates(
@@ -310,7 +329,7 @@ export class PlanningStorageService {
         const localTasks = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []).filter(
           (t) =>
             !String(t.id).startsWith('task-10') &&
-            !SUPERSEDED_MANUAL_DESIGN_TASK_IDS.has(String(t.id))
+            !SUPERSEDED_MANUAL_TASK_IDS.has(String(t.id))
         );
 
         const taskMap = new Map<string, TaskItem>();
@@ -995,16 +1014,37 @@ export class PlanningStorageService {
   public static getTasks(): TaskItem[] {
     this.initialize();
     const supersededIds = new Set([
+      // 디자인 구 수기 등록 6건
       'task-mvyiimh8-qp6sq',
       'task-mvyifvxj-u3ajq',
       'task-mvpzirjl-ji6dz',
       'task-mvowcjk1-vycle',
       'task-mvowbzus-ahlsu',
       'task-mvk8olb8-z6sqd',
+      // 퍼블리싱 구 수기 등록 17건 (Notion 원본 과제로 통합 대체됨)
+      'task-mw07wx9y-qj1ri',
+      'task-mw07we5u-5j3gf',
+      'task-mw07vop4-ehgh4',
+      'task-mw07ulct-bx6n9',
+      'task-mw07t7ws-g881o',
+      'task-mw07twhn-8yqxt',
+      'task-mw07iwf3-2wsmj',
+      'task-mw07ha9v-nwa0p',
+      'task-mw07gkqd-jsy3t',
+      'task-mw07fdc8-hy2vg',
+      'task-mw07dwff-2lo18',
+      'task-mw07ckeq-frl6e',
+      'task-mw07bpxz-5hjc0',
+      'task-mw07ay8l-ftqdx',
+      'task-mw075vzi-mlwsa',
+      'task-mw077vd8-8jx92',
+      'task-mw079msk-vkmyz',
     ]);
-    const stored = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []).filter(
-      (t) => !supersededIds.has(String(t.id))
-    );
+    const rawStored = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []);
+    const stored = rawStored.filter((t) => !supersededIds.has(String(t.id)));
+    if (stored.length !== rawStored.length) {
+      localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(stored));
+    }
     const trackOrder: Record<string, number> = {
       기획: 0,
       디자인: 1,
