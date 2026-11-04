@@ -40,6 +40,17 @@ export interface TaskLink {
   url: string;
 }
 
+export interface TaskAttachment {
+  id: string;
+  name: string;        // 원본 파일명 (예: '26FW_기획전_상품리스트.xlsx')
+  url: string;         // 다운로드/열람 URL
+  storagePath: string; // Supabase Storage 내부 객체 경로
+  size: number;        // 파일 크기 (bytes)
+  ext: string;         // 확장자 ('xlsx' | 'pptx' | 'pdf' | 'docx' 등)
+  uploadedBy: string;  // 업로드 사용자 성명
+  uploadedAt: string;  // ISO 8601
+}
+
 export interface TaskItem extends AuditBase {
   title: string;
   category: TaskCategory;
@@ -53,6 +64,7 @@ export interface TaskItem extends AuditBase {
   progress: number; // 0 ~ 100
   description: string;
   links: TaskLink[];
+  attachments?: TaskAttachment[];
   // 개인 업무공간(bychoi workspace) · Notion · Figma 통합 연동 필드
   workspaceProjectId?: string;
   period?: string;

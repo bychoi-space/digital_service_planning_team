@@ -1,6 +1,7 @@
 import type {
   User,
   TaskItem,
+  TaskAttachment,
   TaskStatus,
   VacationItem,
   KpiItem,
@@ -310,6 +311,7 @@ export class PlanningStorageService {
             progress: autoStatus === 'done' ? 100 : Number(row.progress || 0),
             description: row.description || '',
             links: row.links || [],
+            attachments: Array.isArray(row.attachments) ? row.attachments : [],
             workspaceProjectId: row.workspace_project_id || undefined,
             period: row.period || undefined,
             notionUrl: row.notion_url || undefined,
@@ -350,12 +352,16 @@ export class PlanningStorageService {
           });
         });
 
-        // 1-2. 원격 데이터 병합 (원격 정보 갱신, 단 로컬의 track 정보 보존)
+        // 1-2. 원격 데이터 병합 (원격 정보 갱신, 단 로컬의 track 및 attachments 정보 보존)
         mappedRemoteTasks.forEach((remote) => {
           const local = taskMap.get(remote.id);
           taskMap.set(remote.id, {
             ...remote,
             track: remote.track || local?.track || '기획',
+            attachments:
+              Array.isArray(remote.attachments) && remote.attachments.length > 0
+                ? remote.attachments
+                : local?.attachments || [],
           });
         });
 
@@ -1067,6 +1073,7 @@ export class PlanningStorageService {
           track: t.track || '기획',
           status: autoStatus,
           progress: autoStatus === 'done' ? 100 : t.progress,
+          attachments: Array.isArray(t.attachments) ? t.attachments : [],
           createdBy:
             t.id === 'task-mvk8olb8-z6sqd' && t.createdBy === '최범열' ? '박수민' : t.createdBy,
         };
@@ -1083,6 +1090,69 @@ export class PlanningStorageService {
         if (dueDiff !== 0) return dueDiff;
         return (a.title || '').localeCompare(b.title || '');
       });
+  }
+
+  // 업무 첨부파일(Excel · PPT · PDF 등) Supabase Storage 업로드
+  public static async uploadTaskAttachment(
+    file: File,
+    uploaderName: string
+  ): Promise<TaskAttachment> {
+    if (this.isViewer()) {
+      throw new Error('유관부서(읽기 전용) 모드에서는 파일을 업로드할 수 없습니다.');
+    }
+    const maxBytes = 50 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      throw new Error('파일 크기는 최대 50MB 이하만 업로드할 수 있습니다.');
+    }
+
+    const client = getSupabaseClient();
+    if (!client || !isSupabaseEnabled()) {
+      throw new Error('클라우드 스토리지 연결이 활성화되어 있지 않습니다.');
+    }
+
+    const parts = file.name.split('.');
+    const rawExt = parts.length > 1 ? parts.pop() || 'file' : 'file';
+    const ext = rawExt.toLowerCase();
+    const safeExt = ext.replace(/[^a-z0-9]/g, '') || 'bin';
+    const uniqueKey = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const storagePath = `tasks/${uniqueKey}.${safeExt}`;
+
+    const { error: uploadErr } = await client.storage
+      .from('task-attachments')
+      .upload(storagePath, file, {
+        upsert: true,
+        contentType: file.type || 'application/octet-stream',
+      });
+
+    if (uploadErr) {
+      throw new Error(`파일 업로드 실패: ${uploadErr.message}`);
+    }
+
+    const { data: pubData } = client.storage.from('task-attachments').getPublicUrl(storagePath);
+    const downloadUrl = `${pubData.publicUrl}?download=${encodeURIComponent(file.name)}`;
+
+    return {
+      id: generateUniqueId('att'),
+      name: file.name,
+      url: downloadUrl,
+      storagePath,
+      size: file.size,
+      ext,
+      uploadedBy: uploaderName,
+      uploadedAt: new Date().toISOString(),
+    };
+  }
+
+  // Supabase Storage에서 첨부파일 객체 삭제
+  public static async removeTaskAttachmentFromStorage(storagePath?: string): Promise<void> {
+    if (!storagePath || !isSupabaseEnabled()) return;
+    const client = getSupabaseClient();
+    if (!client) return;
+    try {
+      await client.storage.from('task-attachments').remove([storagePath]);
+    } catch (e) {
+      console.warn('[Storage] Attachment delete note:', e);
+    }
   }
 
   // Supabase 원격 DB로 업무 전송 (track 컬럼 유무와 무관한 스마트 2단계 전송)
@@ -1111,6 +1181,7 @@ export class PlanningStorageService {
       progress: autoStatus === 'done' ? 100 : task.progress,
       description: task.description,
       links: task.links,
+      attachments: Array.isArray(task.attachments) ? task.attachments : [],
       workspace_project_id: task.workspaceProjectId || null,
       period: task.period || null,
       notion_url: task.notionUrl || null,

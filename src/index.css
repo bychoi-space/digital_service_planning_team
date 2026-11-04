@@ -9344,4 +9344,256 @@ textarea {
   }
 }
 
+/* =========================================================================
+   업무 첨부 파일 (MS Office Excel · PPT · PDF · 문서) 업로드 & 다운로드 스타일
+   ========================================================================= */
+
+.tasks-card-link-chip.is-excel {
+  background: #ecfdf5;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.tasks-card-link-chip.is-excel:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+}
+
+.tasks-card-link-chip.is-ppt {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fdba74;
+}
+
+.tasks-card-link-chip.is-ppt:hover {
+  background: #ffedd5;
+  border-color: #fb923c;
+}
+
+.tasks-card-link-chip.is-pdf {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.tasks-card-link-chip.is-pdf:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+}
+
+.tasks-card-link-chip.is-doc {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+
+.tasks-card-link-chip.is-doc:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
+}
+
+.tasks-card-link-chip.is-file {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.tasks-card-link-chip.is-file:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.tasks-attachments-group {
+  margin-top: 2px;
+}
+
+.tasks-attachments-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.tasks-attachments-label {
+  margin-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tasks-attachments-count {
+  font-size: 14px;
+  font-weight: 800;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 0 8px;
+  border-radius: 9999px;
+}
+
+.tasks-file-input-hidden {
+  display: none;
+}
+
+.tasks-upload-trigger-btn {
+  padding: 5px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tasks-upload-trigger-btn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.tasks-attachments-dropzone {
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 10px 14px;
+  transition: all 0.15s ease;
+}
+
+.tasks-attachments-dropzone.is-dragover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.tasks-attachments-dropzone.has-files {
+  border-style: solid;
+  border-color: #e2e8f0;
+  background: #ffffff;
+  padding: 10px 12px;
+}
+
+.tasks-attachments-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: center;
+}
+
+.tasks-attachments-empty:hover {
+  color: #1d4ed8;
+}
+
+.tasks-attachments-empty-icon {
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.tasks-attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tasks-attachment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.tasks-attachment-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.tasks-attachment-ext-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.tasks-attachment-ext-badge.is-excel {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.tasks-attachment-ext-badge.is-ppt {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.tasks-attachment-ext-badge.is-pdf {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.tasks-attachment-ext-badge.is-doc {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.tasks-attachment-ext-badge.is-file {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.tasks-attachment-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tasks-attachment-size {
+  font-size: 14px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.tasks-attachment-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.tasks-attachment-dl-btn {
+  padding: 5px 11px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tasks-attachment-del-btn {
+  padding: 5px 8px;
+  font-size: 14px;
+  color: #dc2626;
+}
+
+
 
