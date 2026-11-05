@@ -2527,6 +2527,83 @@ export class PlanningStorageService {
     });
   }
 
+  public static moveWorkInfo(id: string, direction: 'up' | 'down'): WorkInfoItem[] {
+    if (this.isViewer()) {
+      throw new Error('유관부서(읽기 전용) 모드에서는 순서를 변경할 수 없습니다.');
+    }
+
+    const items = this.getWorkInfos();
+    const target = items.find((i) => i.id === id);
+    if (!target) return items;
+
+    const categoryItems = items.filter((i) => i.category === target.category);
+    const catIdx = categoryItems.findIndex((i) => i.id === id);
+    if (catIdx === -1) return items;
+
+    const swapIdx = direction === 'up' ? catIdx - 1 : catIdx + 1;
+    if (swapIdx < 0 || swapIdx >= categoryItems.length) return items;
+
+    const reorderedCat = [...categoryItems];
+    const [moved] = reorderedCat.splice(catIdx, 1);
+    reorderedCat.splice(swapIdx, 0, moved);
+
+    return this.reorderWorkInfosInCategory(
+      target.category,
+      reorderedCat.map((i) => i.id)
+    );
+  }
+
+  public static reorderWorkInfosInCategory(
+    category: string,
+    orderedIds: string[]
+  ): WorkInfoItem[] {
+    if (this.isViewer()) {
+      throw new Error('유관부서(읽기 전용) 모드에서는 순서를 변경할 수 없습니다.');
+    }
+
+    const currentUser = this.getCurrentUser();
+    const now = new Date().toISOString();
+    const items = this.getWorkInfos();
+
+    const categoryItems = items.filter((i) => i.category === category);
+    const itemMap = new Map(categoryItems.map((i) => [i.id, i]));
+    const reorderedCategoryItems: WorkInfoItem[] = [];
+
+    orderedIds.forEach((id) => {
+      const found = itemMap.get(id);
+      if (found) {
+        reorderedCategoryItems.push(found);
+        itemMap.delete(id);
+      }
+    });
+    itemMap.forEach((rem) => reorderedCategoryItems.push(rem));
+
+    // 전체 카테고리 순서를 유지하면서 sortOrder를 1부터 순차 재할당
+    const categories = Array.from(new Set(items.map((i) => i.category)));
+    let nextOrder = 1;
+    const finalList: WorkInfoItem[] = [];
+
+    categories.forEach((cat) => {
+      const rows =
+        cat === category
+          ? reorderedCategoryItems
+          : items.filter((i) => i.category === cat);
+      rows.forEach((row) => {
+        finalList.push({
+          ...row,
+          sortOrder: nextOrder++,
+          updatedBy: cat === category ? currentUser.name : row.updatedBy,
+          updatedAt: cat === category ? now : row.updatedAt,
+        });
+      });
+    });
+
+    localStorage.setItem(STORAGE_KEYS.WORK_INFOS, JSON.stringify(finalList));
+    this.pushWorkInfosToRemote(finalList);
+
+    return finalList;
+  }
+
   // --- 5. 신규 입사자 온보딩 체크리스트 (Onboarding Checklist) CRUD & 클라우드 동기화 ---
   public static getOnboardingItems(): OnboardingChecklistItem[] {
     this.initialize();

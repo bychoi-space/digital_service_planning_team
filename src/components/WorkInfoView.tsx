@@ -12,6 +12,9 @@ import {
   X,
   BookOpen,
   FolderOpen,
+  ArrowUp,
+  ArrowDown,
+  GripVertical,
 } from 'lucide-react';
 
 interface WorkInfoViewProps {
@@ -66,6 +69,8 @@ export const WorkInfoView: React.FC<WorkInfoViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -241,6 +246,75 @@ export const WorkInfoView: React.FC<WorkInfoViewProps> = ({
     }
   };
 
+  // 항목 위/아래 순서 이동
+  const handleMoveItem = (id: string, direction: 'up' | 'down') => {
+    if (isViewer) return;
+    try {
+      const updated = PlanningStorageService.moveWorkInfo(id, direction);
+      setItems(updated);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '순서 변경 중 오류가 발생했습니다.';
+      onShowToast(msg, 'error');
+    }
+  };
+
+  // 드래그 앤 드롭 순서 변경
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    if (isViewer || searchQuery.trim()) return;
+    setDraggingId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    if (isViewer || !draggingId || draggingId === targetId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverId !== targetId) {
+      setDragOverId(targetId);
+    }
+  };
+
+  const handleDrop = (
+    e: React.DragEvent,
+    category: string,
+    sectionRows: WorkInfoItem[],
+    targetId: string
+  ) => {
+    e.preventDefault();
+    const sourceId = draggingId || e.dataTransfer.getData('text/plain');
+    setDraggingId(null);
+    setDragOverId(null);
+
+    if (isViewer || !sourceId || sourceId === targetId) return;
+
+    const fromIdx = sectionRows.findIndex((r) => r.id === sourceId);
+    const toIdx = sectionRows.findIndex((r) => r.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const nextRows = [...sectionRows];
+    const [moved] = nextRows.splice(fromIdx, 1);
+    nextRows.splice(toIdx, 0, moved);
+
+    try {
+      const updated = PlanningStorageService.reorderWorkInfosInCategory(
+        category,
+        nextRows.map((r) => r.id)
+      );
+      setItems(updated);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '순서 변경 중 오류가 발생했습니다.';
+      onShowToast(msg, 'error');
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDragOverId(null);
+  };
+
+  const canReorder = !isViewer && !searchQuery.trim();
+
   return (
     <div className="winfo-container">
       {/* 1. 상단 컨트롤 카드 (카테고리 필터 탭 + 검색 + 항목 추가 버튼) */}
@@ -342,58 +416,112 @@ export const WorkInfoView: React.FC<WorkInfoViewProps> = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {section.rows.map((row) => (
-                    <tr key={row.id}>
-                      <td className="winfo-td-title">{row.title}</td>
-                      <td className="winfo-td-content">
-                        <div className="winfo-content-wrap">
-                          <div className="winfo-content-text">
-                            {renderFormattedText(row.content)}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleCopyContent(row.id, row.title, row.content)
-                            }
-                            className="winfo-copy-btn"
-                            title="내용 복사"
-                            aria-label={`${row.title} 내용 복사`}
-                          >
-                            {copiedId === row.id ? (
-                              <Check size={14} className="icon-emerald" />
-                            ) : (
-                              <Copy size={14} />
+                  {section.rows.map((row, rowIdx) => {
+                    const isFirst = rowIdx === 0;
+                    const isLast = rowIdx === section.rows.length - 1;
+                    const isDragging = draggingId === row.id;
+                    const isDragOver = dragOverId === row.id;
+                    return (
+                      <tr
+                        key={row.id}
+                        draggable={canReorder}
+                        onDragStart={(e) => handleDragStart(e, row.id)}
+                        onDragOver={(e) => handleDragOver(e, row.id)}
+                        onDrop={(e) =>
+                          handleDrop(e, section.category, section.rows, row.id)
+                        }
+                        onDragEnd={handleDragEnd}
+                        className={`winfo-table-row ${
+                          isDragging ? 'is-dragging' : ''
+                        } ${isDragOver ? 'is-drag-over' : ''}`}
+                      >
+                        <td className="winfo-td-title">
+                          <div className="winfo-title-cell-wrap">
+                            {canReorder && (
+                              <span
+                                className="winfo-drag-handle"
+                                title="드래그하여 순서 변경"
+                              >
+                                <GripVertical size={15} />
+                              </span>
                             )}
-                          </button>
-                        </div>
-                      </td>
-                      <td className="winfo-td-note">
-                        {row.note ? renderFormattedText(row.note) : ''}
-                      </td>
-                      <td className="winfo-td-actions">
-                        <div className="tasks-row-actions">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(row)}
-                            className="btn btn-secondary tasks-action-btn"
-                            title={isViewer ? '상세 조회' : '항목 수정'}
-                          >
-                            <Edit2 size={14} /> {isViewer ? '조회' : '수정'}
-                          </button>
-                          {!isViewer && (
+                            <span>{row.title}</span>
+                          </div>
+                        </td>
+                        <td className="winfo-td-content">
+                          <div className="winfo-content-wrap">
+                            <div className="winfo-content-text">
+                              {renderFormattedText(row.content)}
+                            </div>
                             <button
                               type="button"
-                              onClick={() => handleDeleteItem(row.id, row.title)}
-                              className="btn btn-secondary tasks-delete-icon-btn"
-                              title="항목 삭제"
+                              onClick={() =>
+                                handleCopyContent(row.id, row.title, row.content)
+                              }
+                              className="winfo-copy-btn"
+                              title="내용 복사"
+                              aria-label={`${row.title} 내용 복사`}
                             >
-                              <Trash2 size={14} />
+                              {copiedId === row.id ? (
+                                <Check size={14} className="icon-emerald" />
+                              ) : (
+                                <Copy size={14} />
+                              )}
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                          </div>
+                        </td>
+                        <td className="winfo-td-note">
+                          {row.note ? renderFormattedText(row.note) : ''}
+                        </td>
+                        <td className="winfo-td-actions">
+                          <div className="tasks-row-actions">
+                            {canReorder && (
+                              <div className="winfo-order-btn-group">
+                                <button
+                                  type="button"
+                                  disabled={isFirst}
+                                  onClick={() => handleMoveItem(row.id, 'up')}
+                                  className="btn btn-secondary winfo-order-btn"
+                                  title="위로 이동"
+                                  aria-label="위로 이동"
+                                >
+                                  <ArrowUp size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isLast}
+                                  onClick={() => handleMoveItem(row.id, 'down')}
+                                  className="btn btn-secondary winfo-order-btn"
+                                  title="아래로 이동"
+                                  aria-label="아래로 이동"
+                                >
+                                  <ArrowDown size={14} />
+                                </button>
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(row)}
+                              className="btn btn-secondary tasks-action-btn"
+                              title={isViewer ? '상세 조회' : '항목 수정'}
+                            >
+                              <Edit2 size={14} /> {isViewer ? '조회' : '수정'}
+                            </button>
+                            {!isViewer && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteItem(row.id, row.title)}
+                                className="btn btn-secondary tasks-delete-icon-btn"
+                                title="항목 삭제"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {section.rows.length === 0 && (
                     <tr>
                       <td colSpan={4} className="winfo-empty-cell">
@@ -407,58 +535,84 @@ export const WorkInfoView: React.FC<WorkInfoViewProps> = ({
 
             {/* 모바일 전용 카드 리스트 (767px 이하 노출) */}
             <div className="winfo-mobile-list">
-              {section.rows.map((row) => (
-                <div key={row.id} className="winfo-mobile-card">
-                  <div className="winfo-mobile-card-header">
-                    <h3 className="winfo-mobile-card-title">{row.title}</h3>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyContent(row.id, row.title, row.content)}
-                      className="btn btn-secondary winfo-mobile-copy-btn"
-                    >
-                      {copiedId === row.id ? (
-                        <>
-                          <Check size={14} className="icon-emerald" /> 복사됨
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={14} /> 복사
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <div className="winfo-mobile-card-body">
-                    {renderFormattedText(row.content)}
-                  </div>
-
-                  {row.note && (
-                    <div className="winfo-mobile-card-note">
-                      <span className="winfo-mobile-note-label">비고:</span>{' '}
-                      {renderFormattedText(row.note)}
-                    </div>
-                  )}
-
-                  <div className="winfo-mobile-card-actions">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditModal(row)}
-                      className="btn btn-secondary tasks-action-btn"
-                    >
-                      <Edit2 size={14} /> {isViewer ? '상세 조회' : '수정'}
-                    </button>
-                    {!isViewer && (
+              {section.rows.map((row, rowIdx) => {
+                const isFirst = rowIdx === 0;
+                const isLast = rowIdx === section.rows.length - 1;
+                return (
+                  <div key={row.id} className="winfo-mobile-card">
+                    <div className="winfo-mobile-card-header">
+                      <h3 className="winfo-mobile-card-title">{row.title}</h3>
                       <button
                         type="button"
-                        onClick={() => handleDeleteItem(row.id, row.title)}
-                        className="btn btn-secondary tasks-delete-icon-btn"
+                        onClick={() => handleCopyContent(row.id, row.title, row.content)}
+                        className="btn btn-secondary winfo-mobile-copy-btn"
                       >
-                        <Trash2 size={14} /> 삭제
+                        {copiedId === row.id ? (
+                          <>
+                            <Check size={14} className="icon-emerald" /> 복사됨
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={14} /> 복사
+                          </>
+                        )}
                       </button>
+                    </div>
+
+                    <div className="winfo-mobile-card-body">
+                      {renderFormattedText(row.content)}
+                    </div>
+
+                    {row.note && (
+                      <div className="winfo-mobile-card-note">
+                        <span className="winfo-mobile-note-label">비고:</span>{' '}
+                        {renderFormattedText(row.note)}
+                      </div>
                     )}
+
+                    <div className="winfo-mobile-card-actions">
+                      {canReorder && (
+                        <div className="winfo-order-btn-group">
+                          <button
+                            type="button"
+                            disabled={isFirst}
+                            onClick={() => handleMoveItem(row.id, 'up')}
+                            className="btn btn-secondary winfo-order-btn"
+                            title="위로 이동"
+                          >
+                            <ArrowUp size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isLast}
+                            onClick={() => handleMoveItem(row.id, 'down')}
+                            className="btn btn-secondary winfo-order-btn"
+                            title="아래로 이동"
+                          >
+                            <ArrowDown size={14} />
+                          </button>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(row)}
+                        className="btn btn-secondary tasks-action-btn"
+                      >
+                        <Edit2 size={14} /> {isViewer ? '상세 조회' : '수정'}
+                      </button>
+                      {!isViewer && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteItem(row.id, row.title)}
+                          className="btn btn-secondary tasks-delete-icon-btn"
+                        >
+                          <Trash2 size={14} /> 삭제
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {section.rows.length === 0 && (
                 <div className="tasks-empty-col">등록된 항목이 없습니다.</div>
               )}
