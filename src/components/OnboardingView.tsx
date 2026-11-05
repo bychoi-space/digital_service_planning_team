@@ -13,9 +13,6 @@ import {
   RotateCcw,
   X,
   Check,
-  UserCheck,
-  Sparkles,
-  Layers,
   FileText,
 } from 'lucide-react';
 
@@ -27,61 +24,55 @@ interface OnboardingViewProps {
 
 interface PhaseMeta {
   key: OnboardingPhase;
-  stepLabel: string;
   title: string;
-  shortTitle: string;
-  goal: string;
+  tabLabel: string;
 }
 
 const PHASE_META_LIST: PhaseMeta[] = [
   {
     key: 'day1',
-    stepLabel: 'STEP 1 · Day 1',
-    title: 'Day 1 · 출근 첫날 (인프라·권한·팀 적응)',
-    shortTitle: 'Day 1 · 출근 첫날',
-    goal: '사내 네트워크·그룹웨어·ERP/나스 및 4대 협업 허브 접근 권한을 확보합니다.',
+    title: '1일차 · 출근 첫날 (계정·환경 설정)',
+    tabLabel: '1일차 (출근 첫날)',
   },
   {
     key: 'week1',
-    stepLabel: 'STEP 2 · 1주차',
-    title: '1주차 · 도메인·시스템 구조 파악 & 산출물 역추적',
-    shortTitle: '1주차 · 도메인/산출물',
-    goal: '자사몰 Front·백오피스 Admin 구조와 최근 대표 과제의 기획서·시안을 역추적합니다.',
+    title: '1주차 · 서비스·시스템 파악',
+    tabLabel: '1주차 (서비스·시스템)',
   },
   {
     key: 'week2',
-    stepLabel: 'STEP 3 · 2주차',
-    title: '2주차 · 유관부서 협업 방식 숙지 & 첫 Pilot 과제 착수',
-    shortTitle: '2주차 · 협업/Pilot 과제',
-    goal: '기획 워크스페이스 작성 규격을 익히고 첫 소규모 개선 과제의 화면설계서를 작성합니다.',
+    title: '2주차 · 협업 및 첫 과제 실습',
+    tabLabel: '2주차 (협업·실습)',
   },
   {
     key: 'week3_4',
-    stepLabel: 'STEP 4 · 3~4주차',
-    title: '3~4주차 · QA 검증·배포 사이클 완주 & 주력 도메인 배정',
-    shortTitle: '3~4주차 · 배포/오너십',
-    goal: 'QA 검수부터 운영 배포까지 전 주기를 완주하고 2027 주요 과제 도메인 오너십을 확정합니다.',
+    title: '3~4주차 · 검수·배포 및 담당 배정',
+    tabLabel: '3~4주차 (검수·배포)',
   },
 ];
 
 const DEFAULT_CATEGORIES = [
   '인프라·권한',
-  '협업 허브',
-  '도메인·시스템',
-  '산출물·프로세스',
-  '실무·오너십',
+  '협업 도구',
+  '서비스·시스템',
+  '업무 절차',
+  '실무 과제',
 ];
 
 function getCategoryBadgeClass(category: string): string {
   switch (category) {
     case '인프라·권한':
       return 'onb-cat-badge onb-cat-infra';
+    case '협업 도구':
     case '협업 허브':
       return 'onb-cat-badge onb-cat-hub';
+    case '서비스·시스템':
     case '도메인·시스템':
       return 'onb-cat-badge onb-cat-domain';
+    case '업무 절차':
     case '산출물·프로세스':
       return 'onb-cat-badge onb-cat-process';
+    case '실무 과제':
     case '실무·오너십':
       return 'onb-cat-badge onb-cat-ownership';
     default:
@@ -126,7 +117,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
     category: '인프라·권한',
     title: '',
     description: '',
-    ownerRole: '본인 · 멘토(최범열)',
+    ownerRole: '본인',
     linkLabel: '',
     linkUrl: '',
     note: '',
@@ -145,18 +136,10 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
     const byPhase = PHASE_META_LIST.map((meta) => {
       const phaseItems = items.filter((i) => i.phase === meta.key);
       const phaseCompleted = phaseItems.filter((i) => i.completed).length;
-      const phaseTotal = phaseItems.length;
-      const state: 'done' | 'in_progress' | 'backlog' =
-        phaseTotal > 0 && phaseCompleted === phaseTotal
-          ? 'done'
-          : phaseCompleted > 0
-          ? 'in_progress'
-          : 'backlog';
       return {
         ...meta,
-        total: phaseTotal,
+        total: phaseItems.length,
         completed: phaseCompleted,
-        state,
       };
     });
 
@@ -218,8 +201,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
       refreshItems();
       onShowToast(
         updated.completed
-          ? `'${updated.title}' 항목을 완료 처리했습니다.`
-          : `'${updated.title}' 완료 체크를 해제했습니다.`,
+          ? `'${updated.title}' 완료 체크되었습니다.`
+          : `'${updated.title}' 체크 해제되었습니다.`,
         updated.completed ? 'success' : 'info'
       );
     } catch (err) {
@@ -232,18 +215,14 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
   const handleResetAllChecks = () => {
     if (isViewer) return;
     if (summaryStats.completed === 0) {
-      onShowToast('현재 완료 체크된 항목이 없습니다.', 'info');
+      onShowToast('완료 체크된 항목이 없습니다.', 'info');
       return;
     }
-    if (
-      window.confirm(
-        '모든 온보딩 체크리스트의 완료 상태를 미완료로 초기화하시겠습니까?\n(등록된 항목과 메모는 그대로 유지됩니다.)'
-      )
-    ) {
+    if (window.confirm('모든 체크리스트의 완료 체크를 초기화하시겠습니까?')) {
       try {
         PlanningStorageService.resetOnboardingChecks();
         refreshItems();
-        onShowToast('온보딩 체크리스트 완료 상태가 초기화되었습니다.', 'info');
+        onShowToast('완료 체크 상태가 초기화되었습니다.', 'info');
       } catch (err) {
         const msg = err instanceof Error ? err.message : '초기화 중 오류가 발생했습니다.';
         onShowToast(msg, 'error');
@@ -263,10 +242,10 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
       targetPhase === 'day1'
         ? '인프라·권한'
         : targetPhase === 'week1'
-        ? '도메인·시스템'
+        ? '서비스·시스템'
         : targetPhase === 'week2'
-        ? '산출물·프로세스'
-        : '실무·오너십';
+        ? '업무 절차'
+        : '실무 과제';
 
     setEditingItem(null);
     setFormData({
@@ -274,7 +253,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
       category: defaultCat,
       title: '',
       description: '',
-      ownerRole: '본인 · 멘토(최범열)',
+      ownerRole: '본인 · 최범열',
       linkLabel: '',
       linkUrl: '',
       note: '',
@@ -287,10 +266,10 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
     setEditingItem(item);
     setFormData({
       phase: item.phase,
-      category: item.category || '도메인·시스템',
+      category: item.category || '서비스·시스템',
       title: item.title,
       description: item.description,
-      ownerRole: item.ownerRole || '본인 · 멘토(최범열)',
+      ownerRole: item.ownerRole || '본인',
       linkLabel: item.linkLabel || '',
       linkUrl: item.linkUrl || '',
       note: item.note || '',
@@ -306,11 +285,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
       return;
     }
     if (!formData.title.trim()) {
-      onShowToast('체크리스트 항목 제목을 입력해주세요.', 'error');
-      return;
-    }
-    if (!formData.description.trim()) {
-      onShowToast('실행 가이드 설명을 입력해주세요.', 'error');
+      onShowToast('항목명을 입력해주세요.', 'error');
       return;
     }
 
@@ -318,27 +293,27 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
       if (editingItem) {
         PlanningStorageService.updateOnboardingItem(editingItem.id, {
           phase: formData.phase,
-          category: formData.category.trim() || '도메인·시스템',
+          category: formData.category.trim() || '서비스·시스템',
           title: formData.title.trim(),
           description: formData.description.trim(),
-          ownerRole: formData.ownerRole.trim() || '본인 · 멘토(최범열)',
+          ownerRole: formData.ownerRole.trim() || '본인',
           linkLabel: formData.linkLabel.trim() || undefined,
           linkUrl: formData.linkUrl.trim() || undefined,
           note: formData.note.trim(),
         });
-        onShowToast('온보딩 체크리스트 항목이 수정되었습니다.', 'success');
+        onShowToast('항목이 수정되었습니다.', 'success');
       } else {
         PlanningStorageService.createOnboardingItem({
           phase: formData.phase,
-          category: formData.category.trim() || '도메인·시스템',
+          category: formData.category.trim() || '서비스·시스템',
           title: formData.title.trim(),
           description: formData.description.trim(),
-          ownerRole: formData.ownerRole.trim() || '본인 · 멘토(최범열)',
+          ownerRole: formData.ownerRole.trim() || '본인',
           linkLabel: formData.linkLabel.trim() || undefined,
           linkUrl: formData.linkUrl.trim() || undefined,
           note: formData.note.trim(),
         });
-        onShowToast('새 온보딩 체크리스트 항목이 추가되었습니다.', 'success');
+        onShowToast('새 항목이 추가되었습니다.', 'success');
       }
       setIsModalOpen(false);
       refreshItems();
@@ -351,7 +326,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
   // 삭제 처리
   const handleDeleteItem = (id: string, title: string) => {
     if (isViewer) return;
-    if (window.confirm(`정말 '${title}' 체크리스트 항목을 삭제하시겠습니까?`)) {
+    if (window.confirm(`'${title}' 항목을 삭제하시겠습니까?`)) {
       try {
         PlanningStorageService.deleteOnboardingItem(id);
         onShowToast(`'${title}' 항목이 삭제되었습니다.`, 'info');
@@ -364,7 +339,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
     }
   };
 
-  // 바로가기 링크 이동 처리 (내부 해시 vs 외부 URL)
+  // 바로가기 링크 이동 처리
   const handleShortcutClick = (url: string) => {
     const trimmed = url.trim();
     if (!trimmed) return;
@@ -377,112 +352,10 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
 
   return (
     <div className="onb-container">
-      {/* 1. 상단 온보딩 로드맵 요약 및 단계별 진행 현황 카드 */}
-      <section className="card onb-hero-card">
-        <div className="onb-hero-top">
-          <div className="onb-hero-title-group">
-            <div className="onb-hero-eyebrow">
-              <Sparkles size={15} />
-              <span>SERVICE PLANNING TEAM ONBOARDING ROADMAP</span>
-            </div>
-            <h2 className="onb-hero-title">
-              서비스기획팀 신규 입사자 4주 온보딩 체크리스트
-            </h2>
-            <p className="onb-hero-desc">
-              출근 첫날 인프라 세팅부터 자사몰(Front)·백오피스(Admin) 도메인 파악, 첫 Pilot 과제 수행 및 배포 완주까지 단계별 체크리스트를 점검합니다.
-            </p>
-          </div>
-
-          <div className="onb-hero-actions">
-            <div className="onb-overall-stat-box">
-              <div className="onb-overall-stat-header">
-                <span className="onb-overall-stat-label">전체 온보딩 진행 현황</span>
-                <strong className="onb-overall-stat-count">
-                  {summaryStats.completed} / {summaryStats.total} 완료
-                </strong>
-              </div>
-              <progress
-                className="onb-progress-bar"
-                value={summaryStats.completed}
-                max={summaryStats.total || 1}
-              />
-              <div className="onb-overall-stat-sub">
-                <span>완료 {summaryStats.completed}건</span>
-                <span>잔여 {summaryStats.pending}건</span>
-              </div>
-            </div>
-
-            {!isViewer && (
-              <div className="onb-hero-btn-group">
-                <button
-                  type="button"
-                  onClick={handleResetAllChecks}
-                  className="btn btn-secondary onb-reset-btn"
-                  title="전체 체크 상태 초기화"
-                >
-                  <RotateCcw size={15} /> 체크 초기화
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleOpenCreateModal()}
-                  className="btn btn-primary onb-add-main-btn"
-                >
-                  <Plus size={16} /> 체크리스트 추가
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 4단계 로드맵 요약 카드 그리드 */}
-        <div className="onb-phase-grid">
-          {summaryStats.byPhase.map((phase) => {
-            const isSelected = selectedPhase === phase.key;
-            return (
-              <button
-                key={phase.key}
-                type="button"
-                onClick={() =>
-                  setSelectedPhase((prev) => (prev === phase.key ? 'all' : phase.key))
-                }
-                className={`onb-phase-card ${isSelected ? 'active' : ''} ${
-                  phase.state === 'done' ? 'is-done' : ''
-                }`}
-              >
-                <div className="onb-phase-card-top">
-                  <span className="onb-phase-step-pill">{phase.stepLabel}</span>
-                  <span
-                    className={`onb-phase-status-badge status-${phase.state}`}
-                  >
-                    {phase.state === 'done'
-                      ? '단계 완료'
-                      : phase.state === 'in_progress'
-                      ? '진행중'
-                      : '진행 대기'}
-                  </span>
-                </div>
-                <strong className="onb-phase-card-title">{phase.shortTitle}</strong>
-                <p className="onb-phase-card-goal">{phase.goal}</p>
-                <div className="onb-phase-card-footer">
-                  <progress
-                    className="onb-phase-mini-progress"
-                    value={phase.completed}
-                    max={phase.total || 1}
-                  />
-                  <span className="onb-phase-card-count">
-                    {phase.completed} / {phase.total} 완료
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 2. 단계 탭 + 상태 필터 + 검색 컨트롤 바 */}
+      {/* 1. 상단 단계 탭 · 필터 · 검색 · 액션 단일 컨트롤 바 */}
       <div className="card onb-control-card">
         <div className="onb-control-bar">
-          <div className="onb-phase-tabs" role="tablist" aria-label="온보딩 단계 필터">
+          <div className="onb-phase-tabs" role="tablist" aria-label="온보딩 단계">
             <button
               type="button"
               role="tab"
@@ -490,9 +363,10 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
               onClick={() => setSelectedPhase('all')}
               className={`onb-phase-tab ${selectedPhase === 'all' ? 'active' : ''}`}
             >
-              <Layers size={15} />
-              <span>전체 단계</span>
-              <span className="onb-phase-tab-count">{items.length}</span>
+              <span>전체</span>
+              <span className="onb-phase-tab-count">
+                {summaryStats.completed}/{summaryStats.total}
+              </span>
             </button>
 
             {summaryStats.byPhase.map((phase) => (
@@ -504,7 +378,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                 onClick={() => setSelectedPhase(phase.key)}
                 className={`onb-phase-tab ${selectedPhase === phase.key ? 'active' : ''}`}
               >
-                <span>{phase.shortTitle}</span>
+                <span>{phase.tabLabel}</span>
                 <span className="onb-phase-tab-count">
                   {phase.completed}/{phase.total}
                 </span>
@@ -519,21 +393,21 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                 onClick={() => setStatusFilter('all')}
                 className={`onb-status-seg-btn ${statusFilter === 'all' ? 'active' : ''}`}
               >
-                전체 ({summaryStats.total})
+                전체 {summaryStats.total}
               </button>
               <button
                 type="button"
                 onClick={() => setStatusFilter('pending')}
                 className={`onb-status-seg-btn ${statusFilter === 'pending' ? 'active' : ''}`}
               >
-                미완료 ({summaryStats.pending})
+                미완료 {summaryStats.pending}
               </button>
               <button
                 type="button"
                 onClick={() => setStatusFilter('completed')}
                 className={`onb-status-seg-btn ${statusFilter === 'completed' ? 'active' : ''}`}
               >
-                완료 ({summaryStats.completed})
+                완료 {summaryStats.completed}
               </button>
             </div>
 
@@ -541,43 +415,57 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
               <Search size={16} className="tasks-search-icon" />
               <input
                 type="text"
-                placeholder="체크리스트 제목, 가이드, 담당, 메모 검색..."
+                placeholder="항목, 내용, 담당자 검색..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="form-input tasks-search-input"
               />
             </div>
+
+            {!isViewer && (
+              <div className="onb-top-btn-group">
+                <button
+                  type="button"
+                  onClick={handleResetAllChecks}
+                  className="btn btn-secondary"
+                  title="완료 체크 초기화"
+                >
+                  <RotateCcw size={15} /> 초기화
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleOpenCreateModal()}
+                  className="btn btn-primary"
+                >
+                  <Plus size={16} /> 항목 추가
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* 3. 단계별 체크리스트 섹션 스택 */}
+      {/* 2. 단계별 체크리스트 목록 */}
       <div className="onb-sections-stack">
         {groupedPhases.map(({ meta, rows, totalInPhase, completedInPhase }) => (
           <section key={meta.key} className="card onb-section-card">
             <div className="onb-section-header">
               <div className="onb-section-header-left">
-                <span className="onb-section-step-badge">{meta.stepLabel}</span>
-                <div className="onb-section-title-wrap">
-                  <h3 className="onb-section-title">{meta.title}</h3>
-                  <p className="onb-section-subtitle">{meta.goal}</p>
-                </div>
-              </div>
-
-              <div className="onb-section-header-right">
+                <h2 className="onb-section-title">{meta.title}</h2>
                 <span className="onb-section-progress-pill">
                   {completedInPhase} / {totalInPhase} 완료
                 </span>
-                {!isViewer && (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenCreateModal(meta.key)}
-                    className="btn btn-secondary onb-section-add-btn"
-                  >
-                    <Plus size={15} /> 항목 추가
-                  </button>
-                )}
               </div>
+
+              {!isViewer && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenCreateModal(meta.key)}
+                  className="btn btn-secondary onb-section-add-btn"
+                >
+                  <Plus size={15} /> 추가
+                </button>
+              )}
             </div>
 
             <div className="onb-checklist-list">
@@ -591,13 +479,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     onClick={() => handleToggleCheck(item)}
                     disabled={isViewer}
                     className={`onb-checkbox-btn ${item.completed ? 'checked' : ''}`}
-                    title={
-                      isViewer
-                        ? '유관부서(읽기 전용) 모드'
-                        : item.completed
-                        ? '클릭하여 완료 해제'
-                        : '클릭하여 완료 체크'
-                    }
+                    title={item.completed ? '완료 해제' : '완료 체크'}
                     aria-label={`${item.title} 완료 체크`}
                   >
                     {item.completed ? (
@@ -619,34 +501,33 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                       }
                     }}
                   >
-                    <div className="onb-item-meta-row">
+                    <div className="onb-item-title-line">
                       <span className={getCategoryBadgeClass(item.category)}>
                         {item.category}
                       </span>
-                      <span className="onb-owner-badge">
-                        <UserCheck size={14} />
-                        <span>안내·지원: {item.ownerRole}</span>
-                      </span>
+                      <h3 className="onb-item-title">{item.title}</h3>
+                      {item.ownerRole && (
+                        <span className="onb-owner-badge">{item.ownerRole}</span>
+                      )}
                       {item.completed && (
                         <span className="onb-completed-stamp">
                           <Check size={14} />
                           <span>
-                            완료 확인: {item.completedBy || '팀원'}
+                            {item.completedBy || '완료'}
                             {item.completedAt ? ` (${formatShortDate(item.completedAt)})` : ''}
                           </span>
                         </span>
                       )}
                     </div>
 
-                    <h4 className="onb-item-title">{item.title}</h4>
-                    <p className="onb-item-desc">{item.description}</p>
+                    {item.description && (
+                      <p className="onb-item-desc">{item.description}</p>
+                    )}
 
                     {item.note && (
                       <div className="onb-item-note">
                         <FileText size={14} className="onb-note-icon" />
-                        <span>
-                          <strong>진행 메모:</strong> {item.note}
-                        </span>
+                        <span>{item.note}</span>
                       </div>
                     )}
                   </div>
@@ -659,7 +540,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                         className="btn btn-secondary onb-shortcut-btn"
                         title={item.linkUrl}
                       >
-                        <span>{item.linkLabel || '바로가기'}</span>
+                        <span>{item.linkLabel || '열기'}</span>
                         {item.linkUrl.startsWith('#/') ? (
                           <ArrowRight size={14} />
                         ) : (
@@ -672,9 +553,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                       type="button"
                       onClick={() => handleOpenEditModal(item)}
                       className="btn btn-secondary tasks-action-btn"
-                      title={isViewer ? '상세 조회' : '항목 수정 및 메모 작성'}
+                      title={isViewer ? '상세 조회' : '수정 및 메모'}
                     >
-                      <Edit2 size={14} /> {isViewer ? '조회' : '수정·메모'}
+                      <Edit2 size={14} /> {isViewer ? '조회' : '수정'}
                     </button>
 
                     {!isViewer && (
@@ -682,7 +563,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                         type="button"
                         onClick={() => handleDeleteItem(item.id, item.title)}
                         className="btn btn-secondary tasks-delete-icon-btn"
-                        title="항목 삭제"
+                        title="삭제"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -692,9 +573,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
               ))}
 
               {rows.length === 0 && (
-                <div className="onb-empty-row">
-                  조건에 해당하는 체크리스트 항목이 없습니다.
-                </div>
+                <div className="onb-empty-row">등록된 항목이 없습니다.</div>
               )}
             </div>
           </section>
@@ -702,12 +581,12 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
 
         {groupedPhases.length === 0 && (
           <div className="card onb-empty-card">
-            검색 결과 또는 선택한 필터에 해당하는 온보딩 항목이 없습니다.
+            조건에 해당하는 체크리스트 항목이 없습니다.
           </div>
         )}
       </div>
 
-      {/* 4. 체크리스트 항목 추가 / 수정 / 메모 모달 */}
+      {/* 3. 항목 추가 / 수정 모달 */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div
@@ -717,16 +596,16 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
             <div className="modal-header">
               <h3 className="modal-title">
                 {isViewer
-                  ? '온보딩 체크리스트 상세 조회'
+                  ? '체크리스트 조회'
                   : editingItem
-                  ? '온보딩 체크리스트 수정 · 메모 기록'
-                  : '새 온보딩 체크리스트 항목 추가'}
+                  ? '체크리스트 수정'
+                  : '체크리스트 추가'}
               </h3>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
                 className="tasks-modal-close-btn"
-                aria-label="모달 닫기"
+                aria-label="닫기"
               >
                 <X size={20} />
               </button>
@@ -736,7 +615,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
               <div className="modal-body">
                 <div className="tasks-form-grid-3">
                   <div className="form-group">
-                    <label className="form-label">온보딩 단계 *</label>
+                    <label className="form-label">단계 *</label>
                     <select
                       value={formData.phase}
                       disabled={isViewer}
@@ -750,14 +629,14 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     >
                       {PHASE_META_LIST.map((p) => (
                         <option key={p.key} value={p.key}>
-                          {p.shortTitle}
+                          {p.tabLabel}
                         </option>
                       ))}
                     </select>
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">항목 분류 *</label>
+                    <label className="form-label">구분 *</label>
                     <select
                       value={formData.category}
                       disabled={isViewer}
@@ -775,11 +654,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">안내·지원 담당</label>
+                    <label className="form-label">담당 / 안내자</label>
                     <input
                       type="text"
                       disabled={isViewer}
-                      placeholder="예: 멘토(최범열), 본인"
+                      placeholder="예: 본인, 최범열"
                       value={formData.ownerRole}
                       onChange={(e) =>
                         setFormData({ ...formData, ownerRole: e.target.value })
@@ -790,12 +669,12 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">체크리스트 제목 *</label>
+                  <label className="form-label">항목명 *</label>
                   <input
                     type="text"
                     required
                     disabled={isViewer}
-                    placeholder="수행해야 할 온보딩 항목 제목을 입력하세요"
+                    placeholder="체크리스트 제목 입력"
                     value={formData.title}
                     onChange={(e) =>
                       setFormData({ ...formData, title: e.target.value })
@@ -805,12 +684,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">상세 실행 가이드 및 확인 내용 *</label>
+                  <label className="form-label">세부 내용</label>
                   <textarea
-                    rows={3}
-                    required
+                    rows={2}
                     disabled={isViewer}
-                    placeholder="신규 입사자가 확인하거나 실습해야 할 구체적인 가이드를 입력하세요"
+                    placeholder="확인할 핵심 내용 입력"
                     value={formData.description}
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
@@ -825,7 +703,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                     <input
                       type="text"
                       disabled={isViewer}
-                      placeholder="예: 업무 관련 정보 열기, QA Front 열기"
+                      placeholder="예: 그룹웨어, 업무 관리"
                       value={formData.linkLabel}
                       onChange={(e) =>
                         setFormData({ ...formData, linkLabel: e.target.value })
@@ -835,7 +713,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">바로가기 URL 또는 내부 경로 (선택)</label>
+                    <label className="form-label">바로가기 주소 (선택)</label>
                     <input
                       type="text"
                       disabled={isViewer}
@@ -850,11 +728,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">진행 메모 · 특이사항 기록 (선택)</label>
+                  <label className="form-label">메모 (선택)</label>
                   <textarea
                     rows={2}
                     disabled={isViewer}
-                    placeholder="계정 발급 완료 여부, 질문 사항, 배정된 Pilot 과제명 등 메모를 자유롭게 기록하세요"
+                    placeholder="진행 특이사항이나 메모 입력"
                     value={formData.note}
                     onChange={(e) =>
                       setFormData({ ...formData, note: e.target.value })
@@ -879,11 +757,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                   onClick={() => setIsModalOpen(false)}
                   className="btn btn-secondary"
                 >
-                  닫기
+                  취소
                 </button>
                 {!isViewer && (
                   <button type="submit" className="btn btn-primary">
-                    {editingItem ? '변경사항 저장' : '항목 등록'}
+                    저장
                   </button>
                 )}
               </div>
