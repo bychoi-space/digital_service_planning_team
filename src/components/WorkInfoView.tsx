@@ -14,7 +14,6 @@ import {
   FolderOpen,
   ArrowUp,
   ArrowDown,
-  GripVertical,
 } from 'lucide-react';
 
 interface WorkInfoViewProps {
@@ -69,8 +68,6 @@ export const WorkInfoView: React.FC<WorkInfoViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -258,61 +255,6 @@ export const WorkInfoView: React.FC<WorkInfoViewProps> = ({
     }
   };
 
-  // 드래그 앤 드롭 순서 변경
-  const handleDragStart = (e: React.DragEvent, id: string) => {
-    if (isViewer || searchQuery.trim()) return;
-    setDraggingId(id);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', id);
-  };
-
-  const handleDragOver = (e: React.DragEvent, targetId: string) => {
-    if (isViewer || !draggingId || draggingId === targetId) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (dragOverId !== targetId) {
-      setDragOverId(targetId);
-    }
-  };
-
-  const handleDrop = (
-    e: React.DragEvent,
-    category: string,
-    sectionRows: WorkInfoItem[],
-    targetId: string
-  ) => {
-    e.preventDefault();
-    const sourceId = draggingId || e.dataTransfer.getData('text/plain');
-    setDraggingId(null);
-    setDragOverId(null);
-
-    if (isViewer || !sourceId || sourceId === targetId) return;
-
-    const fromIdx = sectionRows.findIndex((r) => r.id === sourceId);
-    const toIdx = sectionRows.findIndex((r) => r.id === targetId);
-    if (fromIdx === -1 || toIdx === -1) return;
-
-    const nextRows = [...sectionRows];
-    const [moved] = nextRows.splice(fromIdx, 1);
-    nextRows.splice(toIdx, 0, moved);
-
-    try {
-      const updated = PlanningStorageService.reorderWorkInfosInCategory(
-        category,
-        nextRows.map((r) => r.id)
-      );
-      setItems(updated);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '순서 변경 중 오류가 발생했습니다.';
-      onShowToast(msg, 'error');
-    }
-  };
-
-  const handleDragEnd = () => {
-    setDraggingId(null);
-    setDragOverId(null);
-  };
-
   const canReorder = !isViewer && !searchQuery.trim();
 
   return (
@@ -419,35 +361,9 @@ export const WorkInfoView: React.FC<WorkInfoViewProps> = ({
                   {section.rows.map((row, rowIdx) => {
                     const isFirst = rowIdx === 0;
                     const isLast = rowIdx === section.rows.length - 1;
-                    const isDragging = draggingId === row.id;
-                    const isDragOver = dragOverId === row.id;
                     return (
-                      <tr
-                        key={row.id}
-                        draggable={canReorder}
-                        onDragStart={(e) => handleDragStart(e, row.id)}
-                        onDragOver={(e) => handleDragOver(e, row.id)}
-                        onDrop={(e) =>
-                          handleDrop(e, section.category, section.rows, row.id)
-                        }
-                        onDragEnd={handleDragEnd}
-                        className={`winfo-table-row ${
-                          isDragging ? 'is-dragging' : ''
-                        } ${isDragOver ? 'is-drag-over' : ''}`}
-                      >
-                        <td className="winfo-td-title">
-                          <div className="winfo-title-cell-wrap">
-                            {canReorder && (
-                              <span
-                                className="winfo-drag-handle"
-                                title="드래그하여 순서 변경"
-                              >
-                                <GripVertical size={15} />
-                              </span>
-                            )}
-                            <span>{row.title}</span>
-                          </div>
-                        </td>
+                      <tr key={row.id}>
+                        <td className="winfo-td-title">{row.title}</td>
                         <td className="winfo-td-content">
                           <div className="winfo-content-wrap">
                             <div className="winfo-content-text">
