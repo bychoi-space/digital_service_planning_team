@@ -613,9 +613,19 @@ export class PlanningStorageService {
         }
       }
 
-      // 1. tasks 동기화 (로컬 데이터 절대 보존 및 안전 병합 정책)
-      const { data: remoteTasks, error: taskErr } = await client.from('tasks').select('*');
+      // 1. tasks 동기화 (로컬 데이터 보존 및 원격/Notion 삭제 항목 정리)
+      const [{ data: remoteTasks, error: taskErr }, { data: remoteDeleteLogs }] = await Promise.all([
+        client.from('tasks').select('*'),
+        client
+          .from('audit_logs')
+          .select('entity_id')
+          .eq('entity_type', 'task')
+          .eq('action', 'DELETE'),
+      ]);
       if (!taskErr && remoteTasks) {
+        const deletedTaskIds = new Set<string>(
+          (remoteDeleteLogs || []).map((row: any) => String(row.entity_id || ''))
+        );
         const SUPERSEDED_MANUAL_TASK_IDS = new Set([
           // 디자인 구 수기 등록 6건
           'task-mvyiimh8-qp6sq',
@@ -685,15 +695,28 @@ export class PlanningStorageService {
           };
         });
 
-        // 로컬에 등록된 기존 데이터 보호 및 안전 병합
+        const remoteIdSet = new Set<string>(mappedRemoteTasks.map((r) => String(r.id)));
+
+        // 로컬에 등록된 기존 데이터 보호 및 원격 삭제(Notion 휴지통 이동 포함) 항목 제외
         const localTasks = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []).filter(
-          (t) =>
-            !String(t.id).startsWith('task-10') &&
-            !SUPERSEDED_MANUAL_TASK_IDS.has(String(t.id))
+          (t) => {
+            const tid = String(t.id);
+            if (tid.startsWith('task-10') || SUPERSEDED_MANUAL_TASK_IDS.has(tid)) {
+              return false;
+            }
+            if (!remoteIdSet.has(tid)) {
+              const isRemoteDeletedOrNotionSynced =
+                deletedTaskIds.has(tid) || tid.startsWith('notion-') || Boolean(t.notionUrl);
+              if (isRemoteDeletedOrNotionSynced) {
+                return false;
+              }
+            }
+            return true;
+          }
         );
 
         const taskMap = new Map<string, TaskItem>();
-        // 1-1. 로컬 데이터 먼저 맵에 등록 (사용자가 새로 등록한 작업 완벽 보존)
+        // 1-1. 로컬 데이터 먼저 맵에 등록 (사용자가 새로 등록한 미동기화 작업 보존)
         localTasks.forEach((t) => {
           const autoStatus = computeTaskStatusByDates(
             t.startDate,
@@ -729,9 +752,9 @@ export class PlanningStorageService {
           window.dispatchEvent(new CustomEvent('ds-portal-tasks-updated'));
         }
 
-        // 1-3. 로컬에만 있고 원격에 아직 반영 안 된 항목이 있으면 자동 백그라운드 푸시
+        // 1-3. 로컬에만 있고 원격에 아직 반영 안 된 신규 항목이 있으면 자동 백그라운드 푸시
         for (const localTask of localTasks) {
-          if (!mappedRemoteTasks.some((r) => r.id === localTask.id)) {
+          if (!remoteIdSet.has(String(localTask.id))) {
             this.pushTaskToRemote(localTask);
           }
         }
@@ -1593,7 +1616,13 @@ export class PlanningStorageService {
   // --- Notion (Sisun-Tasks) 양방향 실시간 동기화 (Supabase Edge Function 연동) ---
   public static async syncWithNotion(options?: {
     force?: boolean;
-  }): Promise<{ success: boolean; syncedCount: number; message?: string }> {
+  }): Promise<{
+    success: boolean;
+    syncedCount: number;
+    deletedCount?: number;
+    deletedTitles?: string[];
+    message?: string;
+  }> {
     if (!isSupabaseEnabled()) {
       return { success: false, syncedCount: 0, message: '클라우드 DB 연결이 비활성화되어 있습니다.' };
     }
@@ -1614,10 +1643,20 @@ export class PlanningStorageService {
           message: data?.error || data?.message || 'Notion 동기화 요청에 실패했습니다.',
         };
       }
+
+      if (Array.isArray(data.deletedIds) && data.deletedIds.length > 0) {
+        const deletedIdSet = new Set<string>(data.deletedIds.map((id: any) => String(id)));
+        const stored = safeJsonParse<TaskItem[]>(localStorage.getItem(STORAGE_KEYS.TASKS), []);
+        const filtered = stored.filter((t) => !deletedIdSet.has(String(t.id)));
+        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(filtered));
+      }
+
       await this.syncFromSupabase();
       return {
         success: true,
         syncedCount: Number(data.syncedCount || 0),
+        deletedCount: Number(data.deletedCount || 0),
+        deletedTitles: Array.isArray(data.deletedTitles) ? data.deletedTitles : [],
       };
     } catch (error) {
       console.warn('[Notion Sync] Pull error:', error);
@@ -1858,6 +1897,36 @@ export class PlanningStorageService {
     return updatedTask;
   }
 
+  public static async pushTaskDeleteToNotion(
+    task: Pick<TaskItem, 'id' | 'notionUrl' | 'title'>
+  ): Promise<{ success: boolean }> {
+    if (!isSupabaseEnabled()) return { success: false };
+    const isNotionLinked = String(task.id).startsWith('notion-') || Boolean(task.notionUrl);
+    if (!isNotionLinked) return { success: false };
+
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/notion-sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'push_delete',
+          task: {
+            id: task.id,
+            notionUrl: task.notionUrl,
+            title: task.title,
+          },
+        }),
+      });
+      const data = await response.json();
+      return {
+        success: Boolean(data?.success),
+      };
+    } catch (error) {
+      console.warn('[Notion Sync] Push delete error:', error);
+      return { success: false };
+    }
+  }
+
   public static deleteTask(taskId: string): void {
     if (this.isViewer()) {
       throw new Error('유관부서(읽기 전용) 모드에서는 업무를 삭제할 수 없습니다.');
@@ -1869,12 +1938,16 @@ export class PlanningStorageService {
     const filtered = tasks.filter((t) => t.id !== taskId);
     localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(filtered));
 
+    const isNotionLinked = String(target.id).startsWith('notion-') || Boolean(target.notionUrl);
+
     this.recordAuditLog({
       entityType: 'task',
       entityId: target.id,
       entityTitle: target.title,
       action: 'DELETE',
-      summary: `업무 삭제: [${target.category}] ${target.title}`,
+      summary: isNotionLinked
+        ? `업무 삭제 (Notion 휴지통 연동): [${target.track || '기획'} · ${target.category}] ${target.title}`
+        : `업무 삭제: [${target.track || '기획'} · ${target.category}] ${target.title}`,
     });
 
     // Supabase DB 삭제
@@ -1883,6 +1956,11 @@ export class PlanningStorageService {
       client?.from('tasks').delete().eq('id', taskId).then(({ error }) => {
         if (error) console.warn('Supabase task delete note:', error.message);
       });
+    }
+
+    // Notion (Sisun-Tasks) 연동 과제인 경우 휴지통(in_trash)으로 동시 이동
+    if (isNotionLinked) {
+      this.pushTaskDeleteToNotion(target);
     }
   }
 

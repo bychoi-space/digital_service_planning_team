@@ -401,8 +401,12 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       const res = await PlanningStorageService.syncWithNotion();
       refreshTasks();
       if (res.success) {
+        const deletedNote =
+          res.deletedCount && res.deletedCount > 0
+            ? `, 휴지통 이동 ${res.deletedCount}건 삭제 반영`
+            : '';
         onShowToast(
-          `Notion · 기획서 워크스페이스 · Figma 디자인 동기화가 완료되었습니다. (${res.syncedCount}건)`,
+          `Notion · 기획서 워크스페이스 · Figma 디자인 동기화가 완료되었습니다. (${res.syncedCount}건${deletedNote})`,
           'success'
         );
       } else {
@@ -666,9 +670,21 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       onShowToast('유관부서(읽기 전용) 모드에서는 삭제할 수 없습니다.', 'error');
       return;
     }
-    if (window.confirm(`정말 "${title}" 업무를 삭제하시겠습니까? (감사 로그에 영구 기록됩니다)`)) {
+    const targetTask = tasks.find((t) => t.id === taskId);
+    const isNotionLinked =
+      String(taskId).startsWith('notion-') || Boolean(targetTask?.notionUrl);
+    const confirmMessage = isNotionLinked
+      ? `정말 "${title}" 업무를 삭제하시겠습니까?\n(포털 삭제와 함께 Notion 과제도 휴지통으로 이동됩니다)`
+      : `정말 "${title}" 업무를 삭제하시겠습니까? (감사 로그에 기록됩니다)`;
+
+    if (window.confirm(confirmMessage)) {
       PlanningStorageService.deleteTask(taskId);
-      onShowToast('업무가 삭제되었습니다.', 'info');
+      onShowToast(
+        isNotionLinked
+          ? '업무가 삭제되었으며 Notion 휴지통으로 이동되었습니다.'
+          : '업무가 삭제되었습니다.',
+        'info'
+      );
       if (isModalOpen) setIsModalOpen(false);
       refreshTasks();
     }
