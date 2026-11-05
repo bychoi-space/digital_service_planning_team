@@ -262,6 +262,38 @@ function sortSwimlaneTasks(list: TaskItem[]): TaskItem[] {
   });
 }
 
+// 과제의 대표 연-월(YYYY-MM) 추출 (마감일 우선, 없으면 시작일)
+function getTaskYearMonth(task: TaskItem): string {
+  const d = (task.dueDate || task.startDate || '').trim();
+  if (d.length >= 7 && /^\d{4}-\d{2}/.test(d)) {
+    return d.slice(0, 7);
+  }
+  return '미정';
+}
+
+// 과제가 선택한 연-월(YYYY-MM) 필터와 매칭되는지 판별
+function matchesTaskMonth(task: TaskItem, selectedMonth: string): boolean {
+  if (selectedMonth === 'all') return true;
+  const start = (task.startDate || '').trim();
+  const due = (task.dueDate || '').trim();
+  if (!start && !due) {
+    return task.status !== 'done';
+  }
+  const sMonth = start.length >= 7 ? start.slice(0, 7) : '';
+  const eMonth = due.length >= 7 ? due.slice(0, 7) : '';
+  if (sMonth === selectedMonth || eMonth === selectedMonth) return true;
+  if (sMonth && eMonth && sMonth <= selectedMonth && selectedMonth <= eMonth) return true;
+  return false;
+}
+
+// YYYY-MM -> "2026년 11월" 포맷 변환
+function formatYearMonthLabel(ym: string): string {
+  if (ym === '미정') return '일정 미정';
+  const [y, m] = ym.split('-');
+  if (!y || !m) return ym;
+  return `${y}년 ${Number(m)}월`;
+}
+
 export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onShowToast }) => {
   const [tasks, setTasks] = useState<TaskItem[]>(() => PlanningStorageService.getTasks());
   const [teamMembers, setTeamMembers] = useState<User[]>(() => PlanningStorageService.getServicePlanningMembers());
@@ -271,7 +303,10 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [showDoneTasks, setShowDoneTasks] = useState<boolean>(false);
   const [expandedDoneTracks, setExpandedDoneTracks] = useState<Record<string, boolean>>({});
+  const [doneTrackMonthFilter, setDoneTrackMonthFilter] = useState<Record<string, string>>({});
 
   // 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -639,21 +674,38 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
     }
   };
 
-  // 트랙별 집계 카운트
+  // 등록된 전체 과제에서 연-월(YYYY-MM) 목록 추출 (최신 월 순 정렬)
+  const availableMonths = Array.from(
+    new Set(
+      tasks
+        .flatMap((t) => [
+          t.dueDate && t.dueDate.length >= 7 ? t.dueDate.slice(0, 7) : '',
+          t.startDate && t.startDate.length >= 7 ? t.startDate.slice(0, 7) : '',
+        ])
+        .filter((ym) => /^\d{4}-\d{2}$/.test(ym))
+    )
+  ).sort((a, b) => b.localeCompare(a));
+
+  const effectiveShowDone = showDoneTasks || selectedStatus === 'done';
+
+  // 상단 파트 탭 집계 카운트 (완료 숨김 시 진행·대기 활성 건수, 완료 포함 시 전체 건수)
+  const countableTasks = tasks.filter(
+    (t) => matchesTaskMonth(t, selectedMonth) && (effectiveShowDone || t.status !== 'done')
+  );
   const trackCounts = {
-    all: tasks.length,
-    기획: tasks.filter((t) => t.track === '기획').length,
-    디자인: tasks.filter((t) => t.track === '디자인').length,
-    퍼블리싱: tasks.filter((t) => t.track === '퍼블리싱').length,
+    all: countableTasks.length,
+    기획: countableTasks.filter((t) => (t.track || '기획') === '기획').length,
+    디자인: countableTasks.filter((t) => t.track === '디자인').length,
+    퍼블리싱: countableTasks.filter((t) => t.track === '퍼블리싱').length,
   };
 
-  // 필터링 적용
+  // 필터링 적용 (검색어 · 파트 · 도메인 · 담당자 · 상태 · 월별 기간)
   const filteredTasks = tasks.filter((t) => {
     const matchesSearch =
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.assigneeName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTrack = selectedTrack === 'all' || t.track === selectedTrack;
+    const matchesTrack = selectedTrack === 'all' || (t.track || '기획') === selectedTrack;
     const matchesCategory = selectedCategory === 'all' || t.category === selectedCategory;
     const selectedMemberObj = teamMembers.find((m) => String(m.id) === String(selectedAssignee));
     const matchesAssignee =
@@ -661,14 +713,150 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       String(t.assigneeId) === String(selectedAssignee) ||
       (selectedMemberObj ? t.assigneeName.trim() === selectedMemberObj.name.trim() : false);
     const matchesStatus = selectedStatus === 'all' || t.status === selectedStatus;
-    return matchesSearch && matchesTrack && matchesCategory && matchesAssignee && matchesStatus;
+    const matchesMonth = matchesTaskMonth(t, selectedMonth);
+    return (
+      matchesSearch &&
+      matchesTrack &&
+      matchesCategory &&
+      matchesAssignee &&
+      matchesStatus &&
+      matchesMonth
+    );
   });
+
+  const totalFilteredDoneCount = filteredTasks.filter((t) => t.status === 'done').length;
+  const listVisibleTasks = effectiveShowDone
+    ? filteredTasks
+    : filteredTasks.filter((t) => t.status !== 'done');
+
+  // 공통 업무 카드 렌더러 (진행·대기 그리드 & 완료 보관함 그리드 공용)
+  const renderTaskCard = (
+    task: TaskItem,
+    trackCfg: (typeof TRACK_CONFIG)[TaskTrack]
+  ) => {
+    const priorityCfg = PRIORITIES.find((p) => p.key === task.priority) || PRIORITIES[2];
+    const statusObj = STATUSES.find((s) => s.key === task.status) || STATUSES[0];
+    const showPriorityBadge = task.priority === 'urgent' || task.priority === 'high';
+    const workspaceViewerUrl = resolveWorkspaceViewerUrl(task);
+    const figmaUrl = resolveFigmaUrl(task);
+    const notionUrl = task.notionUrl?.trim() || null;
+
+    return (
+      <div
+        key={task.id}
+        className={`card tasks-kanban-card ${trackCfg.classKey} ${task.status === 'done' ? 'is-done' : ''}`}
+        onClick={() => handleOpenEditModal(task)}
+      >
+        {/* 1단: 상태 배지 + 도메인 카테고리 + (긴급/높음 시에만) 우선순위 */}
+        <div className="tasks-card-top">
+          <div className="tasks-card-badges">
+            <span className={`tasks-card-status-pill ${statusObj.classKey}`}>
+              {task.status === 'done' ? (
+                <CheckCircle2 size={13} />
+              ) : (
+                <span className={`tasks-status-dot ${statusObj.classKey}`} />
+              )}
+              {statusObj.shortLabel}
+            </span>
+            <span className="tasks-badge-category">{task.category}</span>
+          </div>
+
+          {showPriorityBadge && (
+            <span className={`tasks-badge-priority ${priorityCfg.classKey}`}>
+              {priorityCfg.label}
+            </span>
+          )}
+        </div>
+
+        {/* 2단: 핵심 업무명 */}
+        <h4 className="tasks-card-title">{task.title}</h4>
+
+        {/* 3단: 담당자 · 전체 일정 + 우측 원클릭 산출물 바로가기 칩 */}
+        <div className="tasks-card-footer">
+          <div className="tasks-card-meta-group">
+            <span className="tasks-card-meta-item">
+              <UserCheck size={14} /> {task.assigneeName}
+            </span>
+            <span className="tasks-card-meta-item">
+              <Clock size={14} /> {formatTaskScheduleCompact(task.startDate, task.dueDate)}
+            </span>
+          </div>
+
+          {(workspaceViewerUrl ||
+            figmaUrl ||
+            notionUrl ||
+            (task.attachments && task.attachments.length > 0)) && (
+            <div className="tasks-card-action-chips">
+              {workspaceViewerUrl && (
+                <a
+                  href={workspaceViewerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="tasks-card-link-chip is-workspace"
+                  title={`기획서 워크스페이스 (${resolveWorkspaceProjectId(task)}) · v${task.version || '0.1'} 열기`}
+                >
+                  기획서 v{task.version || '0.1'} <ExternalLink size={12} />
+                </a>
+              )}
+              {figmaUrl && (
+                <a
+                  href={figmaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="tasks-card-link-chip is-figma"
+                  title={`Figma 시안 열기 (${resolveFigmaMetaLabel(figmaUrl)})`}
+                >
+                  Figma <ExternalLink size={12} />
+                </a>
+              )}
+              {task.attachments?.map((att) => {
+                const attMeta = getAttachmentMeta(att.ext);
+                const isViewable = isWebViewableAttachment(att);
+                return (
+                  <a
+                    key={att.id}
+                    href={resolveAttachmentViewerUrl(att)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className={`tasks-card-link-chip ${attMeta.classKey}`}
+                    title={
+                      isViewable
+                        ? `${att.name} (${formatFileSize(att.size)}) 브라우저 읽기 모드로 바로 열기`
+                        : `${att.name} (${formatFileSize(att.size)}) 다운로드`
+                    }
+                  >
+                    {attMeta.chipLabel}{' '}
+                    {isViewable ? <ExternalLink size={12} /> : <Download size={12} />}
+                  </a>
+                );
+              })}
+              {notionUrl && (
+                <a
+                  href={notionUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="tasks-card-link-chip is-notion"
+                  title="Notion (Sisun-Tasks) 페이지 열기"
+                >
+                  Notion <ExternalLink size={12} />
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="tasks-container">
       {/* 1. 상단 컨트롤 바 (검색, 파트 필터, 세부 필터, 뷰 전환, 등록 버튼) */}
       <div className="card tasks-control-card">
-        {/* 1-A. 파트 퀵 필터 탭 (기획 / 디자인 / 퍼블리싱 한눈에 구분) */}
+        {/* 1-A. 파트 퀵 필터 탭 + 우측 완료 포함 ON/OFF 스위치 */}
         <div className="tasks-track-bar">
           <div className="tasks-track-filter-group">
             <span className="tasks-track-label">
@@ -706,9 +894,34 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
               })}
             </div>
           </div>
+
+          {/* 우측: 완료 업무 표시 ON/OFF 토글 버튼 */}
+          <div className="tasks-done-visibility-bar">
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedStatus === 'done') {
+                  setSelectedStatus('all');
+                  setShowDoneTasks(false);
+                } else {
+                  setShowDoneTasks((prev) => !prev);
+                }
+              }}
+              className={`tasks-done-toggle-btn ${effectiveShowDone ? 'active' : ''}`}
+              title={
+                effectiveShowDone
+                  ? '클릭하면 완료된 과제를 숨기고 진행·대기 과제만 표시합니다'
+                  : '클릭하면 완료된 과제를 화면에 함께 표시합니다'
+              }
+            >
+              <CheckCircle2 size={15} />
+              <span>{effectiveShowDone ? '완료 과제 표시 중' : '완료 과제 숨김'}</span>
+              <span className="tasks-done-toggle-count">{totalFilteredDoneCount}</span>
+            </button>
+          </div>
         </div>
 
-        {/* 1-B. 검색, 상세 필터 및 뷰 전환 */}
+        {/* 1-B. 검색, 상세 필터(기간·도메인·담당자·상태) 및 뷰 전환 */}
         <div className="tasks-filter-bar">
           <div className="tasks-search-and-selects">
             <div className="tasks-search-box">
@@ -723,6 +936,21 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
             </div>
 
             <div className="tasks-selects-group">
+              {/* 월별 기간 필터 */}
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="form-select tasks-filter-select"
+                aria-label="기간(월별) 필터"
+              >
+                <option value="all">전체 기간</option>
+                {availableMonths.map((ym) => (
+                  <option key={ym} value={ym}>
+                    {formatYearMonthLabel(ym)}
+                  </option>
+                ))}
+              </select>
+
               {/* 카테고리 필터 */}
               <select
                 value={selectedCategory}
@@ -756,7 +984,13 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
               {/* 상태 필터 */}
               <select
                 value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedStatus(val);
+                  if (val === 'done') {
+                    setShowDoneTasks(true);
+                  }
+                }}
                 className="form-select tasks-filter-select"
                 aria-label="진행 상태 필터"
               >
@@ -830,28 +1064,36 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
             const doneTasks = trackTasks.filter((t) => t.status === 'done');
             const activeTasks = [...inProgressTasks, ...backlogTasks];
 
-            const isForceExpanded =
-              selectedStatus === 'done' || Boolean(searchQuery.trim()) || selectedTrack !== 'all';
-            const isDoneExpanded = isForceExpanded || Boolean(expandedDoneTracks[trackKey]);
+            // 기본은 진행·대기만 노출하고, 상단 '완료 표시' 토글이 켜졌거나 해당 파트의 완료 보기를 펼쳤을 때만 완료 영역 노출
+            const isTrackDoneOpen =
+              effectiveShowDone || Boolean(expandedDoneTracks[trackKey]);
+            const canToggleTrackDone = doneTasks.length > 0 && selectedStatus !== 'done';
 
-            let defaultVisibleDoneCount =
-              activeTasks.length < 6
-                ? 6 - activeTasks.length
-                : activeTasks.length % 3 === 0
-                  ? 0
-                  : 3 - (activeTasks.length % 3);
+            // 해당 파트 완료 과제의 월별(YYYY-MM) 그룹 목록 추출
+            const doneMonths = Array.from(
+              new Set(doneTasks.map((t) => getTaskYearMonth(t)))
+            ).sort((a, b) => {
+              if (a === '미정') return 1;
+              if (b === '미정') return -1;
+              return b.localeCompare(a);
+            });
+            const currentDoneMonth = doneTrackMonthFilter[trackKey] || 'all';
+            const visibleDoneTasks =
+              currentDoneMonth === 'all'
+                ? doneTasks
+                : doneTasks.filter((t) => getTaskYearMonth(t) === currentDoneMonth);
 
-            if (doneTasks.length - defaultVisibleDoneCount <= 2) {
-              defaultVisibleDoneCount = doneTasks.length;
-            }
-
-            const visibleDoneTasks = isDoneExpanded
-              ? doneTasks
-              : doneTasks.slice(0, Math.max(0, defaultVisibleDoneCount));
-            const hiddenDoneCount = Math.max(0, doneTasks.length - visibleDoneTasks.length);
-            const displayTasks = [...activeTasks, ...visibleDoneTasks];
-            const canToggleDone =
-              !isForceExpanded && doneTasks.length > defaultVisibleDoneCount;
+            const handleToggleTrackDone = () => {
+              if (!canToggleTrackDone) return;
+              if (effectiveShowDone && !expandedDoneTracks[trackKey]) {
+                setShowDoneTasks(false);
+                return;
+              }
+              setExpandedDoneTracks((prev) => ({
+                ...prev,
+                [trackKey]: !prev[trackKey],
+              }));
+            };
 
             return (
               <section
@@ -868,7 +1110,11 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       <h3 className="tasks-swimlane-title">{trackCfg.label} 업무</h3>
                       <span className="tasks-swimlane-owner">전담: {ownerName}</span>
                     </div>
-                    <span className="tasks-swimlane-total-badge">{trackTasks.length}건</span>
+                    <span className="tasks-swimlane-total-badge">
+                      {selectedStatus === 'done'
+                        ? `완료 ${doneTasks.length}건`
+                        : `진행·대기 ${activeTasks.length}건`}
+                    </span>
                   </div>
 
                   <div className="tasks-swimlane-meta-group">
@@ -883,25 +1129,24 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                       </span>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (canToggleDone) {
-                            setExpandedDoneTracks((prev) => ({
-                              ...prev,
-                              [trackKey]: !prev[trackKey],
-                            }));
-                          }
-                        }}
-                        className={`tasks-swimlane-stat-pill is-done ${canToggleDone ? 'is-interactive' : ''}`}
+                        onClick={handleToggleTrackDone}
+                        className={`tasks-swimlane-stat-pill is-done ${canToggleTrackDone ? 'is-interactive' : ''} ${isTrackDoneOpen && doneTasks.length > 0 ? 'is-expanded' : ''}`}
                         title={
-                          canToggleDone
-                            ? isDoneExpanded
-                              ? '클릭하여 완료 업무 접기'
-                              : `클릭하여 완료 업무 ${hiddenDoneCount}건 더보기`
+                          canToggleTrackDone
+                            ? isTrackDoneOpen
+                              ? '클릭하여 완료 업무 숨기기'
+                              : `클릭하여 완료된 업무 ${doneTasks.length}건 열람하기`
                             : '완료된 업무 수'
                         }
                       >
                         <span className="tasks-status-dot status-done" />
                         완료 <strong>{doneTasks.length}</strong>
+                        {canToggleTrackDone &&
+                          (isTrackDoneOpen ? (
+                            <ChevronUp size={14} />
+                          ) : (
+                            <ChevronDown size={14} />
+                          ))}
                       </button>
                     </div>
 
@@ -917,176 +1162,97 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                   </div>
                 </div>
 
-                {/* 파트 내 3열 균형 카드 그리드 */}
-                {displayTasks.length > 0 ? (
-                  <>
+                {/* 1) 진행중 + 대기 활성 업무 3열 그리드 (완료 카드와 섞이지 않음) */}
+                {selectedStatus !== 'done' &&
+                  (activeTasks.length > 0 ? (
                     <div className="tasks-swimlane-card-grid">
-                      {displayTasks.map((task) => {
-                        const priorityCfg =
-                          PRIORITIES.find((p) => p.key === task.priority) || PRIORITIES[2];
-                        const statusObj =
-                          STATUSES.find((s) => s.key === task.status) || STATUSES[0];
-                        const showPriorityBadge =
-                          task.priority === 'urgent' || task.priority === 'high';
-                        const workspaceViewerUrl = resolveWorkspaceViewerUrl(task);
-                        const figmaUrl = resolveFigmaUrl(task);
-                        const notionUrl = task.notionUrl?.trim() || null;
-
-                        return (
-                          <div
-                            key={task.id}
-                            className={`card tasks-kanban-card ${trackCfg.classKey} ${task.status === 'done' ? 'is-done' : ''}`}
-                            onClick={() => handleOpenEditModal(task)}
-                          >
-                            {/* 1단: 상태 배지 + 도메인 카테고리 + (긴급/높음 시에만) 우선순위 */}
-                            <div className="tasks-card-top">
-                              <div className="tasks-card-badges">
-                                <span
-                                  className={`tasks-card-status-pill ${statusObj.classKey}`}
-                                >
-                                  {task.status === 'done' ? (
-                                    <CheckCircle2 size={13} />
-                                  ) : (
-                                    <span
-                                      className={`tasks-status-dot ${statusObj.classKey}`}
-                                    />
-                                  )}
-                                  {statusObj.shortLabel}
-                                </span>
-                                <span className="tasks-badge-category">{task.category}</span>
-                              </div>
-
-                              {showPriorityBadge && (
-                                <span
-                                  className={`tasks-badge-priority ${priorityCfg.classKey}`}
-                                >
-                                  {priorityCfg.label}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* 2단: 핵심 업무명 */}
-                            <h4 className="tasks-card-title">{task.title}</h4>
-
-                            {/* 3단: 담당자 · 전체 일정 + 우측 원클릭 산출물 바로가기 칩 */}
-                            <div className="tasks-card-footer">
-                              <div className="tasks-card-meta-group">
-                                <span className="tasks-card-meta-item">
-                                  <UserCheck size={14} /> {task.assigneeName}
-                                </span>
-                                <span className="tasks-card-meta-item">
-                                  <Clock size={14} />{' '}
-                                  {formatTaskScheduleCompact(task.startDate, task.dueDate)}
-                                </span>
-                              </div>
-
-                              {(workspaceViewerUrl ||
-                                figmaUrl ||
-                                notionUrl ||
-                                (task.attachments && task.attachments.length > 0)) && (
-                                <div className="tasks-card-action-chips">
-                                  {workspaceViewerUrl && (
-                                    <a
-                                      href={workspaceViewerUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="tasks-card-link-chip is-workspace"
-                                      title={`기획서 워크스페이스 (${resolveWorkspaceProjectId(task)}) · v${task.version || '0.1'} 열기`}
-                                    >
-                                      기획서 v{task.version || '0.1'}{' '}
-                                      <ExternalLink size={12} />
-                                    </a>
-                                  )}
-                                  {figmaUrl && (
-                                    <a
-                                      href={figmaUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="tasks-card-link-chip is-figma"
-                                      title={`Figma 시안 열기 (${resolveFigmaMetaLabel(figmaUrl)})`}
-                                    >
-                                      Figma <ExternalLink size={12} />
-                                    </a>
-                                  )}
-                                  {task.attachments?.map((att) => {
-                                    const attMeta = getAttachmentMeta(att.ext);
-                                    const isViewable = isWebViewableAttachment(att);
-                                    return (
-                                      <a
-                                        key={att.id}
-                                        href={resolveAttachmentViewerUrl(att)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className={`tasks-card-link-chip ${attMeta.classKey}`}
-                                        title={
-                                          isViewable
-                                            ? `${att.name} (${formatFileSize(att.size)}) 브라우저 읽기 모드로 바로 열기`
-                                            : `${att.name} (${formatFileSize(att.size)}) 다운로드`
-                                        }
-                                      >
-                                        {attMeta.chipLabel}{' '}
-                                        {isViewable ? (
-                                          <ExternalLink size={12} />
-                                        ) : (
-                                          <Download size={12} />
-                                        )}
-                                      </a>
-                                    );
-                                  })}
-                                  {notionUrl && (
-                                    <a
-                                      href={notionUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="tasks-card-link-chip is-notion"
-                                      title="Notion (Sisun-Tasks) 페이지 열기"
-                                    >
-                                      Notion <ExternalLink size={12} />
-                                    </a>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                      {activeTasks.map((task) => renderTaskCard(task, trackCfg))}
                     </div>
+                  ) : (
+                    <div className="tasks-empty-col">
+                      현재 진행·대기 중인 {trackCfg.label} 업무가 없습니다.
+                    </div>
+                  ))}
 
-                    {canToggleDone && (
+                {/* 2) 완료된 업무 접기/펼치기 아카이브 영역 (월별 끊어 보기 지원) */}
+                {doneTasks.length > 0 && (
+                  <div className="tasks-done-section-wrap">
+                    {!isTrackDoneOpen ? (
                       <button
                         type="button"
-                        onClick={() =>
-                          setExpandedDoneTracks((prev) => ({
-                            ...prev,
-                            [trackKey]: !prev[trackKey],
-                          }))
-                        }
+                        onClick={handleToggleTrackDone}
                         className="tasks-swimlane-more-btn"
                       >
-                        {isDoneExpanded ? (
-                          <>
-                            <ChevronUp size={16} />
-                            <span>
-                              {trackCfg.label} 파트 완료된 업무 접기
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown size={16} />
-                            <span>
-                              완료된 업무 {hiddenDoneCount}건 더보기 (전체 완료 {doneTasks.length}건)
-                            </span>
-                          </>
-                        )}
+                        <ChevronDown size={16} />
+                        <span>
+                          완료된 {trackCfg.label} 업무 {doneTasks.length}건 보기
+                        </span>
                       </button>
+                    ) : (
+                      <div className="tasks-done-drawer">
+                        <div className="tasks-done-drawer-header">
+                          <div className="tasks-done-drawer-title-group">
+                            <CheckCircle2 size={16} className="tasks-done-drawer-icon" />
+                            <span className="tasks-done-drawer-title">
+                              완료된 {trackCfg.label} 업무 ({visibleDoneTasks.length}건)
+                            </span>
+
+                            {/* 완료 업무 월별 퀵 필터 탭 */}
+                            {doneMonths.length > 1 && (
+                              <div className="tasks-done-month-tabs">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setDoneTrackMonthFilter((prev) => ({
+                                      ...prev,
+                                      [trackKey]: 'all',
+                                    }))
+                                  }
+                                  className={`tasks-done-month-tab ${currentDoneMonth === 'all' ? 'active' : ''}`}
+                                >
+                                  전체 ({doneTasks.length})
+                                </button>
+                                {doneMonths.map((ym) => {
+                                  const mCount = doneTasks.filter(
+                                    (t) => getTaskYearMonth(t) === ym
+                                  ).length;
+                                  return (
+                                    <button
+                                      key={ym}
+                                      type="button"
+                                      onClick={() =>
+                                        setDoneTrackMonthFilter((prev) => ({
+                                          ...prev,
+                                          [trackKey]: ym,
+                                        }))
+                                      }
+                                      className={`tasks-done-month-tab ${currentDoneMonth === ym ? 'active' : ''}`}
+                                    >
+                                      {formatYearMonthLabel(ym)} ({mCount})
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+
+                          {canToggleTrackDone && (
+                            <button
+                              type="button"
+                              onClick={handleToggleTrackDone}
+                              className="tasks-done-collapse-btn"
+                            >
+                              <ChevronUp size={15} /> 완료 업무 접기
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="tasks-swimlane-card-grid">
+                          {visibleDoneTasks.map((task) => renderTaskCard(task, trackCfg))}
+                        </div>
+                      </div>
                     )}
-                  </>
-                ) : (
-                  <div className="tasks-empty-col">조건에 해당하는 {trackCfg.label} 업무가 없습니다</div>
+                  </div>
                 )}
               </section>
             );
@@ -1111,7 +1277,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                 </tr>
               </thead>
               <tbody>
-                {filteredTasks.map((task) => {
+                {listVisibleTasks.map((task) => {
                   const priorityCfg = PRIORITIES.find((p) => p.key === task.priority) || PRIORITIES[2];
                   const statusCfg = STATUSES.find((s) => s.key === task.status) || STATUSES[0];
                   const trackCfg = TRACK_CONFIG[task.track || '기획'] || TRACK_CONFIG['기획'];
@@ -1249,7 +1415,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                     </tr>
                   );
                 })}
-                {filteredTasks.length === 0 && (
+                {listVisibleTasks.length === 0 && (
                   <tr>
                     <td colSpan={8} className="td-center">
                       조건에 해당하는 업무가 없습니다.
@@ -1262,7 +1428,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
 
           {/* 모바일 전용 카드 리스트 뷰 (767px 이하 노출) */}
           <div className="tasks-mobile-list">
-            {filteredTasks.map((task) => {
+            {listVisibleTasks.map((task) => {
               const priorityCfg = PRIORITIES.find((p) => p.key === task.priority) || PRIORITIES[2];
               const statusCfg = STATUSES.find((s) => s.key === task.status) || STATUSES[0];
               const trackCfg = TRACK_CONFIG[task.track || '기획'] || TRACK_CONFIG['기획'];
@@ -1378,10 +1544,33 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                 </div>
               );
             })}
-            {filteredTasks.length === 0 && (
+            {listVisibleTasks.length === 0 && (
               <div className="tasks-empty-col">조건에 해당하는 업무가 없습니다.</div>
             )}
           </div>
+
+          {/* 리스트 뷰 하단 완료 과제 표시/접기 토글 바 */}
+          {totalFilteredDoneCount > 0 && selectedStatus !== 'done' && (
+            <div className="tasks-list-done-footer">
+              <button
+                type="button"
+                onClick={() => setShowDoneTasks((prev) => !prev)}
+                className="tasks-swimlane-more-btn"
+              >
+                {effectiveShowDone ? (
+                  <>
+                    <ChevronUp size={16} />
+                    <span>완료된 업무 {totalFilteredDoneCount}건 숨기기 (진행·대기만 보기)</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={16} />
+                    <span>완료된 업무 {totalFilteredDoneCount}건 함께 보기</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

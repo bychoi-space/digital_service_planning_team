@@ -9623,5 +9623,165 @@ textarea {
   color: #dc2626;
 }
 
+/* =========================================================================
+   완료 과제 숨김/표시 토글 & 파트별 완료 과제 접기/펼치기(월별 탭) 스타일
+   ========================================================================= */
+
+.tasks-done-visibility-bar {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.tasks-done-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: 9999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.tasks-done-toggle-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.tasks-done-toggle-btn.active {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #047857;
+}
+
+.tasks-done-toggle-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 800;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.tasks-done-toggle-btn.active .tasks-done-toggle-count {
+  background: #d1fae5;
+  color: #047857;
+}
+
+.tasks-swimlane-stat-pill.is-done.is-expanded {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+
+.tasks-done-section-wrap {
+  margin-top: 2px;
+}
+
+.tasks-done-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.tasks-done-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tasks-done-drawer-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.tasks-done-drawer-icon {
+  color: #059669;
+  flex-shrink: 0;
+}
+
+.tasks-done-drawer-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.tasks-done-month-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tasks-done-month-tab {
+  padding: 4px 11px;
+  border-radius: 9999px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tasks-done-month-tab:hover {
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.tasks-done-month-tab.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+.tasks-done-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tasks-done-collapse-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.tasks-list-done-footer {
+  padding: 12px 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+
 
 
