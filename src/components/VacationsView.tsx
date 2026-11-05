@@ -23,7 +23,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  UserX,
   UserCheck,
   Trash2,
   X,
@@ -31,7 +30,6 @@ import {
   Palette,
   Code,
   ExternalLink,
-  Sparkles,
   Clock,
   CheckCircle2,
   Paperclip,
@@ -510,9 +508,21 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       onShowToast('유관부서(읽기 전용) 모드에서는 삭제할 수 없습니다.', 'error');
       return;
     }
-    if (window.confirm(`정말 "${title}" 업무를 삭제하시겠습니까? (감사 로그에 영구 기록됩니다)`)) {
+    const targetTask = tasks.find((t) => t.id === taskId);
+    const isNotionLinked =
+      String(taskId).startsWith('notion-') || Boolean(targetTask?.notionUrl);
+    const confirmMessage = isNotionLinked
+      ? `정말 "${title}" 업무를 삭제하시겠습니까?\n(포털 삭제와 함께 Notion 과제도 휴지통으로 이동됩니다)`
+      : `정말 "${title}" 업무를 삭제하시겠습니까? (감사 로그에 기록됩니다)`;
+
+    if (window.confirm(confirmMessage)) {
       PlanningStorageService.deleteTask(taskId);
-      onShowToast('업무가 삭제되었습니다.', 'info');
+      onShowToast(
+        isNotionLinked
+          ? '업무가 삭제되었으며 Notion 휴지통으로 이동되었습니다.'
+          : '업무가 삭제되었습니다.',
+        'info'
+      );
       setIsTaskModalOpen(false);
       refreshAll();
     }
@@ -795,20 +805,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     return days;
   }, [currentDate]);
 
-  // 오늘 부재자 계산
-  const todayAbsentList = vacations.filter(
-    (v) => todayStr >= v.startDate && todayStr <= v.endDate
-  );
-
-  // 실시간 진행 업무 통계 계산
-  const activeTasks = useMemo(() => {
-    return tasks.filter((t) => ['in_progress', 'review'].includes(t.status));
-  }, [tasks]);
-
-  const planningActiveTasksCount = activeTasks.filter((t) => t.track === '기획').length;
-  const designActiveTasksCount = activeTasks.filter((t) => t.track === '디자인').length;
-  const publishingActiveTasksCount = activeTasks.filter((t) => t.track === '퍼블리싱').length;
-
   // 모바일 선택 일자 상세 데이터
   const { dayVacations: mobileSelectedVacations, dayTasks: mobileSelectedTasks } =
     getDaySchedules(selectedMobileDate);
@@ -821,101 +817,9 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
 
   return (
     <div className="schedule-container">
-      {/* 1. 상단 2열 대시보드 위젯 (부재 현황 + 진행 업무 현황) */}
-      <div className="schedule-summary-grid">
-        {/* 카드 1: 오늘의 팀원 부재 현황 */}
-        <div className="card schedule-summary-card">
-          <div className="schedule-summary-main">
-            <div
-              className={`schedule-summary-icon ${
-                todayAbsentList.length > 0 ? 'is-absent' : 'is-present'
-              }`}
-            >
-              {todayAbsentList.length > 0 ? <UserX size={22} /> : <UserCheck size={22} />}
-            </div>
-            <div className="schedule-summary-info">
-              <div className="schedule-summary-title-row">
-                <h3 className="schedule-summary-title">오늘의 팀원 부재 현황</h3>
-                <span
-                  className={`schedule-summary-pill ${
-                    todayAbsentList.length > 0 ? 'is-absent' : 'is-present'
-                  }`}
-                >
-                  {todayAbsentList.length}명 부재
-                </span>
-              </div>
-              <p className="schedule-summary-desc">
-                {todayAbsentList.length > 0
-                  ? `${todayAbsentList
-                      .map(
-                        (v) =>
-                          `${v.userName} (${
-                            VACATION_TYPES.find((t) => t.key === v.type)?.label || '휴가'
-                          })`
-                      )
-                      .join(', ')} 부재 중입니다.`
-                  : '오늘 부재 중인 팀원이 없습니다. 전원 정상 근무 중입니다.'}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => handleOpenCreateModal()}
-            className="btn btn-primary schedule-summary-action-btn"
-            disabled={isViewer}
-            title={isViewer ? '유관부서 모드에서는 등록이 제한됩니다' : '휴가 등록'}
-          >
-            <Plus size={16} /> 휴가 신청
-          </button>
-        </div>
-
-        {/* 카드 2: 실시간 진행 업무 현황 (기획 · 디자인 · 퍼블리싱) */}
-        <div className="card schedule-summary-card">
-          <div className="schedule-summary-main">
-            <div className="schedule-summary-icon is-tasks">
-              <Sparkles size={22} />
-            </div>
-            <div className="schedule-summary-info">
-              <div className="schedule-summary-title-row">
-                <h3 className="schedule-summary-title">진행 중인 기획·디자인·퍼블 업무</h3>
-                <span className="schedule-summary-pill is-tasks">
-                  총 {activeTasks.length}건 진행중
-                </span>
-              </div>
-              <div className="schedule-summary-tracks">
-                <span className="schedule-track-chip track-planning">
-                  <FileText size={14} /> 기획 {planningActiveTasksCount}건
-                </span>
-                <span className="schedule-track-chip track-design">
-                  <Palette size={14} /> 디자인 {designActiveTasksCount}건
-                </span>
-                <span className="schedule-track-chip track-publishing">
-                  <Code size={14} /> 퍼블리싱 {publishingActiveTasksCount}건
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={handleOpenCreateTaskModal}
-            className="btn btn-primary schedule-summary-action-btn"
-            disabled={isViewer}
-            title={
-              isViewer
-                ? '유관부서(읽기 전용) 모드에서는 등록이 제한됩니다'
-                : '새 기획/디자인/퍼블리싱 업무 등록'
-            }
-          >
-            <Plus size={16} /> 업무 등록
-          </button>
-        </div>
-      </div>
-
-      {/* 2. 캘린더 네비게이션 & 파트 필터 바 */}
+      {/* 1. 캘린더 네비게이션 & 파트 필터 바 */}
       <div className="card schedule-control-card">
-        {/* 상단 컨트롤 라인: 월 이동 */}
+        {/* 상단 컨트롤 라인: 월 이동 + 일정 등록 액션 */}
         <div className="schedule-nav-bar">
           <div className="schedule-month-nav">
             <button
@@ -945,6 +849,31 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
               className="btn btn-secondary schedule-today-btn"
             >
               이번 달
+            </button>
+          </div>
+
+          <div className="schedule-nav-actions">
+            <button
+              type="button"
+              onClick={() => handleOpenCreateModal()}
+              className="btn btn-secondary schedule-summary-action-btn"
+              disabled={isViewer}
+              title={isViewer ? '유관부서 모드에서는 등록이 제한됩니다' : '휴가 등록'}
+            >
+              <Plus size={16} /> 휴가 신청
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenCreateTaskModal}
+              className="btn btn-primary schedule-summary-action-btn"
+              disabled={isViewer}
+              title={
+                isViewer
+                  ? '유관부서(읽기 전용) 모드에서는 등록이 제한됩니다'
+                  : '새 기획/디자인/퍼블리싱 업무 등록'
+              }
+            >
+              <Plus size={16} /> 업무 등록
             </button>
           </div>
         </div>

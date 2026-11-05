@@ -4703,6 +4703,12 @@ textarea {
   margin-left: 4px;
 }
 
+.schedule-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .schedule-view-toggle {
   display: flex;
   background: #f1f5f9;
