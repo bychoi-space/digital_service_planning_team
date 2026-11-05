@@ -10012,12 +10012,12 @@ textarea {
 }
 
 .onb-col-link {
-  width: 165px;
+  width: 196px;
   text-align: center !important;
 }
 
 .onb-col-actions {
-  width: 138px;
+  width: 142px;
   text-align: center !important;
 }
 
@@ -10084,10 +10084,12 @@ textarea {
 
 .onb-td-link {
   text-align: center;
+  padding: 12px 10px !important;
 }
 
 .onb-td-actions {
   text-align: center;
+  padding: 12px 10px !important;
 }
 
 .onb-dash-muted {
@@ -10228,12 +10230,25 @@ textarea {
   align-items: center;
   justify-content: center;
   gap: 5px;
+  max-width: 100%;
+  padding: 6px 11px;
   font-size: 14px;
   font-weight: 700;
   color: #1d4ed8;
   border-color: #bfdbfe;
   background: #eff6ff;
   white-space: nowrap;
+  overflow: hidden;
+}
+
+.onb-shortcut-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.onb-shortcut-btn svg {
+  flex-shrink: 0;
 }
 
 .onb-shortcut-btn:hover {
