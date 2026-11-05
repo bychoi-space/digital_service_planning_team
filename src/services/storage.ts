@@ -795,7 +795,9 @@ export class PlanningStorageService {
       // 3. kpis 동기화 (로컬 데이터 안전 병합)
       const { data: remoteKpis, error: kpiErr } = await client.from('kpis').select('*');
       if (!kpiErr && remoteKpis) {
-        const filteredKpis = remoteKpis.filter((row) => !String(row.id).startsWith('kpi-30'));
+        const filteredKpis = remoteKpis.filter(
+          (row) => !String(row.id).startsWith('kpi-30') && String(row.id) !== 'kpi-mw1s2aoz-2clky'
+        );
         const mappedRemoteKpis: KpiItem[] = filteredKpis.map((row) => ({
           id: row.id,
           year: Number(row.year),
@@ -834,7 +836,7 @@ export class PlanningStorageService {
         }));
 
         const localKpis = safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []).filter(
-          (k) => !String(k.id).startsWith('kpi-30')
+          (k) => !String(k.id).startsWith('kpi-30') && String(k.id) !== 'kpi-mw1s2aoz-2clky'
         );
         const kpiMap = new Map<string, KpiItem>();
         mappedRemoteKpis.forEach((r) => kpiMap.set(r.id, r));
@@ -867,9 +869,13 @@ export class PlanningStorageService {
 
         const cloudKpiRow = remoteLogs.find((row) => row.id === KPI_CLOUD_RECORD_ID);
         if (cloudKpiRow && typeof cloudKpiRow.summary === 'string') {
-          const parsedExtendedKpis = safeJsonParse<KpiItem[]>(cloudKpiRow.summary, []);
+          const parsedExtendedKpis = safeJsonParse<KpiItem[]>(cloudKpiRow.summary, []).filter(
+            (k) => String(k.id) !== 'kpi-mw1s2aoz-2clky'
+          );
           if (Array.isArray(parsedExtendedKpis) && parsedExtendedKpis.length > 0) {
-            const currentKpis = safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []);
+            const currentKpis = safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []).filter(
+              (k) => String(k.id) !== 'kpi-mw1s2aoz-2clky'
+            );
             const mergedMap = new Map<string, KpiItem>();
             currentKpis.forEach((k) => mergedMap.set(k.id, k));
             parsedExtendedKpis.forEach((ext) => {
@@ -2105,7 +2111,29 @@ export class PlanningStorageService {
   public static getKpis(): KpiItem[] {
     this.initialize();
     const raw = safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []);
-    return raw.map((k) => ({
+    const dupRow = raw.find((k) => String(k.id) === 'kpi-mw1s2aoz-2clky');
+    const filtered = raw
+      .filter((k) => String(k.id) !== 'kpi-mw1s2aoz-2clky')
+      .map((k) => {
+        if (
+          String(k.id) === 'kpi-mvkjcbtn-luec3' &&
+          dupRow &&
+          Array.isArray(dupRow.linkedTaskIds) &&
+          dupRow.linkedTaskIds.length > 0
+        ) {
+          return {
+            ...k,
+            linkedTaskIds: Array.from(
+              new Set([...(k.linkedTaskIds || []), ...dupRow.linkedTaskIds])
+            ),
+          };
+        }
+        return k;
+      });
+    if (filtered.length !== raw.length) {
+      localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(filtered));
+    }
+    return filtered.map((k) => ({
       ...k,
       stage: k.stage || (k.status === 'planning' ? 'draft' : 'aligned'),
       linkedTaskIds: Array.isArray(k.linkedTaskIds) ? k.linkedTaskIds : [],

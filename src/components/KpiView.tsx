@@ -39,11 +39,11 @@ interface KpiViewProps {
 }
 
 const QUARTERS: { key: KpiQuarter; label: string; shortLabel: string }[] = [
-  { key: 'Annual', label: '2026 연간 종합', shortLabel: '연간 종합' },
-  { key: 'Q1', label: '1분기 (Q1)', shortLabel: '1분기' },
-  { key: 'Q2', label: '2분기 (Q2)', shortLabel: '2분기' },
-  { key: 'Q3', label: '3분기 (Q3)', shortLabel: '3분기' },
-  { key: 'Q4', label: '4분기 (Q4)', shortLabel: '4분기' },
+  { key: 'Annual', label: '2026 연간', shortLabel: '연간' },
+  { key: 'Q1', label: '1분기', shortLabel: '1분기' },
+  { key: 'Q2', label: '2분기', shortLabel: '2분기' },
+  { key: 'Q3', label: '3분기', shortLabel: '3분기' },
+  { key: 'Q4', label: '4분기', shortLabel: '4분기' },
 ];
 
 // 직무 파트 설정 (기획=파란색, 디자인=녹색, 퍼블리싱=보라색 통일)
@@ -222,7 +222,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   const [editingKpi, setEditingKpi] = useState<KpiItem | null>(null);
 
   // 상단 평가 기준표(3대 축 & 루브릭) 접기/펼치기 상태 및 상세 페이지 선택 KPI ID
-  const [isFrameworkOpen, setIsFrameworkOpen] = useState<boolean>(true);
+  const [isFrameworkOpen, setIsFrameworkOpen] = useState<boolean>(false);
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null);
 
   // 상세 페이지에 표시할 현재 선택된 KPI 항목 (수정/평가 반영 시 자동 동기화)
@@ -778,14 +778,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     });
   }, [kpis, selectedQuarter, trackFilter, ownerFilter]);
 
-  const filteredTotalWeight = currentKpis.reduce((acc, cur) => acc + (cur.weight || 0), 0);
-  const myTotalWeight = currentKpis
-    .filter((k) => isKpiOwner(k))
-    .reduce((acc, cur) => acc + (cur.weight || 0), 0);
-  const finalizedCount = currentKpis.filter(
-    (k) => checkHasSelfEval(k) && Boolean(k.directorGrade || k.leaderGrade)
-  ).length;
-
   // 대상별(팀 공통 및 개인별) 가중치 합산 종합 점수·등급 자동 산출 (MBO + BARS 가중 평균)
   const ownerScorecards = useMemo(() => {
     const map = new Map<
@@ -1286,76 +1278,97 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         })()
       ) : (
         <>
-          {/* 1. 상단 KPI 요약 배너 */}
-          <div className="card kpi-hero-card">
-            <div className="kpi-hero-info">
-              <div className="kpi-hero-eyebrow">
-                <Award size={16} /> 서비스기획팀 객관적 성과관리 체계 (납기 · 품질 · 기여도 기반)
-              </div>
-              <h2 className="kpi-hero-title">
-                {selectedQuarter === 'Annual'
-                  ? '2026 연간 종합 KPI 목표 및 평가'
-                  : `2026년 ${QUARTERS.find((q) => q.key === selectedQuarter)?.label} KPI 현황`}
-              </h2>
-              <div className="kpi-hero-stats">
-                <span className="kpi-hero-stat-pill">조회 과제 {currentKpis.length}건</span>
-                <span className="kpi-hero-stat-pill">
-                  {ownerFilter === 'all'
-                    ? `내 KPI 가중치 합계 ${myTotalWeight}%`
-                    : `선택 대상 가중치 합계 ${filteredTotalWeight}%`}
-                </span>
-                <span className="kpi-hero-stat-pill">평가 확정 {finalizedCount}건</span>
-                <span className="kpi-hero-stat-pill">연동 실무 과제 {tasks.length}건</span>
-              </div>
-            </div>
+          {/* 1. 통합 컨트롤 바 (파트 탭 + 분기 + 대상 필터 + 평가 기준 토글 + 목표 수립) */}
+          <div className="card kpi-control-card">
+            <div className="kpi-unified-toolbar">
+              <div className="tasks-track-tabs">
+                <button
+                  type="button"
+                  onClick={() => setTrackFilter('all')}
+                  className={`tasks-track-tab track-all ${trackFilter === 'all' ? 'active' : ''}`}
+                >
+                  <span>전체</span>
+                  <span className="tasks-track-count">{kpis.length}</span>
+                </button>
 
-            <div className="kpi-hero-actions">
-              <button
-                type="button"
-                onClick={() => handleOpenCreateModal()}
-                disabled={isViewer}
-                className="btn btn-primary kpi-create-main-btn"
-                title={
-                  isViewer
-                    ? '유관부서(읽기 전용) 모드에서는 등록이 제한됩니다'
-                    : '신규 KPI 목표 수립'
-                }
-              >
-                <Plus size={16} /> KPI 목표 수립
-              </button>
-            </div>
-          </div>
-
-          {/* 2. 객관적 KPI 3대 평가 축 & 루브릭(DoD) 등급 기준표 (접기/펼치기 지원) */}
-          <div className="card kpi-framework-card">
-            <div className="kpi-framework-header">
-              <div className="kpi-framework-title-wrap">
-                <ShieldCheck size={18} className="kpi-framework-icon" />
-                <h3 className="kpi-framework-title">
-                  서비스기획팀 객관적 평가 기준 (3대 측정 축 & 등급 판정 루브릭)
-                </h3>
+                {TRACK_LIST.map((trackKey) => {
+                  const cfg = TRACK_CONFIG[trackKey];
+                  const IconComp = cfg.icon;
+                  const isSelected = trackFilter === trackKey;
+                  const count = kpis.filter((k) => (k.track || '기획') === trackKey).length;
+                  return (
+                    <button
+                      key={trackKey}
+                      type="button"
+                      onClick={() => setTrackFilter(trackKey)}
+                      className={`tasks-track-tab ${cfg.classKey} ${isSelected ? 'active' : ''}`}
+                    >
+                      <IconComp size={15} className="tasks-track-tab-icon" />
+                      <span>{cfg.label}</span>
+                      <span className="tasks-track-count">{count}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <button
-                type="button"
-                onClick={() => setIsFrameworkOpen((prev) => !prev)}
-                className="btn btn-secondary kpi-framework-toggle-btn"
-              >
-                {isFrameworkOpen ? (
-                  <>
-                    <span>기준표 접기</span>
-                    <ChevronUp size={15} />
-                  </>
-                ) : (
-                  <>
-                    <span>기준표 펼치기</span>
-                    <ChevronDown size={15} />
-                  </>
-                )}
-              </button>
+
+              <div className="kpi-toolbar-right">
+                <div className="kpi-quarter-tabs">
+                  {QUARTERS.map((q) => (
+                    <button
+                      key={q.key}
+                      type="button"
+                      onClick={() => setSelectedQuarter(q.key)}
+                      className={`kpi-quarter-btn ${selectedQuarter === q.key ? 'active' : ''}`}
+                    >
+                      <span className="quarter-label-full">{q.label}</span>
+                      <span className="quarter-label-short">{q.shortLabel}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <select
+                  value={ownerFilter}
+                  onChange={(e) => setOwnerFilter(e.target.value)}
+                  className="form-select kpi-owner-select"
+                  aria-label="KPI 대상자 필터"
+                >
+                  <option value="all">전체 대상</option>
+                  <option value="team">팀 공통 목표</option>
+                  {teamMembers.map((m) => (
+                    <option key={m.id} value={m.name}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => setIsFrameworkOpen((prev) => !prev)}
+                  className="btn btn-secondary kpi-framework-toggle-btn"
+                >
+                  <ShieldCheck size={15} />
+                  <span>평가 기준</span>
+                  {isFrameworkOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleOpenCreateModal()}
+                  disabled={isViewer}
+                  className="btn btn-primary kpi-create-main-btn"
+                  title={
+                    isViewer
+                      ? '유관부서(읽기 전용) 모드에서는 등록이 제한됩니다'
+                      : '신규 KPI 목표 수립'
+                  }
+                >
+                  <Plus size={16} /> KPI 목표 수립
+                </button>
+              </div>
             </div>
 
             {isFrameworkOpen && (
-              <>
+              <div className="kpi-framework-collapse-body">
                 <div className="kpi-pillars-grid">
                   <div className="kpi-pillar-box">
                     <div className="kpi-pillar-top">
@@ -1393,314 +1406,234 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     </div>
                   ))}
                 </div>
-              </>
+              </div>
             )}
           </div>
 
-          {/* 3. 필터 바 (직무 파트 탭 + 분기 + 담당자 필터) */}
-          <div className="card kpi-control-card">
-            <div className="tasks-track-bar">
-              <div className="tasks-track-filter-group">
-                <span className="tasks-track-label">직무 파트:</span>
-                <div className="tasks-track-tabs">
-                  <button
-                    type="button"
-                    onClick={() => setTrackFilter('all')}
-                    className={`tasks-track-tab track-all ${trackFilter === 'all' ? 'active' : ''}`}
-                  >
-                    <span>전체 파트</span>
-                    <span className="tasks-track-count">{kpis.length}</span>
-                  </button>
-
-                  {TRACK_LIST.map((trackKey) => {
-                    const cfg = TRACK_CONFIG[trackKey];
-                    const IconComp = cfg.icon;
-                    const isSelected = trackFilter === trackKey;
-                    const count = kpis.filter((k) => (k.track || '기획') === trackKey).length;
-                    return (
-                      <button
-                        key={trackKey}
-                        type="button"
-                        onClick={() => setTrackFilter(trackKey)}
-                        className={`tasks-track-tab ${cfg.classKey} ${isSelected ? 'active' : ''}`}
-                      >
-                        <IconComp size={15} className="tasks-track-tab-icon" />
-                        <span>{cfg.label}</span>
-                        <span className="tasks-track-count">{count}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="kpi-subfilter-bar">
-              <div className="kpi-quarter-tabs">
-                {QUARTERS.map((q) => (
-                  <button
-                    key={q.key}
-                    type="button"
-                    onClick={() => setSelectedQuarter(q.key)}
-                    className={`kpi-quarter-btn ${selectedQuarter === q.key ? 'active' : ''}`}
-                  >
-                    <span className="quarter-label-full">{q.label}</span>
-                    <span className="quarter-label-short">{q.shortLabel}</span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="kpi-owner-filter">
-                <span className="kpi-filter-label">대상 구분:</span>
-                <select
-                  value={ownerFilter}
-                  onChange={(e) => setOwnerFilter(e.target.value)}
-                  className="form-select kpi-owner-select"
-                  aria-label="KPI 대상자 필터"
-                >
-                  <option value="all">전체 (팀 공통 + 개인)</option>
-                  <option value="team">서비스기획팀 공통 목표</option>
-                  {teamMembers.map((m) => (
-                    <option key={m.id} value={m.name}>
-                      {m.name} (개인 KPI)
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* 3-C. 대상별 가중치 합산 종합 산출 요약표 (가로 풀와이드 1줄 성적표 바) */}
+          {/* 2. 대상자별 종합 산출 요약 바 (핵심 지표만 1줄 표시) */}
           {ownerScorecards.length > 0 && (
-            <div className="card kpi-scorecard-card">
-              <div className="kpi-scorecard-header">
-                <div className="kpi-scorecard-title-wrap">
-                  <Award size={17} className="kpi-framework-icon" />
-                  <h3 className="kpi-scorecard-title">
-                    대상별 가중치 합산 종합 산출 현황 (항목별 점수 × 가중치 합산)
-                  </h3>
-                </div>
-                <span className="kpi-scorecard-formula">
-                  산출식: Σ (항목 등급점수 × 가중치%) · S=100 / A=90 / B=80 / C=70점
-                </span>
-              </div>
-
-              <div className="kpi-scorecard-list">
-                {ownerScorecards.map((sc) => {
-                  const trackCfg = TRACK_CONFIG[sc.track] || TRACK_CONFIG['기획'];
-                  const TrackIcon = trackCfg.icon;
-                  const isSelectedOwner =
-                    (sc.isTeam && ownerFilter === 'team') ||
-                    (!sc.isTeam && ownerFilter === sc.ownerKey);
-
-                  return (
-                    <div
-                      key={sc.ownerKey}
-                      onClick={() => {
-                        const targetFilter = sc.isTeam ? 'team' : sc.ownerKey;
-                        setOwnerFilter((prev) => (prev === targetFilter ? 'all' : targetFilter));
-                      }}
-                      className={`kpi-scorecard-row ${trackCfg.classKey} ${
-                        isSelectedOwner ? 'is-selected' : ''
-                      }`}
-                      title="클릭하여 해당 대상 KPI만 필터링"
-                    >
-                      {/* 좌측: 파트 배지 · 대상자명 · 과제 수 · 가중치 합계 */}
-                      <div className="kpi-scorecard-row-left">
-                        <span className={`tasks-badge-track ${trackCfg.classKey}`}>
-                          <TrackIcon size={13} /> {trackCfg.label}
-                        </span>
-                        <strong className="kpi-scorecard-name">{sc.ownerLabel}</strong>
-                        <span className="kpi-scorecard-submeta">등록 과제 {sc.kpiCount}건</span>
-                        <span
-                          className={`kpi-scorecard-weight-pill ${
-                            sc.totalWeight === 100 ? 'is-valid' : 'is-warn'
-                          }`}
-                        >
-                          가중치 합계 {sc.totalWeight}%
-                        </span>
-                      </div>
-
-                      {/* 우측: 평가 진행 현황 + 가중 합산 득점 + 100점 환산 종합 + 등급 1줄 인라인 배치 */}
-                      <div className="kpi-scorecard-row-right">
-                        <span className="kpi-scorecard-stat-pill">
-                          자가평가 <strong>{sc.selfDoneCount}/{sc.kpiCount}건</strong>
-                        </span>
-
-                        <span
-                          className={`kpi-scorecard-stage ${
-                            sc.isAllFinalized
-                              ? 'is-final'
-                              : sc.evaluatedCount > 0
-                              ? 'is-provisional'
-                              : 'is-pending'
-                          }`}
-                        >
-                          {sc.evalStageLabel} ({sc.finalizedCount}/{sc.kpiCount}건 확정)
-                        </span>
-
-                        <span className="kpi-scorecard-divider" aria-hidden="true" />
-
-                        <div className="kpi-scorecard-inline-metric">
-                          <span className="kpi-scorecard-metric-label">가중 합산 득점</span>
-                          <strong className="kpi-scorecard-metric-val">
-                            {sc.evaluatedCount > 0
-                              ? `${sc.weightedEarnedSum} / ${sc.evaluatedWeight}점`
-                              : '-'}
-                          </strong>
-                        </div>
-
-                        <div className="kpi-scorecard-inline-metric">
-                          <span className="kpi-scorecard-metric-label">100점 환산</span>
-                          <strong className="kpi-scorecard-metric-val is-highlight">
-                            {sc.normalizedScore !== null ? `${sc.normalizedScore}점` : '미산출'}
-                          </strong>
-                        </div>
-
-                        {sc.overallGrade && (
-                          <span
-                            className={`kpi-grade-chip grade-${sc.overallGrade.toLowerCase()}`}
-                          >
-                            종합 {sc.overallGrade}등급
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* 4. 컴팩트 KPI 목록 (목표명 + 단계별 진행 상태값만 표시, 클릭 시 상세 페이지 이동) */}
-          <div className="kpi-compact-list">
-            {currentKpis.length === 0 ? (
-              <div className="card kpi-empty-card">
-                <Award size={36} className="kpi-empty-icon" />
-                <div className="kpi-empty-title">등록된 KPI 목표 과제가 없습니다.</div>
-                <p className="kpi-empty-desc">
-                  상단 <strong>[+ KPI 목표 수립]</strong> 버튼을 눌러 기획·디자인·퍼블리싱 파트별 객관적 목표와 달성 기준(DoD)을 수립해 보세요.
-                </p>
-                {!isViewer && (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenCreateModal()}
-                    className="btn btn-primary"
-                  >
-                    <Plus size={16} /> 첫 KPI 목표 수립하기
-                  </button>
-                )}
-              </div>
-            ) : (
-              currentKpis.map((item) => {
-                const trackCfg = TRACK_CONFIG[item.track || '기획'] || TRACK_CONFIG['기획'];
+            <div className="kpi-scorecard-list">
+              {ownerScorecards.map((sc) => {
+                const trackCfg = TRACK_CONFIG[sc.track] || TRACK_CONFIG['기획'];
                 const TrackIcon = trackCfg.icon;
-                const hasSelfEvaluated = checkHasSelfEval(item);
-                const finalGrade = hasSelfEvaluated
-                  ? item.directorGrade || item.leaderGrade || null
-                  : null;
-                const selfGrade = resolveSelfGrade(item.selfScore);
-                const evalMetrics = getKpiEvalMetrics(item);
-                const linkedTasks = getLinkedTasksForKpi(item);
-                const peerReviews = item.peerReviews || [];
-                const peerCount = peerReviews.length;
-                const avgTotal =
-                  peerCount > 0
-                    ? item.peerAvgScore ??
-                      Number(
-                        (
-                          peerReviews.reduce(
-                            (acc, r) =>
-                              acc +
-                              (Number(r.scoreQuality || 5) + Number(r.scoreCollaboration || 5)) / 2,
-                            0
-                          ) / peerCount
-                        ).toFixed(1)
-                      )
-                    : 0;
+                const isSelectedOwner =
+                  (sc.isTeam && ownerFilter === 'team') ||
+                  (!sc.isTeam && ownerFilter === sc.ownerKey);
 
                 return (
                   <div
-                    key={item.id}
+                    key={sc.ownerKey}
                     onClick={() => {
-                      setSelectedKpiId(item.id);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                      const targetFilter = sc.isTeam ? 'team' : sc.ownerKey;
+                      setOwnerFilter((prev) => (prev === targetFilter ? 'all' : targetFilter));
                     }}
-                    className={`card kpi-summary-row ${trackCfg.classKey}`}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setSelectedKpiId(item.id);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }
-                    }}
+                    className={`card kpi-scorecard-row ${trackCfg.classKey} ${
+                      isSelectedOwner ? 'is-selected' : ''
+                    }`}
+                    title="클릭하여 해당 대상 KPI만 필터링"
                   >
-                    {/* 좌측: 파트·담당자·가중치 배지 + KPI 목표명 */}
-                    <div className="kpi-summary-main">
-                      <div className="tasks-card-badges">
-                        <span className={`tasks-badge-track ${trackCfg.classKey}`}>
-                          <TrackIcon size={13} /> {trackCfg.label}
-                        </span>
-                        <span className="tasks-badge-category">
-                          {item.targetScope === 'team' ? '팀 공통' : item.ownerName}
-                        </span>
-                        <span className="kpi-weight-badge">가중치 {item.weight}%</span>
-                      </div>
-                      <h3 className="kpi-summary-title">{item.title}</h3>
+                    <div className="kpi-scorecard-row-left">
+                      <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                        <TrackIcon size={13} /> {trackCfg.label}
+                      </span>
+                      <strong className="kpi-scorecard-name">{sc.ownerLabel}</strong>
+                      <span className="kpi-scorecard-submeta">목표 {sc.kpiCount}건</span>
+                      <span
+                        className={`kpi-scorecard-weight-pill ${
+                          sc.totalWeight === 100 ? 'is-valid' : 'is-warn'
+                        }`}
+                      >
+                        가중치 {sc.totalWeight}%
+                      </span>
                     </div>
 
-                    {/* 우측: 4단계 진행 상태 인디케이터 (목표/과제 · 자가평가 · 동료평가 · 최종평가) */}
-                    <div className="kpi-summary-status-group">
-                      <span
-                        className={`kpi-stage-pill ${
-                          linkedTasks.length > 0 ? 'is-done-task' : 'is-done-goal'
-                        }`}
-                      >
-                        {linkedTasks.length > 0
-                          ? `목표 등록 · 과제 ${linkedTasks.length}건`
-                          : '목표 등록'}
+                    <div className="kpi-scorecard-row-right">
+                      <span className="kpi-scorecard-stat-pill">
+                        자가평가 <strong>{sc.selfDoneCount}/{sc.kpiCount}</strong>
+                      </span>
+                      <span className="kpi-scorecard-stat-pill">
+                        최종확정 <strong>{sc.finalizedCount}/{sc.kpiCount}</strong>
                       </span>
 
-                      <span
-                        className={`kpi-stage-pill ${
-                          hasSelfEvaluated ? 'is-done-self' : 'is-wait'
-                        }`}
-                      >
-                        {hasSelfEvaluated
-                          ? `자가평가 완료${selfGrade ? ` (${selfGrade}등급)` : ''}`
-                          : '자가평가 대기'}
-                      </span>
+                      <span className="kpi-scorecard-divider" aria-hidden="true" />
 
-                      <span
-                        className={`kpi-stage-pill ${
-                          peerCount > 0 ? 'is-done-peer' : 'is-wait'
-                        }`}
-                      >
-                        {peerCount > 0
-                          ? `동료평가 ${peerCount}명 (${avgTotal}점)`
-                          : '동료평가 대기'}
-                      </span>
+                      <div className="kpi-scorecard-inline-metric">
+                        <span className="kpi-scorecard-metric-label">종합 점수</span>
+                        <strong className="kpi-scorecard-metric-val is-highlight">
+                          {sc.normalizedScore !== null ? `${sc.normalizedScore}점` : '미산출'}
+                        </strong>
+                      </div>
 
-                      <span
-                        className={`kpi-stage-pill ${
-                          finalGrade ? `is-done-final grade-${finalGrade.toLowerCase()}` : 'is-wait'
-                        }`}
-                      >
-                        {finalGrade
-                          ? `최종 ${finalGrade}등급 (${evalMetrics.weightedPoint}점)`
-                          : '최종평가 대기'}
-                      </span>
-
-                      <span className="kpi-summary-arrow">
-                        상세 <ChevronRight size={16} />
-                      </span>
+                      {sc.overallGrade && (
+                        <span
+                          className={`kpi-grade-chip grade-${sc.overallGrade.toLowerCase()}`}
+                        >
+                          종합 {sc.overallGrade}등급
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
+
+          {/* 3. 정렬된 KPI 테이블 목록 (클릭 시 상세 평가 페이지 이동) */}
+          {currentKpis.length === 0 ? (
+            <div className="card kpi-empty-card">
+              <Award size={36} className="kpi-empty-icon" />
+              <div className="kpi-empty-title">등록된 KPI 목표 과제가 없습니다.</div>
+              <p className="kpi-empty-desc">
+                상단 <strong>[+ KPI 목표 수립]</strong> 버튼을 눌러 목표와 달성 기준을 등록해 주세요.
+              </p>
+              {!isViewer && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenCreateModal()}
+                  className="btn btn-primary"
+                >
+                  <Plus size={16} /> KPI 목표 수립
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="card kpi-table-card">
+              <div className="kpi-table-scroll">
+                <table className="kpi-list-table">
+                  <thead>
+                    <tr>
+                      <th className="kpi-col-owner">파트 / 담당</th>
+                      <th className="kpi-col-title">KPI 목표명 및 달성 기준</th>
+                      <th className="kpi-col-weight">가중치</th>
+                      <th className="kpi-col-tasks">연결 과제</th>
+                      <th className="kpi-col-self">자가평가</th>
+                      <th className="kpi-col-peer">동료평가</th>
+                      <th className="kpi-col-final">최종등급</th>
+                      <th className="kpi-col-action">상세</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentKpis.map((item) => {
+                      const trackCfg = TRACK_CONFIG[item.track || '기획'] || TRACK_CONFIG['기획'];
+                      const TrackIcon = trackCfg.icon;
+                      const hasSelfEvaluated = checkHasSelfEval(item);
+                      const finalGrade = hasSelfEvaluated
+                        ? item.directorGrade || item.leaderGrade || null
+                        : null;
+                      const selfGrade = resolveSelfGrade(item.selfScore);
+                      const evalMetrics = getKpiEvalMetrics(item);
+                      const linkedTasks = getLinkedTasksForKpi(item);
+                      const peerReviews = item.peerReviews || [];
+                      const peerCount = peerReviews.length;
+                      const avgTotal =
+                        peerCount > 0
+                          ? item.peerAvgScore ??
+                            Number(
+                              (
+                                peerReviews.reduce(
+                                  (acc, r) =>
+                                    acc +
+                                    (Number(r.scoreQuality || 5) +
+                                      Number(r.scoreCollaboration || 5)) /
+                                      2,
+                                  0
+                                ) / peerCount
+                              ).toFixed(1)
+                            )
+                          : 0;
+
+                      return (
+                        <tr
+                          key={item.id}
+                          onClick={() => {
+                            setSelectedKpiId(item.id);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                          className="kpi-table-row"
+                        >
+                          <td className="kpi-col-owner">
+                            <div className="kpi-owner-cell">
+                              <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                                <TrackIcon size={13} /> {trackCfg.label}
+                              </span>
+                              <strong className="kpi-owner-name">
+                                {item.targetScope === 'team' ? '팀 공통' : item.ownerName}
+                              </strong>
+                            </div>
+                          </td>
+
+                          <td className="kpi-col-title">
+                            <div className="kpi-title-cell">
+                              <span className="kpi-table-title">{item.title}</span>
+                              {item.targetValue && (
+                                <span className="kpi-table-subdesc">{item.targetValue}</span>
+                              )}
+                            </div>
+                          </td>
+
+                          <td className="kpi-col-weight">
+                            <span className="kpi-weight-badge">{item.weight}%</span>
+                          </td>
+
+                          <td className="kpi-col-tasks">
+                            <span
+                              className={`kpi-stage-pill ${
+                                linkedTasks.length > 0 ? 'is-done-task' : 'is-wait'
+                              }`}
+                            >
+                              {linkedTasks.length > 0 ? `${linkedTasks.length}건 연결` : '미연결'}
+                            </span>
+                          </td>
+
+                          <td className="kpi-col-self">
+                            <span
+                              className={`kpi-stage-pill ${
+                                hasSelfEvaluated ? 'is-done-self' : 'is-wait'
+                              }`}
+                            >
+                              {hasSelfEvaluated
+                                ? `완료${selfGrade ? ` (${selfGrade}등급)` : ''}`
+                                : '대기'}
+                            </span>
+                          </td>
+
+                          <td className="kpi-col-peer">
+                            <span
+                              className={`kpi-stage-pill ${
+                                peerCount > 0 ? 'is-done-peer' : 'is-wait'
+                              }`}
+                            >
+                              {peerCount > 0 ? `${peerCount}명 (${avgTotal}점)` : '대기'}
+                            </span>
+                          </td>
+
+                          <td className="kpi-col-final">
+                            <span
+                              className={`kpi-stage-pill ${
+                                finalGrade
+                                  ? `is-done-final grade-${finalGrade.toLowerCase()}`
+                                  : 'is-wait'
+                              }`}
+                            >
+                              {finalGrade
+                                ? `${finalGrade}등급 (${evalMetrics.weightedPoint}점)`
+                                : '대기'}
+                            </span>
+                          </td>
+
+                          <td className="kpi-col-action">
+                            <span className="kpi-summary-arrow">
+                              상세 <ChevronRight size={15} />
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </>
       )}
 
