@@ -108,7 +108,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
     category: string;
     title: string;
     description: string;
-    ownerRole: string;
     linkLabel: string;
     linkUrl: string;
     note: string;
@@ -117,7 +116,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
     category: '인프라·권한',
     title: '',
     description: '',
-    ownerRole: '본인',
     linkLabel: '',
     linkUrl: '',
     note: '',
@@ -253,7 +251,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
       category: defaultCat,
       title: '',
       description: '',
-      ownerRole: '본인 · 최범열',
       linkLabel: '',
       linkUrl: '',
       note: '',
@@ -269,7 +266,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
       category: item.category || '서비스·시스템',
       title: item.title,
       description: item.description,
-      ownerRole: item.ownerRole || '본인',
       linkLabel: item.linkLabel || '',
       linkUrl: item.linkUrl || '',
       note: item.note || '',
@@ -296,7 +292,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
           category: formData.category.trim() || '서비스·시스템',
           title: formData.title.trim(),
           description: formData.description.trim(),
-          ownerRole: formData.ownerRole.trim() || '본인',
+          ownerRole: '',
           linkLabel: formData.linkLabel.trim() || undefined,
           linkUrl: formData.linkUrl.trim() || undefined,
           note: formData.note.trim(),
@@ -308,7 +304,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
           category: formData.category.trim() || '서비스·시스템',
           title: formData.title.trim(),
           description: formData.description.trim(),
-          ownerRole: formData.ownerRole.trim() || '본인',
+          ownerRole: '',
           linkLabel: formData.linkLabel.trim() || undefined,
           linkUrl: formData.linkUrl.trim() || undefined,
           note: formData.note.trim(),
@@ -415,7 +411,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
               <Search size={16} className="tasks-search-icon" />
               <input
                 type="text"
-                placeholder="항목, 내용, 담당자 검색..."
+                placeholder="항목, 내용 검색..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="form-input tasks-search-input"
@@ -506,9 +502,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                         {item.category}
                       </span>
                       <h3 className="onb-item-title">{item.title}</h3>
-                      {item.ownerRole && (
-                        <span className="onb-owner-badge">{item.ownerRole}</span>
-                      )}
                       {item.completed && (
                         <span className="onb-completed-stamp">
                           <Check size={14} />
@@ -613,7 +606,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
 
             <form onSubmit={handleSaveItem} className="tasks-modal-form">
               <div className="modal-body">
-                <div className="tasks-form-grid-3">
+                <div className="tasks-form-grid-2">
                   <div className="form-group">
                     <label className="form-label">단계 *</label>
                     <select
@@ -651,20 +644,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                         </option>
                       ))}
                     </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">담당 / 안내자</label>
-                    <input
-                      type="text"
-                      disabled={isViewer}
-                      placeholder="예: 본인, 최범열"
-                      value={formData.ownerRole}
-                      onChange={(e) =>
-                        setFormData({ ...formData, ownerRole: e.target.value })
-                      }
-                      className="form-input"
-                    />
                   </div>
                 </div>
 
