@@ -156,7 +156,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
           item.title.toLowerCase().includes(q) ||
           item.description.toLowerCase().includes(q) ||
           item.category.toLowerCase().includes(q) ||
-          item.ownerRole.toLowerCase().includes(q) ||
           (item.note || '').toLowerCase().includes(q);
         if (!match) return false;
       }
@@ -441,7 +440,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
         </div>
       </div>
 
-      {/* 2. 단계별 체크리스트 목록 */}
+      {/* 2. 단계별 체크리스트 다열 테이블 (데스크톱/태블릿) & 카드 리스트 (모바일) */}
       <div className="onb-sections-stack">
         {groupedPhases.map(({ meta, rows, totalInPhase, completedInPhase }) => (
           <section key={meta.key} className="card onb-section-card">
@@ -464,74 +463,185 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
               )}
             </div>
 
-            <div className="onb-checklist-list">
-              {rows.map((item) => (
-                <article
-                  key={item.id}
-                  className={`onb-item-row ${item.completed ? 'is-completed' : ''}`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => handleToggleCheck(item)}
-                    disabled={isViewer}
-                    className={`onb-checkbox-btn ${item.completed ? 'checked' : ''}`}
-                    title={item.completed ? '완료 해제' : '완료 체크'}
-                    aria-label={`${item.title} 완료 체크`}
-                  >
-                    {item.completed ? (
-                      <CheckSquare size={22} className="onb-icon-checked" />
-                    ) : (
-                      <Square size={22} className="onb-icon-unchecked" />
-                    )}
-                  </button>
+            {/* 데스크톱 & 태블릿용 정형 다열 테이블 */}
+            <div className="onb-table-scroll">
+              <table className="onb-table">
+                <thead>
+                  <tr>
+                    <th className="onb-col-check">체크</th>
+                    <th className="onb-col-cat">구분</th>
+                    <th className="onb-col-title">항목명</th>
+                    <th className="onb-col-desc">세부 확인 내용</th>
+                    <th className="onb-col-link">바로가기</th>
+                    <th className="onb-col-actions">관리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((item) => (
+                    <tr
+                      key={item.id}
+                      className={`onb-tr ${item.completed ? 'is-completed' : ''}`}
+                    >
+                      <td className="onb-td-check">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCheck(item)}
+                          disabled={isViewer}
+                          className={`onb-checkbox-btn ${item.completed ? 'checked' : ''}`}
+                          title={item.completed ? '완료 해제' : '완료 체크'}
+                          aria-label={`${item.title} 완료 체크`}
+                        >
+                          {item.completed ? (
+                            <CheckSquare size={20} className="onb-icon-checked" />
+                          ) : (
+                            <Square size={20} className="onb-icon-unchecked" />
+                          )}
+                        </button>
+                      </td>
 
-                  <div
-                    className="onb-item-content"
-                    onClick={() => handleOpenEditModal(item)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleOpenEditModal(item);
-                      }
-                    }}
-                  >
-                    <div className="onb-item-title-line">
-                      <span className={getCategoryBadgeClass(item.category)}>
-                        {item.category}
-                      </span>
-                      <h3 className="onb-item-title">{item.title}</h3>
-                      {item.completed && (
-                        <span className="onb-completed-stamp">
-                          <Check size={14} />
-                          <span>
-                            {item.completedBy || '완료'}
-                            {item.completedAt ? ` (${formatShortDate(item.completedAt)})` : ''}
-                          </span>
+                      <td className="onb-td-cat">
+                        <span className={getCategoryBadgeClass(item.category)}>
+                          {item.category}
                         </span>
+                      </td>
+
+                      <td
+                        className="onb-td-title"
+                        onClick={() => handleOpenEditModal(item)}
+                      >
+                        <div className="onb-td-title-wrap">
+                          <span className="onb-item-title">{item.title}</span>
+                          {item.completed && (
+                            <span className="onb-completed-stamp">
+                              <Check size={14} />
+                              <span>
+                                {item.completedBy || '완료'}
+                                {item.completedAt
+                                  ? ` (${formatShortDate(item.completedAt)})`
+                                  : ''}
+                              </span>
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td
+                        className="onb-td-desc"
+                        onClick={() => handleOpenEditModal(item)}
+                      >
+                        <div className="onb-td-desc-wrap">
+                          <span className="onb-item-desc">
+                            {item.description || '-'}
+                          </span>
+                          {item.note && (
+                            <div className="onb-item-note">
+                              <FileText size={14} className="onb-note-icon" />
+                              <span>{item.note}</span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="onb-td-link">
+                        {item.linkUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => handleShortcutClick(item.linkUrl!)}
+                            className="btn btn-secondary onb-shortcut-btn"
+                            title={item.linkUrl}
+                          >
+                            <span>{item.linkLabel || '열기'}</span>
+                            {item.linkUrl.startsWith('#/') ? (
+                              <ArrowRight size={14} />
+                            ) : (
+                              <ExternalLink size={14} />
+                            )}
+                          </button>
+                        ) : (
+                          <span className="onb-dash-muted">-</span>
+                        )}
+                      </td>
+
+                      <td className="onb-td-actions">
+                        <div className="tasks-row-actions">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(item)}
+                            className="btn btn-secondary tasks-action-btn"
+                            title={isViewer ? '상세 조회' : '수정 및 메모'}
+                          >
+                            <Edit2 size={14} /> {isViewer ? '조회' : '수정'}
+                          </button>
+                          {!isViewer && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteItem(item.id, item.title)}
+                              className="btn btn-secondary tasks-delete-icon-btn"
+                              title="삭제"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+
+                  {rows.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="onb-empty-row">
+                        등록된 항목이 없습니다.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* 모바일 전용 카드 리스트 (767px 이하) */}
+            <div className="onb-mobile-list">
+              {rows.map((item) => (
+                <div
+                  key={item.id}
+                  className={`onb-mobile-card ${item.completed ? 'is-completed' : ''}`}
+                >
+                  <div className="onb-mobile-card-top">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleCheck(item)}
+                      disabled={isViewer}
+                      className={`onb-checkbox-btn ${item.completed ? 'checked' : ''}`}
+                      aria-label={`${item.title} 완료 체크`}
+                    >
+                      {item.completed ? (
+                        <CheckSquare size={20} className="onb-icon-checked" />
+                      ) : (
+                        <Square size={20} className="onb-icon-unchecked" />
                       )}
-                    </div>
-
-                    {item.description && (
-                      <p className="onb-item-desc">{item.description}</p>
-                    )}
-
-                    {item.note && (
-                      <div className="onb-item-note">
-                        <FileText size={14} className="onb-note-icon" />
-                        <span>{item.note}</span>
-                      </div>
-                    )}
+                    </button>
+                    <span className={getCategoryBadgeClass(item.category)}>
+                      {item.category}
+                    </span>
+                    <strong className="onb-item-title">{item.title}</strong>
                   </div>
 
-                  <div className="onb-item-actions">
+                  {item.description && (
+                    <p className="onb-item-desc">{item.description}</p>
+                  )}
+
+                  {item.note && (
+                    <div className="onb-item-note">
+                      <FileText size={14} className="onb-note-icon" />
+                      <span>{item.note}</span>
+                    </div>
+                  )}
+
+                  <div className="onb-mobile-card-actions">
                     {item.linkUrl && (
                       <button
                         type="button"
                         onClick={() => handleShortcutClick(item.linkUrl!)}
                         className="btn btn-secondary onb-shortcut-btn"
-                        title={item.linkUrl}
                       >
                         <span>{item.linkLabel || '열기'}</span>
                         {item.linkUrl.startsWith('#/') ? (
@@ -541,33 +651,25 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                         )}
                       </button>
                     )}
-
                     <button
                       type="button"
                       onClick={() => handleOpenEditModal(item)}
                       className="btn btn-secondary tasks-action-btn"
-                      title={isViewer ? '상세 조회' : '수정 및 메모'}
                     >
                       <Edit2 size={14} /> {isViewer ? '조회' : '수정'}
                     </button>
-
                     {!isViewer && (
                       <button
                         type="button"
                         onClick={() => handleDeleteItem(item.id, item.title)}
                         className="btn btn-secondary tasks-delete-icon-btn"
-                        title="삭제"
                       >
                         <Trash2 size={14} />
                       </button>
                     )}
                   </div>
-                </article>
+                </div>
               ))}
-
-              {rows.length === 0 && (
-                <div className="onb-empty-row">등록된 항목이 없습니다.</div>
-              )}
             </div>
           </section>
         ))}
@@ -663,7 +765,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">세부 내용</label>
+                  <label className="form-label">세부 확인 내용</label>
                   <textarea
                     rows={2}
                     disabled={isViewer}
