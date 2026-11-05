@@ -222,7 +222,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   const [editingKpi, setEditingKpi] = useState<KpiItem | null>(null);
 
   // 상단 평가 기준표(3대 축 & 루브릭) 접기/펼치기 상태 및 상세 페이지 선택 KPI ID
-  const [isFrameworkOpen, setIsFrameworkOpen] = useState<boolean>(false);
+  const [isFrameworkOpen, setIsFrameworkOpen] = useState<boolean>(true);
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null);
 
   // 상세 페이지에 표시할 현재 선택된 KPI 항목 (수정/평가 반영 시 자동 동기화)
