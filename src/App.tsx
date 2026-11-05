@@ -8,6 +8,7 @@ import { TasksView } from './components/TasksView';
 import { VacationsView } from './components/VacationsView';
 import { KpiView } from './components/KpiView';
 import { WorkInfoView } from './components/WorkInfoView';
+import { OnboardingView } from './components/OnboardingView';
 import { AuditLogsView } from './components/AuditLogsView';
 import {
   Compass,
@@ -15,6 +16,7 @@ import {
   Calendar,
   Target,
   BookOpen,
+  UserPlus,
   ShieldAlert,
   Eye,
   Check,
@@ -28,7 +30,7 @@ import {
   X,
 } from 'lucide-react';
 
-type NavTab = 'overview' | 'tasks' | 'vacations' | 'kpi' | 'work_info' | 'audit';
+type NavTab = 'overview' | 'tasks' | 'vacations' | 'kpi' | 'work_info' | 'onboarding' | 'audit';
 type AuthMode = 'login' | 'register';
 
 function isAuthHash(hash: string = typeof window !== 'undefined' ? window.location.hash : ''): boolean {
@@ -57,6 +59,9 @@ function parseTabFromHash(hash: string = typeof window !== 'undefined' ? window.
   ) {
     return 'work_info';
   }
+  if (cleanHash === 'onboarding' || cleanHash.startsWith('onboarding/')) {
+    return 'onboarding';
+  }
   if (cleanHash === 'audit' || cleanHash === 'logs' || cleanHash.startsWith('audit/')) return 'audit';
   return 'overview';
 }
@@ -73,6 +78,7 @@ const NAV_LABELS: Record<NavTab, string> = {
   vacations: '팀 통합 일정',
   kpi: 'KPI 목표 및 평가',
   work_info: '업무 관련 정보',
+  onboarding: '신규 입사자 온보딩',
   audit: '감사 로그',
 };
 
@@ -82,6 +88,7 @@ const TAB_TITLES: Record<NavTab, string> = {
   vacations: NAV_LABELS.vacations,
   kpi: NAV_LABELS.kpi,
   work_info: NAV_LABELS.work_info,
+  onboarding: NAV_LABELS.onboarding,
   audit: NAV_LABELS.audit,
 };
 
@@ -393,6 +400,18 @@ export function App() {
             <span>{NAV_LABELS.work_info}</span>
           </a>
 
+          <a
+            href="#/onboarding"
+            className={`nav-item ${activeTab === 'onboarding' ? 'active' : ''}`}
+            onClick={(e) => {
+              e.preventDefault();
+              navigateTo('onboarding');
+            }}
+          >
+            <UserPlus size={18} />
+            <span>{NAV_LABELS.onboarding}</span>
+          </a>
+
           {isAdmin && (
             <>
               <div className="sidebar-divider" />
@@ -510,6 +529,13 @@ export function App() {
           )}
           {activeTab === 'work_info' && (
             <WorkInfoView
+              currentUser={currentUser}
+              isViewer={isViewer}
+              onShowToast={showToast}
+            />
+          )}
+          {activeTab === 'onboarding' && (
+            <OnboardingView
               currentUser={currentUser}
               isViewer={isViewer}
               onShowToast={showToast}

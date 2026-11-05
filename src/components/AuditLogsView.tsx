@@ -111,6 +111,8 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ onShowToast }) => 
         return <span className="audit-action-badge is-delete">삭제 (DELETE)</span>;
       case 'LOGIN':
         return <span className="audit-action-badge is-login">접속 (LOGIN)</span>;
+      case 'STATUS_CHANGE':
+        return <span className="audit-action-badge is-update">상태변경 (CHECK)</span>;
       default:
         return <span className="audit-action-badge is-default">{action}</span>;
     }
@@ -126,6 +128,8 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ onShowToast }) => 
         return 'KPI평가';
       case 'work_info':
         return '업무관련정보';
+      case 'onboarding':
+        return '온보딩';
       case 'auth':
         return '인증/세션';
       default:
@@ -290,6 +294,7 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ onShowToast }) => 
             <option value="vacation">일정/휴가 변경</option>
             <option value="kpi">KPI 변경</option>
             <option value="work_info">업무관련정보 변경</option>
+            <option value="onboarding">온보딩 체크리스트 변경</option>
             <option value="auth">계정/로그인/비밀번호</option>
           </select>
         </div>

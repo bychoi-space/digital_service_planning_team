@@ -12,6 +12,8 @@ import type {
   AuditLog,
   UserRole,
   WorkInfoItem,
+  OnboardingChecklistItem,
+  OnboardingPhase,
 } from '../types';
 import { getSupabaseClient, isSupabaseEnabled, SUPABASE_URL } from './supabase';
 
@@ -22,12 +24,14 @@ const STORAGE_KEYS = {
   KPIS: 'ds_planning_kpis_clean_v1',
   AUDIT_LOGS: 'ds_planning_audit_logs_clean_v1',
   WORK_INFOS: 'ds_planning_work_infos_v1',
+  ONBOARDING_ITEMS: 'ds_planning_onboarding_items_v1',
   CURRENT_USER_ID: 'ds_planning_current_user_id_v2',
   CURRENT_USER_SNAPSHOT: 'ds_planning_current_user_snapshot_v2',
 };
 
 const WORK_INFO_CLOUD_RECORD_ID = 'sys-work-info-store-v1';
 const KPI_CLOUD_RECORD_ID = 'sys-kpi-extended-store-v1';
+const ONBOARDING_CLOUD_RECORD_ID = 'sys-onboarding-store-v1';
 
 const INITIAL_WORK_INFO_ITEMS: WorkInfoItem[] = [
   {
@@ -114,6 +118,304 @@ const INITIAL_WORK_INFO_ITEMS: WorkInfoItem[] = [
     createdAt: '2026-10-23T02:55:00.000Z',
     updatedBy: '최범열',
     updatedAt: '2026-10-23T02:55:00.000Z',
+  },
+];
+
+const INITIAL_ONBOARDING_ITEMS: OnboardingChecklistItem[] = [
+  // --- Day 1: 출근 첫날 (인프라·권한·팀 적응) ---
+  {
+    id: 'onb-1',
+    phase: 'day1',
+    category: '인프라·권한',
+    title: '사내 내부 업무용 와이파이(sisunin) 및 네트워크 연결',
+    description:
+      '내부 업무용 Wi-Fi(sisunin) 연결 후 사내 네트워크·NAS·ERP 접속 가능 여부를 확인합니다.',
+    ownerRole: '본인 · 멘토(최범열)',
+    linkLabel: '와이파이 정보 확인',
+    linkUrl: '#/work-info',
+    completed: false,
+    note: '',
+    sortOrder: 1,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+  {
+    id: 'onb-2',
+    phase: 'day1',
+    category: '인프라·권한',
+    title: '시선 그룹웨어 계정 로그인 및 메신저·메일·일정 세팅',
+    description:
+      '시선 그룹웨어(gw.sisun.com)에 접속하여 조직도 확인, 이메일 서명 설정 및 사내 메신저 프로필을 세팅합니다.',
+    ownerRole: '디지털정보실(민상연 대리) · 본인',
+    linkLabel: '시선 그룹웨어 열기',
+    linkUrl: 'https://gw.sisun.com/',
+    completed: false,
+    note: '',
+    sortOrder: 2,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+  {
+    id: 'onb-3',
+    phase: 'day1',
+    category: '인프라·권한',
+    title: 'ERP 및 나스(NAS) 공유폴더 접속 권한 확인',
+    description:
+      '사내 ERP 및 나스(공유폴더) 계정으로 접속하여 서비스기획팀 공유 문서함과 산출물 아카이브 폴더 접근을 확인합니다.',
+    ownerRole: '디지털정보실 · 본인',
+    linkLabel: '계정·담당자 정보 보기',
+    linkUrl: '#/work-info',
+    completed: false,
+    note: '',
+    sortOrder: 3,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+  {
+    id: 'onb-4',
+    phase: 'day1',
+    category: '협업 허브',
+    title: '서비스기획팀 업무포털 계정 생성 및 팀원 인사·조직 안내',
+    description:
+      '업무포털에 서비스기획팀 소속으로 계정을 등록하고, 팀 비전·미션 및 기획(최범열)·디자인(박수민)·퍼블리싱(김리아) 파트 구성을 숙지합니다.',
+    ownerRole: '멘토(최범열) · 팀 전원',
+    linkLabel: '팀 업무 안내 보기',
+    linkUrl: '#/overview',
+    completed: false,
+    note: '',
+    sortOrder: 4,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+  {
+    id: 'onb-5',
+    phase: 'day1',
+    category: '협업 허브',
+    title: '4대 협업 허브(Notion · 기획 워크스페이스 · Figma · QA 서버) 권한 점검',
+    description:
+      'Notion(Sisun-Tasks), 전용 기획 워크스페이스(Workspace), Figma 디자인 시안 보드, QA 서버(Front/Admin) 열람 및 편집 권한을 확인합니다.',
+    ownerRole: '멘토(최범열)',
+    linkLabel: '기획 워크스페이스 열기',
+    linkUrl: 'https://bychoi-space.github.io/workspace/index.html',
+    completed: false,
+    note: '',
+    sortOrder: 5,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+
+  // --- 1주차: 도메인·시스템 구조 파악 & 산출물 역추적 ---
+  {
+    id: 'onb-6',
+    phase: 'week1',
+    category: '산출물·프로세스',
+    title: '서비스기획 5단계 표준 프로세스 및 파트별 협업 규칙 숙지',
+    description:
+      '요구사항 접수 → 기획/설계 → 개발 협의 → QA 검증 → 배포/모니터링 5단계 표준 절차와 단계별 핵심 산출물을 학습합니다.',
+    ownerRole: '멘토(최범열)',
+    linkLabel: '표준 프로세스 보기',
+    linkUrl: '#/overview',
+    completed: false,
+    note: '',
+    sortOrder: 6,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+  {
+    id: 'onb-7',
+    phase: 'week1',
+    category: '도메인·시스템',
+    title: '자사몰 Front(시선닷컴) 및 QA Front 전시·상품·주문 동선 탐색',
+    description:
+      '브랜드관·기획전 전시 구좌, 상품 상세(PC 더보기·상세 공지), 장바구니·주문서(Front UI Renewal 영역) 고객 여정을 직접 체험하며 화면 구조를 파악합니다.',
+    ownerRole: '본인 · 멘토(최범열)',
+    linkLabel: 'QA 서버 Front 열기',
+    linkUrl: 'https://qas.sisun.com/',
+    completed: false,
+    note: '',
+    sortOrder: 7,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+  {
+    id: 'onb-8',
+    phase: 'week1',
+    category: '도메인·시스템',
+    title: '백오피스 Admin(어드민) 주요 메뉴 및 상품·프로모션·물류 정책 파악',
+    description:
+      'QA 서버 Admin에서 상품 그룹 UI/정렬 설정, 제휴프로모션 배너 슬롯 관리, 주문목록 수동출고처지정 등 백오피스 핵심 운영 기능을 확인합니다.',
+    ownerRole: '멘토(최범열)',
+    linkLabel: 'QA 서버 Admin 열기',
+    linkUrl: 'https://qasadmin.sisun.com/',
+    completed: false,
+    note: '',
+    sortOrder: 8,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+  {
+    id: 'onb-9',
+    phase: 'week1',
+    category: '산출물·프로세스',
+    title: '최근 대표 과제 산출물(기획서 뷰어 ↔ Figma 시안 ↔ Notion) 역추적 학습',
+    description:
+      '업무 관리 보드에 등록된 대표 과제들의 기획서(Workspace), 디자인 시안(Figma), Notion 과제 이력을 대조하며 실제 화면 반영 결과를 분석합니다.',
+    ownerRole: '본인 · 멘토(최범열)',
+    linkLabel: '서비스기획 업무 관리 열기',
+    linkUrl: '#/tasks',
+    completed: false,
+    note: '',
+    sortOrder: 9,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+
+  // --- 2주차: 유관부서 협업 방식 숙지 & 첫 Pilot 과제 착수 ---
+  {
+    id: 'onb-10',
+    phase: 'week2',
+    category: '산출물·프로세스',
+    title: '기획 워크스페이스(Workspace) 화면설계서 작성 규격 및 버전 관리 실습',
+    description:
+      '기획 워크스페이스에서 화면설계서 작성, 상태 정의, 정책 명세화 및 업무포털·Notion 양방향 산출물 링크 연동 방식을 실습합니다.',
+    ownerRole: '멘토(최범열)',
+    linkLabel: '기획 워크스페이스 열기',
+    linkUrl: 'https://bychoi-space.github.io/workspace/index.html',
+    completed: false,
+    note: '',
+    sortOrder: 10,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+  {
+    id: 'onb-11',
+    phase: 'week2',
+    category: '협업 허브',
+    title: '파트 간(기획 ↔ 디자인 박수민 ↔ 퍼블리싱 김리아) 산출물 연계 워크플로우 숙지',
+    description:
+      '상위 기획 과제 수립 후 디자인([디자인])·퍼블리싱([퍼블]) 하위 작업 생성 및 기획서·Figma 시안 교차 공유 프로세스를 익힙니다.',
+    ownerRole: '박수민(디자인) · 김리아(퍼블리싱)',
+    linkLabel: '파트별 업무 보드 보기',
+    linkUrl: '#/tasks',
+    completed: false,
+    note: '',
+    sortOrder: 11,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+  {
+    id: 'onb-12',
+    phase: 'week2',
+    category: '실무·오너십',
+    title: '첫 소규모 Pilot 과제 배정 및 화면설계서 초안 작성·리뷰',
+    description:
+      '단일 화면 기능개선 또는 운영 개선 과제를 배정받아 업무포털에 과제를 등록하고, 화면설계서 초안을 작성하여 동료 리뷰를 진행합니다.',
+    ownerRole: '본인 · 멘토(최범열)',
+    linkLabel: '업무 등록하러 가기',
+    linkUrl: '#/tasks',
+    completed: false,
+    note: '',
+    sortOrder: 12,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+  {
+    id: 'onb-13',
+    phase: 'week2',
+    category: '도메인·시스템',
+    title: '유관부서(브랜드 사업부 · 온라인 MD · 개발 · 물류/CS) 협업 접점 파악',
+    description:
+      '기획전/프로모션 요청, 어드민 운영 개선, 외부 연동 등 유관부서별 주요 요청 배경과 협의 시 유의사항을 숙지합니다.',
+    ownerRole: '멘토(최범열)',
+    linkLabel: '유관부서 협업 안내 보기',
+    linkUrl: '#/overview',
+    completed: false,
+    note: '',
+    sortOrder: 13,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+
+  // --- 3~4주차: QA 검증·배포 사이클 완주 & 주력 도메인 배정 ---
+  {
+    id: 'onb-14',
+    phase: 'week3_4',
+    category: '실무·오너십',
+    title: 'Pilot 과제 개발/퍼블리싱 리뷰 및 QA 서버 테스트 케이스 검증',
+    description:
+      'QA 서버(Front/Admin)에 반영된 Pilot 과제의 정상 동작 여부와 예외 케이스를 검수하고 수정 사항을 피드백합니다.',
+    ownerRole: '본인 · 개발/퍼블리싱 파트',
+    linkLabel: 'QA 서버 Front 열기',
+    linkUrl: 'https://qas.sisun.com/',
+    completed: false,
+    note: '',
+    sortOrder: 14,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+  {
+    id: 'onb-15',
+    phase: 'week3_4',
+    category: '실무·오너십',
+    title: '운영 서버 배포 모니터링 및 유관부서 반영 안내 완주',
+    description:
+      'Pilot 과제의 운영 배포 후 실서버 정상 작동 여부를 점검하고, 유관부서에 배포 결과를 공유하여 첫 사이클을 완주합니다.',
+    ownerRole: '본인 · 멘토(최범열)',
+    linkLabel: '팀 통합 일정 보기',
+    linkUrl: '#/schedule',
+    completed: false,
+    note: '',
+    sortOrder: 15,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
+  },
+  {
+    id: 'onb-16',
+    phase: 'week3_4',
+    category: '실무·오너십',
+    title: '2027년 자사몰·어드민 주요 개발과제 리뷰 및 담당 도메인·KPI 목표 수립',
+    description:
+      '2027년 자사몰·어드민 주요 개발과제 로드맵을 함께 검토하고, 주력 담당 도메인 배정 및 개인 KPI 목표를 수립합니다.',
+    ownerRole: '멘토(최범열) · 본인',
+    linkLabel: 'KPI 목표 관리 열기',
+    linkUrl: '#/kpi',
+    completed: false,
+    note: '',
+    sortOrder: 16,
+    createdBy: '최범열',
+    createdAt: '2026-11-05T02:00:00.000Z',
+    updatedBy: '최범열',
+    updatedAt: '2026-11-05T02:00:00.000Z',
   },
 ];
 
@@ -262,6 +564,9 @@ export class PlanningStorageService {
     }
     if (!localStorage.getItem(STORAGE_KEYS.WORK_INFOS)) {
       localStorage.setItem(STORAGE_KEYS.WORK_INFOS, JSON.stringify(INITIAL_WORK_INFO_ITEMS));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.ONBOARDING_ITEMS)) {
+      localStorage.setItem(STORAGE_KEYS.ONBOARDING_ITEMS, JSON.stringify(INITIAL_ONBOARDING_ITEMS));
     }
 
     // Supabase가 활성화되어 있으면 백그라운드 원격 동기화 시도
@@ -545,6 +850,14 @@ export class PlanningStorageService {
           }
         }
 
+        const cloudOnboardingRow = remoteLogs.find((row) => row.id === ONBOARDING_CLOUD_RECORD_ID);
+        if (cloudOnboardingRow && typeof cloudOnboardingRow.summary === 'string') {
+          const parsedOnboarding = safeJsonParse<OnboardingChecklistItem[]>(cloudOnboardingRow.summary, []);
+          if (Array.isArray(parsedOnboarding) && parsedOnboarding.length > 0) {
+            localStorage.setItem(STORAGE_KEYS.ONBOARDING_ITEMS, JSON.stringify(parsedOnboarding));
+          }
+        }
+
         const cloudKpiRow = remoteLogs.find((row) => row.id === KPI_CLOUD_RECORD_ID);
         if (cloudKpiRow && typeof cloudKpiRow.summary === 'string') {
           const parsedExtendedKpis = safeJsonParse<KpiItem[]>(cloudKpiRow.summary, []);
@@ -579,6 +892,8 @@ export class PlanningStorageService {
             (row) =>
               row.id !== WORK_INFO_CLOUD_RECORD_ID &&
               row.entity_title !== 'WORK_INFO_STORE' &&
+              row.id !== ONBOARDING_CLOUD_RECORD_ID &&
+              row.entity_title !== 'ONBOARDING_STORE' &&
               row.id !== KPI_CLOUD_RECORD_ID &&
               row.entity_title !== 'KPI_EXTENDED_STORE'
           )
@@ -1033,6 +1348,8 @@ export class PlanningStorageService {
       (log) =>
         log.id !== WORK_INFO_CLOUD_RECORD_ID &&
         log.entityTitle !== 'WORK_INFO_STORE' &&
+        log.id !== ONBOARDING_CLOUD_RECORD_ID &&
+        log.entityTitle !== 'ONBOARDING_STORE' &&
         log.id !== KPI_CLOUD_RECORD_ID &&
         log.entityTitle !== 'KPI_EXTENDED_STORE'
     );
@@ -1040,7 +1357,7 @@ export class PlanningStorageService {
   }
 
   public static recordAuditLog(params: {
-    entityType: 'task' | 'vacation' | 'kpi' | 'auth' | 'work_info';
+    entityType: 'task' | 'vacation' | 'kpi' | 'auth' | 'work_info' | 'onboarding';
     entityId: string;
     entityTitle: string;
     action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'STATUS_CHANGE';
@@ -2224,6 +2541,251 @@ export class PlanningStorageService {
       action: 'DELETE',
       summary: `[업무 관련 정보] 삭제: [${target.category}] ${target.title}`,
     });
+  }
+
+  // --- 5. 신규 입사자 온보딩 체크리스트 (Onboarding Checklist) CRUD & 클라우드 동기화 ---
+  public static getOnboardingItems(): OnboardingChecklistItem[] {
+    this.initialize();
+    const items = safeJsonParse<OnboardingChecklistItem[]>(
+      localStorage.getItem(STORAGE_KEYS.ONBOARDING_ITEMS),
+      INITIAL_ONBOARDING_ITEMS
+    );
+    if (!Array.isArray(items) || items.length === 0) {
+      return INITIAL_ONBOARDING_ITEMS;
+    }
+    const phaseRank: Record<OnboardingPhase, number> = {
+      day1: 0,
+      week1: 1,
+      week2: 2,
+      week3_4: 3,
+    };
+    return [...items].sort((a, b) => {
+      const pDiff = (phaseRank[a.phase] ?? 9) - (phaseRank[b.phase] ?? 9);
+      if (pDiff !== 0) return pDiff;
+      return (a.sortOrder ?? 999) - (b.sortOrder ?? 999);
+    });
+  }
+
+  private static async pushOnboardingToRemote(items: OnboardingChecklistItem[]): Promise<void> {
+    if (!isSupabaseEnabled()) return;
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    const currentUser = this.getCurrentUser();
+    try {
+      await client.from('audit_logs').upsert({
+        id: ONBOARDING_CLOUD_RECORD_ID,
+        entity_type: 'auth',
+        entity_id: 'sys-onboarding',
+        entity_title: 'ONBOARDING_STORE',
+        action: 'UPDATE',
+        actor_id: currentUser.id,
+        actor_name: currentUser.name,
+        actor_role: currentUser.role,
+        timestamp: new Date().toISOString(),
+        summary: JSON.stringify(items),
+      });
+    } catch (e) {
+      console.warn('Supabase onboarding sync note:', e);
+    }
+  }
+
+  public static toggleOnboardingItem(id: string): OnboardingChecklistItem {
+    if (this.isViewer()) {
+      throw new Error('유관부서(읽기 전용) 모드에서는 체크 상태를 변경할 수 없습니다.');
+    }
+
+    const currentUser = this.getCurrentUser();
+    const now = new Date().toISOString();
+    const items = this.getOnboardingItems();
+    const idx = items.findIndex((item) => item.id === id);
+    if (idx === -1) {
+      throw new Error('해당 온보딩 체크리스트 항목을 찾을 수 없습니다.');
+    }
+
+    const nextCompleted = !items[idx].completed;
+    const updatedItem: OnboardingChecklistItem = {
+      ...items[idx],
+      completed: nextCompleted,
+      completedBy: nextCompleted ? currentUser.name : undefined,
+      completedAt: nextCompleted ? now : undefined,
+      updatedBy: currentUser.name,
+      updatedAt: now,
+    };
+
+    const updatedList = [...items];
+    updatedList[idx] = updatedItem;
+    localStorage.setItem(STORAGE_KEYS.ONBOARDING_ITEMS, JSON.stringify(updatedList));
+    this.pushOnboardingToRemote(updatedList);
+
+    this.recordAuditLog({
+      entityType: 'onboarding',
+      entityId: updatedItem.id,
+      entityTitle: updatedItem.title,
+      action: 'STATUS_CHANGE',
+      summary: `[신규 입사자 온보딩] ${nextCompleted ? '완료 체크' : '체크 해제'}: ${updatedItem.title}`,
+    });
+
+    return updatedItem;
+  }
+
+  public static createOnboardingItem(data: {
+    phase: OnboardingPhase;
+    category: string;
+    title: string;
+    description: string;
+    ownerRole: string;
+    linkLabel?: string;
+    linkUrl?: string;
+    note?: string;
+  }): OnboardingChecklistItem {
+    if (this.isViewer()) {
+      throw new Error('유관부서(읽기 전용) 모드에서는 체크리스트 항목을 추가할 수 없습니다.');
+    }
+
+    const currentUser = this.getCurrentUser();
+    const now = new Date().toISOString();
+    const items = this.getOnboardingItems();
+    const maxOrder = items.reduce((max, item) => Math.max(max, item.sortOrder || 0), 0);
+
+    const newItem: OnboardingChecklistItem = {
+      id: generateUniqueId('onb'),
+      phase: data.phase,
+      category: data.category.trim() || '도메인·시스템',
+      title: data.title.trim(),
+      description: data.description.trim(),
+      ownerRole: data.ownerRole.trim() || '본인 · 멘토(최범열)',
+      linkLabel: data.linkLabel?.trim() || undefined,
+      linkUrl: data.linkUrl?.trim() || undefined,
+      completed: false,
+      note: data.note?.trim() || '',
+      sortOrder: maxOrder + 1,
+      createdBy: currentUser.name,
+      createdAt: now,
+      updatedBy: currentUser.name,
+      updatedAt: now,
+    };
+
+    const updated = [...items, newItem];
+    localStorage.setItem(STORAGE_KEYS.ONBOARDING_ITEMS, JSON.stringify(updated));
+    this.pushOnboardingToRemote(updated);
+
+    this.recordAuditLog({
+      entityType: 'onboarding',
+      entityId: newItem.id,
+      entityTitle: newItem.title,
+      action: 'CREATE',
+      summary: `[신규 입사자 온보딩] 항목 추가: [${newItem.category}] ${newItem.title}`,
+    });
+
+    return newItem;
+  }
+
+  public static updateOnboardingItem(
+    id: string,
+    updates: Partial<
+      Pick<
+        OnboardingChecklistItem,
+        | 'phase'
+        | 'category'
+        | 'title'
+        | 'description'
+        | 'ownerRole'
+        | 'linkLabel'
+        | 'linkUrl'
+        | 'note'
+        | 'sortOrder'
+      >
+    >
+  ): OnboardingChecklistItem {
+    if (this.isViewer()) {
+      throw new Error('유관부서(읽기 전용) 모드에서는 체크리스트를 수정할 수 없습니다.');
+    }
+
+    const currentUser = this.getCurrentUser();
+    const now = new Date().toISOString();
+    const items = this.getOnboardingItems();
+    const idx = items.findIndex((item) => item.id === id);
+    if (idx === -1) {
+      throw new Error('해당 온보딩 체크리스트 항목을 찾을 수 없습니다.');
+    }
+
+    const updatedItem: OnboardingChecklistItem = {
+      ...items[idx],
+      ...updates,
+      id: items[idx].id,
+      createdBy: items[idx].createdBy,
+      createdAt: items[idx].createdAt,
+      updatedBy: currentUser.name,
+      updatedAt: now,
+    };
+
+    const updatedList = [...items];
+    updatedList[idx] = updatedItem;
+    localStorage.setItem(STORAGE_KEYS.ONBOARDING_ITEMS, JSON.stringify(updatedList));
+    this.pushOnboardingToRemote(updatedList);
+
+    this.recordAuditLog({
+      entityType: 'onboarding',
+      entityId: updatedItem.id,
+      entityTitle: updatedItem.title,
+      action: 'UPDATE',
+      summary: `[신규 입사자 온보딩] 항목 수정: [${updatedItem.category}] ${updatedItem.title}`,
+    });
+
+    return updatedItem;
+  }
+
+  public static deleteOnboardingItem(id: string): void {
+    if (this.isViewer()) {
+      throw new Error('유관부서(읽기 전용) 모드에서는 체크리스트를 삭제할 수 없습니다.');
+    }
+
+    const items = this.getOnboardingItems();
+    const target = items.find((item) => item.id === id);
+    if (!target) return;
+
+    const filtered = items.filter((item) => item.id !== id);
+    localStorage.setItem(STORAGE_KEYS.ONBOARDING_ITEMS, JSON.stringify(filtered));
+    this.pushOnboardingToRemote(filtered);
+
+    this.recordAuditLog({
+      entityType: 'onboarding',
+      entityId: target.id,
+      entityTitle: target.title,
+      action: 'DELETE',
+      summary: `[신규 입사자 온보딩] 항목 삭제: [${target.category}] ${target.title}`,
+    });
+  }
+
+  public static resetOnboardingChecks(): OnboardingChecklistItem[] {
+    if (this.isViewer()) {
+      throw new Error('유관부서(읽기 전용) 모드에서는 초기화할 수 없습니다.');
+    }
+
+    const currentUser = this.getCurrentUser();
+    const now = new Date().toISOString();
+    const items = this.getOnboardingItems().map((item) => ({
+      ...item,
+      completed: false,
+      completedBy: undefined,
+      completedAt: undefined,
+      updatedBy: currentUser.name,
+      updatedAt: now,
+    }));
+
+    localStorage.setItem(STORAGE_KEYS.ONBOARDING_ITEMS, JSON.stringify(items));
+    this.pushOnboardingToRemote(items);
+
+    this.recordAuditLog({
+      entityType: 'onboarding',
+      entityId: 'onboarding-reset',
+      entityTitle: '온보딩 체크리스트 전체 초기화',
+      action: 'UPDATE',
+      summary: '[신규 입사자 온보딩] 전체 완료 체크 상태 초기화',
+    });
+
+    return items;
   }
 
   // 데이터 전체 리셋 (테스트용)

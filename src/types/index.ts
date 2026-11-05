@@ -195,7 +195,7 @@ export interface KpiItem extends AuditBase {
 
 // 4. 감사 로그(Audit Log) 관련 타입
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'STATUS_CHANGE';
-export type AuditEntityType = 'task' | 'vacation' | 'kpi' | 'auth' | 'work_info';
+export type AuditEntityType = 'task' | 'vacation' | 'kpi' | 'auth' | 'work_info' | 'onboarding';
 
 // 6. 업무 관련 정보 (Work Info) 타입
 export interface WorkInfoItem extends AuditBase {
@@ -203,6 +203,24 @@ export interface WorkInfoItem extends AuditBase {
   title: string;    // 항목명
   content: string;  // 내용 (멀티라인 텍스트, URL 등)
   note: string;     // 비고
+  sortOrder: number;
+}
+
+// 7. 신규 입사자 온보딩 (Onboarding Checklist) 타입
+export type OnboardingPhase = 'day1' | 'week1' | 'week2' | 'week3_4';
+
+export interface OnboardingChecklistItem extends AuditBase {
+  phase: OnboardingPhase;   // 단계: Day 1 / 1주차 / 2주차 / 3~4주차
+  category: string;         // 분류: 인프라·권한, 협업 허브, 도메인·시스템, 산출물·프로세스, 실무·오너십 등
+  title: string;            // 체크리스트 항목 제목
+  description: string;      // 상세 실행 가이드 및 확인 내용
+  ownerRole: string;        // 안내·지원 담당 (예: 본인 / 멘토(최범열) / 디자인(박수민)·퍼블(김리아))
+  linkLabel?: string;       // 바로가기 버튼 라벨
+  linkUrl?: string;         // 내부 해시(#/...) 또는 외부 URL(https://...)
+  completed: boolean;       // 완료 체크 여부
+  completedBy?: string;     // 완료 체크한 사람 이름
+  completedAt?: string;     // 완료 체크 일시 (ISO 8601)
+  note: string;             // 진행 메모 및 특이사항 기록
   sortOrder: number;
 }
 
