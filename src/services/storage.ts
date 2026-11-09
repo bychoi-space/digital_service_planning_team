@@ -530,7 +530,7 @@ export class PlanningStorageService {
   private static isSyncing = false;
   private static syncPromise: Promise<void> | null = null;
 
-  // 10/23 초기 가입 당시 폴백 버그로 '최범열' 세션이 고정된 박수민 대리님 브라우저 자동 복구
+  // 10/23 초기 가입 당시 폴백 버그로 '최범열' 세션이 고정된 박수민·김리아 대리님 브라우저 자동 복구
   public static recoverPollutedLegacySession(): void {
     if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
     if (localStorage.getItem('ds_planning_session_recovered_v1') === 'true') return;
@@ -548,22 +548,45 @@ export class PlanningStorageService {
 
       if (!hasChoiBrowserMarkers) {
         const users = safeJsonParse<User[]>(localStorage.getItem(STORAGE_KEYS.USERS), []);
-        const existingPsm = users.find(
-          (u) => u.name.trim() === '박수민' || String(u.id) === 'user-mvk8jaq3-psm'
-        );
-        const psmUser: User = existingPsm || {
-          id: 'user-mvk8jaq3-psm',
-          username: 'user_mvk8jaq3',
-          name: '박수민',
-          password: '1234',
-          role: 'member',
-          department: '서비스기획팀',
-          position: '서비스기획자',
-          email: '박수민@company.com',
-          avatarColor: '#7c3aed',
-        };
-        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, psmUser.id);
-        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(psmUser));
+        const rawTasks = localStorage.getItem(STORAGE_KEYS.TASKS) || '';
+        const hadOnboardingV3 = Boolean(localStorage.getItem(STORAGE_KEYS.ONBOARDING_ITEMS));
+        const isKimRiaBrowser = rawTasks.includes('task-mw07') || !hadOnboardingV3;
+
+        if (isKimRiaBrowser) {
+          const existingKra = users.find(
+            (u) => u.name.trim() === '김리아' || String(u.id) === 'user-mvk8jq4m-kra'
+          );
+          const kraUser: User = existingKra || {
+            id: 'user-mvk8jq4m-kra',
+            username: 'user_mvk8jq4m',
+            name: '김리아',
+            password: '1234',
+            role: 'member',
+            department: '서비스기획팀',
+            position: '서비스기획자',
+            email: '김리아@company.com',
+            avatarColor: '#059669',
+          };
+          localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, kraUser.id);
+          localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(kraUser));
+        } else {
+          const existingPsm = users.find(
+            (u) => u.name.trim() === '박수민' || String(u.id) === 'user-mvk8jaq3-psm'
+          );
+          const psmUser: User = existingPsm || {
+            id: 'user-mvk8jaq3-psm',
+            username: 'user_mvk8jaq3',
+            name: '박수민',
+            password: '1234',
+            role: 'member',
+            department: '서비스기획팀',
+            position: '서비스기획자',
+            email: '박수민@company.com',
+            avatarColor: '#7c3aed',
+          };
+          localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, psmUser.id);
+          localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(psmUser));
+        }
       }
       localStorage.setItem('ds_planning_session_recovered_v1', 'true');
     }
@@ -571,6 +594,9 @@ export class PlanningStorageService {
 
   // 1. 초기 시드 데이터 검증 및 초기화 (Supabase DB 전용)
   public static initialize(): void {
+    // ONBOARDING_ITEMS 등 신규 스토리지 키 초기화 전에 먼저 오염 세션 복구 수행
+    this.recoverPollutedLegacySession();
+
     if (!localStorage.getItem(STORAGE_KEYS.USERS)) {
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify([]));
     }
@@ -592,8 +618,6 @@ export class PlanningStorageService {
     if (!localStorage.getItem(STORAGE_KEYS.ONBOARDING_ITEMS)) {
       localStorage.setItem(STORAGE_KEYS.ONBOARDING_ITEMS, JSON.stringify(INITIAL_ONBOARDING_ITEMS));
     }
-
-    this.recoverPollutedLegacySession();
 
     // Supabase가 활성화되어 있으면 백그라운드 원격 동기화 시도
     this.syncFromSupabase();
