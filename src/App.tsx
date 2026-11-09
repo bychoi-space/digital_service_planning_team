@@ -9,6 +9,7 @@ import { VacationsView } from './components/VacationsView';
 import { KpiView } from './components/KpiView';
 import { WorkInfoView } from './components/WorkInfoView';
 import { OnboardingView } from './components/OnboardingView';
+import { PolicyView } from './components/PolicyView';
 import { AuditLogsView } from './components/AuditLogsView';
 import {
   Compass,
@@ -17,6 +18,7 @@ import {
   Target,
   BookOpen,
   UserPlus,
+  BookMarked,
   ShieldAlert,
   Eye,
   Check,
@@ -30,7 +32,15 @@ import {
   X,
 } from 'lucide-react';
 
-type NavTab = 'overview' | 'tasks' | 'vacations' | 'kpi' | 'work_info' | 'onboarding' | 'audit';
+type NavTab =
+  | 'overview'
+  | 'tasks'
+  | 'vacations'
+  | 'kpi'
+  | 'work_info'
+  | 'onboarding'
+  | 'policy'
+  | 'audit';
 type AuthMode = 'login' | 'register';
 
 function isAuthHash(hash: string = typeof window !== 'undefined' ? window.location.hash : ''): boolean {
@@ -62,6 +72,13 @@ function parseTabFromHash(hash: string = typeof window !== 'undefined' ? window.
   if (cleanHash === 'onboarding' || cleanHash.startsWith('onboarding/')) {
     return 'onboarding';
   }
+  if (
+    cleanHash === 'policy' ||
+    cleanHash === 'policies' ||
+    cleanHash.startsWith('policy/')
+  ) {
+    return 'policy';
+  }
   if (cleanHash === 'audit' || cleanHash === 'logs' || cleanHash.startsWith('audit/')) return 'audit';
   return 'overview';
 }
@@ -79,6 +96,7 @@ const NAV_LABELS: Record<NavTab, string> = {
   kpi: 'KPI 목표 및 평가',
   work_info: '업무 관련 정보',
   onboarding: '신규 입사자 온보딩',
+  policy: '시선닷컴 정책서',
   audit: '감사 로그',
 };
 
@@ -89,6 +107,7 @@ const TAB_TITLES: Record<NavTab, string> = {
   kpi: NAV_LABELS.kpi,
   work_info: NAV_LABELS.work_info,
   onboarding: NAV_LABELS.onboarding,
+  policy: NAV_LABELS.policy,
   audit: NAV_LABELS.audit,
 };
 
@@ -421,6 +440,18 @@ export function App() {
             <span>{NAV_LABELS.onboarding}</span>
           </a>
 
+          <a
+            href="#/policy"
+            className={`nav-item ${activeTab === 'policy' ? 'active' : ''}`}
+            onClick={(e) => {
+              e.preventDefault();
+              navigateTo('policy');
+            }}
+          >
+            <BookMarked size={18} />
+            <span>{NAV_LABELS.policy}</span>
+          </a>
+
           {isAdmin && (
             <>
               <div className="sidebar-divider" />
@@ -545,6 +576,13 @@ export function App() {
           )}
           {activeTab === 'onboarding' && (
             <OnboardingView
+              currentUser={currentUser}
+              isViewer={isViewer}
+              onShowToast={showToast}
+            />
+          )}
+          {activeTab === 'policy' && (
+            <PolicyView
               currentUser={currentUser}
               isViewer={isViewer}
               onShowToast={showToast}

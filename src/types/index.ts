@@ -195,7 +195,45 @@ export interface KpiItem extends AuditBase {
 
 // 4. 감사 로그(Audit Log) 관련 타입
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'STATUS_CHANGE';
-export type AuditEntityType = 'task' | 'vacation' | 'kpi' | 'auth' | 'work_info' | 'onboarding';
+export type AuditEntityType =
+  | 'task'
+  | 'vacation'
+  | 'kpi'
+  | 'auth'
+  | 'work_info'
+  | 'onboarding'
+  | 'policy';
+
+// 8. 시선닷컴 정책서 (Sisun.com Front Policy) 타입
+export type PolicyDomain =
+  | 'product' // 상품
+  | 'member'  // 회원
+  | 'order'   // 주문
+  | 'display' // 전시
+  | 'claim'   // 클레임
+  | 'search'  // 검색
+  | 'common'; // 공통
+
+export interface PolicyRuleRow {
+  id: string;
+  classification: string; // 구분 / 조건
+  ruleDetail: string;     // 상세 프론트 정책 기준
+  exceptionNote?: string; // 예외 / 비고
+}
+
+export interface SisunPolicyItem extends AuditBase {
+  domain: PolicyDomain;           // 7대 도메인 분류
+  subCategory: string;            // 중분류 (예: '멤버십 등급 산정', '반품/교환 배송비')
+  code: string;                   // 정책 코드 (예: 'POL-PRD-001', 'POL-CLM-002')
+  title: string;                  // 정책명
+  summary: string;                // 핵심 정책 한 줄 요약
+  description: string;            // 정책 배경 및 프론트 노출 기준 설명
+  rules: PolicyRuleRow[];         // 세부 기준 표 (조건별/단계별 규칙)
+  frontScreenPath?: string;       // 시선닷컴 실제 적용 경로 (예: 'https://sisun.com/about/gradeText')
+  workspaceUrl?: string;          // 연관 기획서 뷰어 URL
+  status: 'active' | 'updated';   // 운영중 / 최근개편
+  sortOrder: number;              // 도메인 내 노출 순서
+}
 
 // 6. 업무 관련 정보 (Work Info) 타입
 export interface WorkInfoItem extends AuditBase {

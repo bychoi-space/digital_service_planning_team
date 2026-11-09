@@ -130,6 +130,8 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ onShowToast }) => 
         return '업무관련정보';
       case 'onboarding':
         return '온보딩';
+      case 'policy':
+        return '시선닷컴정책서';
       case 'auth':
         return '인증/세션';
       default:
@@ -295,6 +297,7 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ onShowToast }) => 
             <option value="kpi">KPI 변경</option>
             <option value="work_info">업무관련정보 변경</option>
             <option value="onboarding">온보딩 체크리스트 변경</option>
+            <option value="policy">시선닷컴 정책서 변경</option>
             <option value="auth">계정/로그인/비밀번호</option>
           </select>
         </div>
