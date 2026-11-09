@@ -10483,120 +10483,36 @@ textarea {
 .policy-view-container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px;
 }
 
-.policy-hero-card {
-  padding: 24px 26px;
+.policy-control-card {
+  padding: 18px 22px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
 }
 
-.policy-hero-top {
+.policy-top-tabs-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 14px;
   flex-wrap: wrap;
 }
 
-.policy-hero-title-group {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  flex: 1;
-  min-width: 280px;
-}
-
-.policy-hero-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
-}
-
-.policy-hero-text {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.policy-hero-badge-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.policy-system-badge {
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.4px;
-  color: #1e40af;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  padding: 2px 10px;
-  border-radius: 9999px;
-}
-
-.policy-count-chip {
-  font-size: 14px;
-  font-weight: 700;
-  color: #475569;
-  background: #f1f5f9;
-  padding: 2px 10px;
-  border-radius: 9999px;
-}
-
-.policy-hero-title {
-  font-size: 20px;
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: -0.3px;
-  margin: 0;
-}
-
-.policy-hero-desc {
-  font-size: 14.5px;
-  color: #475569;
-  line-height: 1.55;
-  margin: 0;
-  word-break: keep-all;
-}
-
-.policy-hero-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-}
-
-.policy-external-btn {
-  text-decoration: none;
-}
-
-/* 도메인 탭 바 */
+/* 7대 도메인 전용 탭 바 */
 .policy-domain-tabs {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding-top: 16px;
-  border-top: 1px solid #e2e8f0;
 }
 
 .policy-domain-tab {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   padding: 9px 15px;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
@@ -10619,13 +10535,13 @@ textarea {
   background: #0f172a;
   border-color: #0f172a;
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14);
 }
 
 .policy-domain-tab-count {
   font-size: 14px;
   font-weight: 700;
-  padding: 1px 8px;
+  padding: 1px 7px;
   border-radius: 9999px;
   background: #f1f5f9;
   color: #475569;
@@ -10636,35 +10552,35 @@ textarea {
   color: #ffffff;
 }
 
-/* 검색 및 상태 필터 바 */
-.policy-filter-bar {
+.policy-search-and-action {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
+  gap: 10px;
+  flex: 1;
+  justify-content: flex-end;
+  min-width: 280px;
 }
 
 .policy-search-input-wrap {
   position: relative;
   flex: 1;
-  min-width: 280px;
+  max-width: 320px;
   display: flex;
   align-items: center;
 }
 
 .policy-search-icon {
   position: absolute;
-  left: 14px;
+  left: 13px;
   color: #64748b;
   pointer-events: none;
 }
 
 .policy-search-input {
   width: 100%;
-  padding-left: 40px !important;
-  padding-right: 36px !important;
-  font-size: 14.5px !important;
+  padding-left: 38px !important;
+  padding-right: 34px !important;
+  font-size: 14px !important;
 }
 
 .policy-search-clear-btn {
@@ -10684,16 +10600,51 @@ textarea {
   color: #0f172a;
 }
 
-.policy-status-filter-group {
+.policy-external-btn {
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.policy-add-main-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* 현재 선택된 도메인 요약 바 & 중분류 퀵 칩 */
+.policy-active-domain-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.policy-active-domain-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-.policy-status-chip {
-  padding: 8px 14px;
-  border-radius: 8px;
+.policy-active-domain-desc {
+  font-size: 14px;
+  color: #475569;
+  font-weight: 500;
+}
+
+.policy-subcat-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.policy-subcat-chip {
+  padding: 5px 12px;
+  border-radius: 9999px;
   border: 1px solid #e2e8f0;
   background: #f8fafc;
   color: #475569;
@@ -10703,151 +10654,18 @@ textarea {
   transition: all 0.15s ease;
 }
 
-.policy-status-chip:hover {
+.policy-subcat-chip:hover {
   background: #f1f5f9;
   color: #0f172a;
 }
 
-.policy-status-chip.active {
+.policy-subcat-chip.active {
   background: #eff6ff;
   border-color: #3b82f6;
   color: #1d4ed8;
 }
 
-/* 도메인 섹션 스택 */
-.policy-domains-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-}
-
-.policy-domain-section {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.policy-domain-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 16px 20px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-left: 5px solid #1e293b;
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
-}
-
-.policy-domain-header-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex: 1;
-  min-width: 260px;
-}
-
-.policy-domain-icon-box {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  background: #f1f5f9;
-  color: #0f172a;
-}
-
-.policy-domain-icon-box.is-product {
-  background: #eff6ff;
-  color: #1d4ed8;
-}
-
-.policy-domain-icon-box.is-member {
-  background: #f5f3ff;
-  color: #6d28d9;
-}
-
-.policy-domain-icon-box.is-order {
-  background: #ecfdf5;
-  color: #047857;
-}
-
-.policy-domain-icon-box.is-display {
-  background: #fff7ed;
-  color: #c2410c;
-}
-
-.policy-domain-icon-box.is-claim {
-  background: #fef2f2;
-  color: #b91c1c;
-}
-
-.policy-domain-icon-box.is-search {
-  background: #f0f9ff;
-  color: #0369a1;
-}
-
-.policy-domain-icon-box.is-common {
-  background: #f8fafc;
-  color: #334155;
-  border: 1px solid #cbd5e1;
-}
-
-.policy-domain-header-titles {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.policy-domain-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.policy-domain-title {
-  font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0;
-}
-
-.policy-domain-en-badge {
-  font-size: 14px;
-  font-weight: 700;
-  color: #64748b;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 1px 8px;
-  border-radius: 6px;
-}
-
-.policy-domain-count-badge {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1e40af;
-  background: #eff6ff;
-  padding: 1px 9px;
-  border-radius: 9999px;
-}
-
-.policy-domain-desc {
-  font-size: 14px;
-  color: #475569;
-  margin: 0;
-  line-height: 1.45;
-}
-
-.policy-domain-add-btn {
-  white-space: nowrap;
-}
-
-/* 개별 정책 카드 */
+/* 개별 정책 카드 목록 */
 .policy-cards-list {
   display: flex;
   flex-direction: column;
@@ -10855,19 +10673,27 @@ textarea {
 }
 
 .policy-item-card {
-  padding: 22px 24px;
+  padding: 20px 22px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   border: 1px solid #e2e8f0;
 }
 
 .policy-item-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
+}
+
+.policy-item-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 260px;
 }
 
 .policy-item-meta-top {
@@ -10890,8 +10716,8 @@ textarea {
 
 .policy-domain-pill {
   font-size: 14px;
-  font-weight: 700;
-  padding: 2px 10px;
+  font-weight: 800;
+  padding: 3px 10px;
   border-radius: 6px;
   background: #f1f5f9;
   color: #334155;
@@ -10942,25 +10768,6 @@ textarea {
   border-radius: 6px;
 }
 
-.policy-status-badge {
-  font-size: 14px;
-  font-weight: 700;
-  padding: 2px 10px;
-  border-radius: 9999px;
-}
-
-.policy-status-badge.is-active {
-  background: #f0fdf4;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
-}
-
-.policy-status-badge.is-updated {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
-}
-
 .policy-item-header-right {
   display: flex;
   align-items: center;
@@ -10978,17 +10785,6 @@ textarea {
   font-weight: 700;
   text-decoration: none;
   transition: all 0.15s ease;
-}
-
-.policy-link-btn.is-sisun {
-  background: #f8fafc;
-  color: #0f172a;
-  border: 1px solid #cbd5e1;
-}
-
-.policy-link-btn.is-sisun:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
 }
 
 .policy-link-btn.is-workspace {
@@ -11039,7 +10835,7 @@ textarea {
 }
 
 .policy-item-title {
-  font-size: 18px;
+  font-size: 17.5px;
   font-weight: 800;
   color: #0f172a;
   margin: 0;
@@ -11048,23 +10844,11 @@ textarea {
 }
 
 .policy-item-summary {
-  font-size: 15px;
-  font-weight: 700;
-  color: #1e3a8a;
-  background: #f8fafc;
-  border-left: 3px solid #2563eb;
-  padding: 10px 14px;
-  border-radius: 0 8px 8px 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #475569;
   margin: 0;
   line-height: 1.5;
-  word-break: keep-all;
-}
-
-.policy-item-description {
-  font-size: 14.5px;
-  color: #475569;
-  line-height: 1.6;
-  margin: 0;
   word-break: keep-all;
 }
 
@@ -11073,7 +10857,6 @@ textarea {
   overflow-x: auto;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  margin-top: 4px;
 }
 
 .policy-rules-table {
@@ -11089,7 +10872,7 @@ textarea {
 }
 
 .policy-rules-table th {
-  padding: 12px 16px;
+  padding: 11px 16px;
   font-size: 14px;
   font-weight: 700;
   border-right: 1px solid rgba(255, 255, 255, 0.12);
@@ -11128,7 +10911,7 @@ textarea {
 }
 
 .policy-rules-table td {
-  padding: 13px 16px;
+  padding: 12px 16px;
   font-size: 14.5px;
   vertical-align: top;
   line-height: 1.6;
@@ -11153,25 +10936,6 @@ textarea {
 
 .policy-td-note {
   color: #475569;
-}
-
-.policy-item-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding-top: 8px;
-  border-top: 1px solid #f1f5f9;
-  font-size: 14px;
-  color: #64748b;
-}
-
-.policy-item-path-text {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 14px;
-  color: #475569;
-  word-break: break-all;
 }
 
 .policy-empty-card {
@@ -11258,22 +11022,45 @@ textarea {
   gap: 8px;
 }
 
-@media (max-width: 767px) {
-  .policy-hero-card {
-    padding: 18px 16px;
+@media (max-width: 1023px) {
+  .policy-top-tabs-row {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .policy-hero-actions {
+  .policy-search-and-action {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .policy-search-input-wrap {
+    max-width: none;
+    flex: 1;
+  }
+}
+
+@media (max-width: 767px) {
+  .policy-control-card {
+    padding: 14px;
+  }
+
+  .policy-domain-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
     width: 100%;
   }
 
-  .policy-hero-actions .btn {
-    flex: 1;
-    justify-content: center;
+  .policy-domain-tab {
+    width: 100%;
+    justify-content: space-between;
+    padding: 8px 10px;
   }
 
-  .policy-domain-section-header {
-    padding: 14px 16px;
+  .policy-search-and-action {
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 0;
   }
 
   .policy-item-card {
