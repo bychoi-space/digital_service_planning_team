@@ -528,6 +528,46 @@ export function resolveAttachmentViewerUrl(att: TaskAttachment): string {
 
 export class PlanningStorageService {
   private static isSyncing = false;
+  private static syncPromise: Promise<void> | null = null;
+
+  // 10/23 초기 가입 당시 폴백 버그로 '최범열' 세션이 고정된 박수민 대리님 브라우저 자동 복구
+  public static recoverPollutedLegacySession(): void {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+    if (localStorage.getItem('ds_planning_session_recovered_v1') === 'true') return;
+
+    const isLogged = localStorage.getItem('ds_planning_is_logged_in_v1') === 'true';
+    const currentId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
+
+    if (isLogged && currentId === 'user-mvfynq9h-dl4un') {
+      const hasChoiBrowserMarkers = Boolean(
+        localStorage.getItem('ds_planning_onboarding_items_v1') ||
+          localStorage.getItem('ds_planning_onboarding_items_v2') ||
+          localStorage.getItem('ds_planning_tasks_v1') ||
+          localStorage.getItem('ds_planning_users_v1')
+      );
+
+      if (!hasChoiBrowserMarkers) {
+        const users = safeJsonParse<User[]>(localStorage.getItem(STORAGE_KEYS.USERS), []);
+        const existingPsm = users.find(
+          (u) => u.name.trim() === '박수민' || String(u.id) === 'user-mvk8jaq3-psm'
+        );
+        const psmUser: User = existingPsm || {
+          id: 'user-mvk8jaq3-psm',
+          username: 'user_mvk8jaq3',
+          name: '박수민',
+          password: '1234',
+          role: 'member',
+          department: '서비스기획팀',
+          position: '서비스기획자',
+          email: '박수민@company.com',
+          avatarColor: '#7c3aed',
+        };
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, psmUser.id);
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(psmUser));
+      }
+      localStorage.setItem('ds_planning_session_recovered_v1', 'true');
+    }
+  }
 
   // 1. 초기 시드 데이터 검증 및 초기화 (Supabase DB 전용)
   public static initialize(): void {
@@ -553,65 +593,78 @@ export class PlanningStorageService {
       localStorage.setItem(STORAGE_KEYS.ONBOARDING_ITEMS, JSON.stringify(INITIAL_ONBOARDING_ITEMS));
     }
 
+    this.recoverPollutedLegacySession();
+
     // Supabase가 활성화되어 있으면 백그라운드 원격 동기화 시도
     this.syncFromSupabase();
   }
 
-  // --- Supabase 클라우드 DB 백그라운드 동기화 (무오류 보호) ---
+  // --- Supabase 클라우드 DB 백그라운드 동기화 (무오류 보호 및 진행 중 Promise 공유) ---
   public static async syncFromSupabase(): Promise<void> {
-    if (!isSupabaseEnabled() || this.isSyncing) return;
+    if (!isSupabaseEnabled()) return;
+    if (this.isSyncing && this.syncPromise) {
+      return this.syncPromise;
+    }
     const client = getSupabaseClient();
     if (!client) return;
 
     this.isSyncing = true;
-    try {
-      // 0. users 동기화 (클라우드 회원 DB - 로컬 가입 회원 안전 병합 및 원격 자동 푸시)
-      const { data: remoteUsers, error: userErr } = await client.from('users').select('*').order('created_at', { ascending: true });
-      if (!userErr && remoteUsers && remoteUsers.length > 0) {
-        const localUsers = safeJsonParse<User[]>(localStorage.getItem(STORAGE_KEYS.USERS), []);
-        const prevCurrentId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
-        const prevCurrentUser = localUsers.find((u) => String(u.id) === String(prevCurrentId));
+    this.syncPromise = (async () => {
+      try {
+        // 0. users 동기화 (클라우드 회원 DB - 로컬 가입 회원 안전 병합 및 원격 자동 푸시)
+        const { data: remoteUsers, error: userErr } = await client.from('users').select('*').order('created_at', { ascending: true });
+        if (!userErr && remoteUsers && remoteUsers.length > 0) {
+          this.recoverPollutedLegacySession();
+          const localUsers = safeJsonParse<User[]>(localStorage.getItem(STORAGE_KEYS.USERS), []);
+          const prevCurrentId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
+          const prevSnapshot = safeJsonParse<User | null>(
+            localStorage.getItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT),
+            null
+          );
+          const prevCurrentUser =
+            localUsers.find((u) => String(u.id) === String(prevCurrentId)) || prevSnapshot;
 
-        const mappedRemoteUsers: User[] = remoteUsers.map((row) => ({
-          id: String(row.id),
-          username: row.username || `user_${String(row.id)}`,
-          name: row.name,
-          password: row.password ?? '',
-          role: row.role as UserRole,
-          department: row.department,
-          position: row.position || (row.role === 'admin' ? '팀장 / 수석기획자' : row.role === 'member' ? '서비스기획자' : '유관부서 담당자'),
-          email: row.email || `${row.name.replace(/\s+/g, '').toLowerCase()}@company.com`,
-          avatarColor: row.avatar_color || '#2563eb',
-        }));
+          const mappedRemoteUsers: User[] = remoteUsers.map((row) => ({
+            id: String(row.id),
+            username: row.username || `user_${String(row.id)}`,
+            name: row.name,
+            password: row.password ?? '',
+            role: row.role as UserRole,
+            department: row.department,
+            position: row.position || (row.role === 'admin' ? '팀장 / 수석기획자' : row.role === 'member' ? '서비스기획자' : '유관부서 담당자'),
+            email: row.email || `${row.name.replace(/\s+/g, '').toLowerCase()}@company.com`,
+            avatarColor: row.avatar_color || '#2563eb',
+          }));
 
-        const userMap = new Map<string, User>();
-        mappedRemoteUsers.forEach((u) => userMap.set(u.name.trim(), u));
+          const userMap = new Map<string, User>();
+          mappedRemoteUsers.forEach((u) => userMap.set(u.name.trim(), u));
 
-        for (const localUser of localUsers) {
-          const key = localUser.name.trim();
-          if (!userMap.has(key)) {
-            userMap.set(key, localUser);
-            this.pushUserToRemote(localUser);
-          } else {
-            const remoteUser = userMap.get(key)!;
-            if (!remoteUser.password && localUser.password) {
-              remoteUser.password = localUser.password;
-              this.pushUserToRemote(remoteUser);
+          for (const localUser of localUsers) {
+            const key = localUser.name.trim();
+            if (!userMap.has(key)) {
+              userMap.set(key, localUser);
+              this.pushUserToRemote(localUser);
+            } else {
+              const remoteUser = userMap.get(key)!;
+              if (!remoteUser.password && localUser.password) {
+                remoteUser.password = localUser.password;
+                this.pushUserToRemote(remoteUser);
+              }
+            }
+          }
+
+          const mergedUsers = Array.from(userMap.values());
+          localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mergedUsers));
+
+          // 로그인된 사용자 세션 ID가 이름 기준으로 매칭되는 원격 회원 ID로 갱신되어야 하는 경우 보정
+          if (this.isLoggedIn() && prevCurrentUser) {
+            const matchedMerged = mergedUsers.find((u) => u.name.trim() === prevCurrentUser.name.trim());
+            if (matchedMerged) {
+              localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, matchedMerged.id);
+              localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(matchedMerged));
             }
           }
         }
-
-        const mergedUsers = Array.from(userMap.values());
-        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mergedUsers));
-
-        // 로그인된 사용자 세션 ID가 이름 기준으로 매칭되는 원격 회원 ID로 갱신되어야 하는 경우 보정
-        if (prevCurrentUser) {
-          const matchedMerged = mergedUsers.find((u) => u.name.trim() === prevCurrentUser.name.trim());
-          if (matchedMerged && String(matchedMerged.id) !== String(prevCurrentId)) {
-            localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, matchedMerged.id);
-          }
-        }
-      }
 
       // 1. tasks 동기화 (로컬 데이터 보존 및 원격/Notion 삭제 항목 정리)
       const [{ data: remoteTasks, error: taskErr }, { data: remoteDeleteLogs }] = await Promise.all([
@@ -928,7 +981,11 @@ export class PlanningStorageService {
       console.warn('Supabase background sync skipped (tables pending creation):', e);
     } finally {
       this.isSyncing = false;
+      this.syncPromise = null;
     }
+    })();
+
+    return this.syncPromise;
   }
 
   // --- 사용자 및 인증/세션 관리 (Supabase DB 기반) ---
@@ -997,10 +1054,17 @@ export class PlanningStorageService {
   }
 
   public static isLoggedIn(): boolean {
-    return localStorage.getItem('ds_planning_is_logged_in_v1') === 'true';
+    this.recoverPollutedLegacySession();
+    if (localStorage.getItem('ds_planning_is_logged_in_v1') !== 'true') {
+      return false;
+    }
+    const currentId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
+    const snapshot = safeJsonParse<User | null>(localStorage.getItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT), null);
+    return Boolean(currentId || snapshot?.name);
   }
 
   public static getCurrentUser(): User {
+    this.recoverPollutedLegacySession();
     const users = this.getUsers();
     const currentId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
     const snapshot = safeJsonParse<User | null>(localStorage.getItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT), null);
@@ -1023,23 +1087,15 @@ export class PlanningStorageService {
       return snapshot;
     }
 
-    const fallback = users.find((u) => u.name === '최범열') || users[0];
-    if (fallback) {
-      if (!currentId) {
-        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, fallback.id);
-        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(fallback));
-      }
-      return fallback;
-    }
-    // DB 로딩 전 기본 안전 관리자 객체
+    // 비로그인 또는 세션 미설정 시 localStorage를 오염시키지 않는 메모리 전용 기본 객체 반환
     return {
-      id: 'user-mvfynq9h-dl4un',
-      name: '최범열',
-      role: 'admin',
+      id: '',
+      name: '',
+      role: 'viewer',
       department: '서비스기획팀',
-      position: '서비스기획자 / 차장',
-      email: 'choi@company.com',
-      avatarColor: '#0891b2',
+      position: '서비스기획자',
+      email: '',
+      avatarColor: '#2563eb',
     };
   }
 
@@ -1050,6 +1106,7 @@ export class PlanningStorageService {
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, target.id);
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(target));
       localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
+      localStorage.setItem('ds_planning_session_recovered_v1', 'true');
       this.recordAuditLog({
         entityType: 'auth',
         entityId: target.id,
@@ -1094,6 +1151,7 @@ export class PlanningStorageService {
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, found.id);
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(found));
     localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
+    localStorage.setItem('ds_planning_session_recovered_v1', 'true');
 
     this.recordAuditLog({
       entityType: 'auth',
@@ -1113,6 +1171,7 @@ export class PlanningStorageService {
     password: string;
     department: string;
   }): Promise<{ success: boolean; user?: User; message?: string }> {
+    await this.syncFromSupabase();
     const users = this.getUsers();
     const trimmedName = params.name.trim();
 
@@ -1120,10 +1179,15 @@ export class PlanningStorageService {
     const isPlanTeam = params.department.includes('서비스기획') || params.department.includes('기획');
     const role: UserRole = isPlanTeam ? 'member' : 'viewer';
 
-    // 이미 동일 이름이 존재하는 경우: 비밀번호 미설정(복구 계정)이면 비밀번호/부서 갱신 허용, 아니면 중복 안내
+    // 이미 동일 이름이 존재하는 경우: 비밀번호 미설정(복구 계정) 또는 초기 시드 계정('1234')이면 비밀번호/부서 갱신 허용
     const existingUser = users.find((u) => u.name.trim() === trimmedName);
     if (existingUser) {
-      if (!existingUser.password) {
+      const isInitialSeedAccount =
+        !existingUser.password ||
+        ((existingUser.id === 'user-mvk8jaq3-psm' || existingUser.id === 'user-mvk8jq4m-kra') &&
+          existingUser.password === '1234');
+
+      if (isInitialSeedAccount) {
         existingUser.password = params.password;
         existingUser.department = params.department;
         existingUser.role = role;
@@ -1132,10 +1196,11 @@ export class PlanningStorageService {
         localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, existingUser.id);
         localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(existingUser));
         localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
+        localStorage.setItem('ds_planning_session_recovered_v1', 'true');
         await this.pushUserToRemote(existingUser);
         return { success: true, user: existingUser };
       }
-      return { success: false, message: '이미 동일한 이름으로 등록된 사용자가 있습니다.' };
+      return { success: false, message: '이미 동일한 이름으로 등록된 사용자가 있습니다. [로그인] 탭을 이용해 주세요.' };
     }
 
     const colors = ['#2563eb', '#059669', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#4b5563'];
@@ -1161,6 +1226,7 @@ export class PlanningStorageService {
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, newUser.id);
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(newUser));
     localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
+    localStorage.setItem('ds_planning_session_recovered_v1', 'true');
 
     // Supabase DB 동기화 저장
     await this.pushUserToRemote(newUser);
@@ -1177,17 +1243,22 @@ export class PlanningStorageService {
     return { success: true, user: newUser };
   }
 
-  // 로그아웃 처리
+  // 로그아웃 처리 (세션 스토리지 완전 정리)
   public static logout(): void {
     const current = this.getCurrentUser();
     localStorage.setItem('ds_planning_is_logged_in_v1', 'false');
-    this.recordAuditLog({
-      entityType: 'auth',
-      entityId: current.id,
-      entityTitle: current.name,
-      action: 'LOGIN',
-      summary: `${current.name} 포털 로그아웃`,
-    });
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT);
+    if (current.id && current.name) {
+      this.recordAuditLog({
+        entityType: 'auth',
+        entityId: current.id,
+        entityTitle: current.name,
+        action: 'LOGIN',
+        summary: `${current.name} 포털 로그아웃`,
+        actorOverride: { id: current.id, name: current.name, role: current.role },
+      });
+    }
   }
 
   // [비밀번호 관리 1] 비로그인 상태: 이름 + 가입 소속 부서 일치 검증 후 즉시 새 비밀번호 재설정
@@ -1273,7 +1344,11 @@ export class PlanningStorageService {
       return { success: false, message: '현재 비밀번호를 입력해 주세요.' };
     }
 
-    if (found.password && found.password !== params.currentPassword) {
+    const isSeedPasswordBypass =
+      (found.id === 'user-mvk8jaq3-psm' || found.id === 'user-mvk8jq4m-kra') &&
+      found.password === '1234';
+
+    if (found.password && !isSeedPasswordBypass && found.password !== params.currentPassword) {
       return { success: false, message: '현재 비밀번호가 일치하지 않습니다.' };
     }
 
@@ -1281,7 +1356,7 @@ export class PlanningStorageService {
       return { success: false, message: '새 비밀번호를 입력해 주세요.' };
     }
 
-    if (found.password && found.password === params.newPassword) {
+    if (found.password && !isSeedPasswordBypass && found.password === params.newPassword) {
       return { success: false, message: '새 비밀번호는 기존 비밀번호와 다르게 입력해 주세요.' };
     }
 

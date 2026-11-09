@@ -192,7 +192,15 @@ export function App() {
   useEffect(() => {
     PlanningStorageService.syncFromSupabase().then(() => {
       setSyncKey((prev) => prev + 1);
-      setCurrentUser(PlanningStorageService.getCurrentUser());
+      if (PlanningStorageService.isLoggedIn()) {
+        const syncedUser = PlanningStorageService.getCurrentUser();
+        if (syncedUser.id && syncedUser.name) {
+          setCurrentUser(syncedUser);
+        } else {
+          PlanningStorageService.logout();
+          setIsAuthenticated(false);
+        }
+      }
     });
   }, []);
 
@@ -263,6 +271,7 @@ export function App() {
   // 로그아웃 처리
   const handleLogout = () => {
     PlanningStorageService.logout();
+    setCurrentUser(PlanningStorageService.getCurrentUser());
     setIsAuthenticated(false);
     setIsMobileMenuOpen(false);
     setActiveTabState('overview');
