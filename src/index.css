@@ -10409,8 +10409,60 @@ textarea {
   background: #f8fafc;
 }
 
-.kpi-col-owner {
-  width: 144px;
+.kpi-owner-group-row td.kpi-owner-group-cell {
+  background: #f8fafc;
+  padding: 10px 16px;
+  border-top: 1px solid #cbd5e1;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.kpi-list-table tbody tr.kpi-owner-group-row:first-child td.kpi-owner-group-cell {
+  border-top: none;
+}
+
+.kpi-owner-group-row.track-planning td.kpi-owner-group-cell {
+  border-left: 4px solid #2563eb;
+}
+
+.kpi-owner-group-row.track-design td.kpi-owner-group-cell {
+  border-left: 4px solid #059669;
+}
+
+.kpi-owner-group-row.track-publishing td.kpi-owner-group-cell {
+  border-left: 4px solid #9333ea;
+}
+
+.kpi-owner-group-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kpi-owner-group-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kpi-owner-group-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kpi-group-progress-meta {
+  font-size: 14px;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.kpi-group-progress-meta strong {
+  color: #0f172a;
+  font-weight: 800;
 }
 
 .kpi-col-cycle {
