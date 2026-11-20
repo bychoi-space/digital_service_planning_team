@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type {
   VacationItem,
   VacationType,
@@ -14,10 +14,8 @@ import {
   PlanningStorageService,
   computeTaskStatusByDates,
   getTodayDateString,
-  resolveAttachmentViewerUrl,
-  resolveAttachmentDownloadUrl,
-  isWebViewableAttachment,
 } from '../services/storage';
+import { AttachmentField } from './common/AttachmentField';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -32,9 +30,6 @@ import {
   ExternalLink,
   Clock,
   CheckCircle2,
-  Paperclip,
-  Upload,
-  Download,
 } from 'lucide-react';
 
 interface VacationsViewProps {
@@ -233,37 +228,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     };
   });
 
-  const [isUploadingTaskFile, setIsUploadingTaskFile] = useState(false);
-  const [isTaskDragOver, setIsTaskDragOver] = useState(false);
-  const taskFileInputRef = useRef<HTMLInputElement>(null);
-
-  const formatFileSize = (bytes: number): string => {
-    if (!bytes || bytes < 1024) return `${bytes || 0} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  const getAttachmentMeta = (ext?: string) => {
-    const normalized = (ext || '').toLowerCase();
-    if (normalized === 'xlsx' || normalized === 'xls' || normalized === 'csv') {
-      return { badge: 'EXCEL', chipLabel: 'Excel', classKey: 'is-excel' };
-    }
-    if (normalized === 'pptx' || normalized === 'ppt') {
-      return { badge: 'PPT', chipLabel: 'PPT', classKey: 'is-ppt' };
-    }
-    if (normalized === 'pdf') {
-      return { badge: 'PDF', chipLabel: 'PDF', classKey: 'is-pdf' };
-    }
-    if (normalized === 'docx' || normalized === 'doc' || normalized === 'hwp' || normalized === 'hwpx') {
-      return { badge: 'DOC', chipLabel: '문서', classKey: 'is-doc' };
-    }
-    return {
-      badge: (normalized || 'FILE').toUpperCase().slice(0, 5),
-      chipLabel: '첨부',
-      classKey: 'is-file',
-    };
-  };
-
   // 업무 등록 모달 열기
   const handleOpenCreateTaskModal = () => {
     if (isViewer) {
@@ -344,54 +308,12 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     setIsTaskModalOpen(true);
   };
 
-  const handleTaskFilesUpload = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0 || isViewer) return;
-    setIsUploadingTaskFile(true);
-    try {
-      const uploadedItems: TaskAttachment[] = [];
-      for (const file of Array.from(fileList)) {
-        const item = await PlanningStorageService.uploadTaskAttachment(file, currentUser.name);
-        uploadedItems.push(item);
-      }
-      const nextAttachments = [...(taskFormData.attachments || []), ...uploadedItems];
-      setTaskFormData((prev) => ({
-        ...prev,
-        attachments: nextAttachments,
-      }));
-      if (editingTask) {
-        const updated = PlanningStorageService.updateTask(
-          editingTask.id,
-          { attachments: nextAttachments },
-          currentUser,
-          { syncToNotion: false }
-        );
-        setEditingTask(updated);
-        refreshAll();
-      }
-      onShowToast(
-        `${uploadedItems.length}개의 첨부 파일(${uploadedItems.map((u) => u.name).join(', ')})이 업로드되었습니다.`,
-        'success'
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '파일 업로드 중 오류가 발생했습니다.';
-      onShowToast(msg, 'error');
-    } finally {
-      setIsUploadingTaskFile(false);
-      if (taskFileInputRef.current) {
-        taskFileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleRemoveTaskAttachment = async (target: TaskAttachment) => {
-    if (isViewer) return;
-    const nextAttachments = (taskFormData.attachments || []).filter((a) => a.id !== target.id);
+  const handleTaskAttachmentsChange = (nextAttachments: TaskAttachment[]) => {
     setTaskFormData((prev) => ({
       ...prev,
       attachments: nextAttachments,
     }));
-    await PlanningStorageService.removeTaskAttachmentFromStorage(target.storagePath);
-    if (editingTask) {
+    if (editingTask && !isViewer) {
       const updated = PlanningStorageService.updateTask(
         editingTask.id,
         { attachments: nextAttachments },
@@ -401,7 +323,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       setEditingTask(updated);
       refreshAll();
     }
-    onShowToast(`첨부 파일 "${target.name}"이(가) 삭제되었습니다.`, 'info');
   };
 
   // 업무 저장 (신규 등록 / 기존 수정 통합)
@@ -1860,157 +1781,15 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                         </div>
                       </div>
 
-                      {/* 5-B. 첨부 파일 업로드 및 다운로드 (MS Office Excel · PPT · PDF · 문서) */}
-                      <div className="form-group tasks-attachments-group">
-                        <div className="tasks-attachments-header">
-                          <label className="form-label tasks-attachments-label">
-                            <Paperclip size={15} />
-                            <span>첨부 파일 (MS Office Excel · PPT · PDF · 문서)</span>
-                            {taskFormData.attachments.length > 0 && (
-                              <span className="tasks-attachments-count">
-                                {taskFormData.attachments.length}개
-                              </span>
-                            )}
-                          </label>
-
-                          {!isViewer && (
-                            <>
-                              <input
-                                ref={taskFileInputRef}
-                                type="file"
-                                multiple
-                                accept=".xlsx,.xls,.csv,.pptx,.ppt,.docx,.doc,.pdf,.hwp,.hwpx,.zip,.png,.jpg,.jpeg,.webp"
-                                onChange={(e) => handleTaskFilesUpload(e.target.files)}
-                                className="tasks-file-input-hidden"
-                              />
-                              <button
-                                type="button"
-                                disabled={isUploadingTaskFile}
-                                onClick={() => taskFileInputRef.current?.click()}
-                                className="btn btn-secondary tasks-upload-trigger-btn"
-                              >
-                                <Upload
-                                  size={14}
-                                  className={isUploadingTaskFile ? 'spin-icon' : ''}
-                                />
-                                <span>
-                                  {isUploadingTaskFile ? '업로드 중...' : '파일 첨부'}
-                                </span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-
-                        <div
-                          className={`tasks-attachments-dropzone ${isTaskDragOver ? 'is-dragover' : ''} ${taskFormData.attachments.length > 0 ? 'has-files' : ''}`}
-                          onDragOver={(e) => {
-                            if (isViewer) return;
-                            e.preventDefault();
-                            setIsTaskDragOver(true);
-                          }}
-                          onDragLeave={(e) => {
-                            if (isViewer) return;
-                            e.preventDefault();
-                            setIsTaskDragOver(false);
-                          }}
-                          onDrop={(e) => {
-                            if (isViewer) return;
-                            e.preventDefault();
-                            setIsTaskDragOver(false);
-                            handleTaskFilesUpload(e.dataTransfer.files);
-                          }}
-                        >
-                          {taskFormData.attachments.length === 0 ? (
-                            <div
-                              className="tasks-attachments-empty"
-                              onClick={() => {
-                                if (!isViewer && !isUploadingTaskFile) {
-                                  taskFileInputRef.current?.click();
-                                }
-                              }}
-                            >
-                              <Upload size={16} className="tasks-attachments-empty-icon" />
-                              <span>
-                                {isViewer
-                                  ? '등록된 첨부 파일이 없습니다.'
-                                  : isUploadingTaskFile
-                                    ? '클라우드 스토리지에 파일을 업로드하고 있습니다...'
-                                    : '엑셀(.xlsx), 파워포인트(.pptx), PDF, 워드 등 파일을 끌어다 놓거나 클릭하여 첨부하세요.'}
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="tasks-attachments-list">
-                              {taskFormData.attachments.map((att) => {
-                                const attMeta = getAttachmentMeta(att.ext);
-                                const isViewable = isWebViewableAttachment(att);
-                                const viewerUrl = resolveAttachmentViewerUrl(att);
-                                const dlUrl = resolveAttachmentDownloadUrl(att);
-                                return (
-                                  <div key={att.id} className="tasks-attachment-row">
-                                    <div className="tasks-attachment-info">
-                                      <span
-                                        className={`tasks-attachment-ext-badge ${attMeta.classKey}`}
-                                      >
-                                        {attMeta.badge}
-                                      </span>
-                                      <a
-                                        href={viewerUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="tasks-attachment-name is-clickable"
-                                        title={
-                                          isViewable
-                                            ? `${att.name} 브라우저 새 탭에서 읽기 모드로 열기`
-                                            : `${att.name} 다운로드`
-                                        }
-                                      >
-                                        {att.name}
-                                      </a>
-                                      <span className="tasks-attachment-size">
-                                        ({formatFileSize(att.size)})
-                                      </span>
-                                    </div>
-
-                                    <div className="tasks-attachment-actions">
-                                      {isViewable && (
-                                        <a
-                                          href={viewerUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="btn btn-secondary tasks-attachment-view-btn"
-                                          title="MS Office 웹 뷰어 / 브라우저 새 탭에서 읽기 모드로 바로 열기"
-                                        >
-                                          <ExternalLink size={14} /> 열람
-                                        </a>
-                                      )}
-                                      <a
-                                        href={dlUrl}
-                                        download={att.name}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="btn btn-secondary tasks-attachment-dl-btn"
-                                        title="원본 파일 다운로드"
-                                      >
-                                        <Download size={14} /> 다운로드
-                                      </a>
-                                      {!isViewer && (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveTaskAttachment(att)}
-                                          className="btn btn-secondary tasks-attachment-del-btn"
-                                          title="첨부 파일 삭제"
-                                        >
-                                          <Trash2 size={14} />
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      {/* 5-B. 첨부 파일 업로드 · 새창열기(Google 읽기 전용) · 다운로드 (공통 컴포넌트) */}
+                      <AttachmentField
+                        attachments={taskFormData.attachments}
+                        isViewer={isViewer}
+                        uploaderName={currentUser.name || '시스템'}
+                        storageFolder="tasks"
+                        onAttachmentsChange={handleTaskAttachmentsChange}
+                        onShowToast={onShowToast}
+                      />
 
                       {visibleCardsCount > 0 && (
                         <div className={`tasks-integrations-grid ${gridColClass}`}>

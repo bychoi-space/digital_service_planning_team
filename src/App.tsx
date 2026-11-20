@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import type { User } from './types';
 import { PlanningStorageService } from './services/storage';
 import { isSupabaseEnabled } from './services/supabase';
+import {
+  resolveViewerModeBadgeText,
+  resolveMobileViewerBadgeText,
+} from './constants/departments';
 import { LoginPage } from './components/auth/LoginPage';
 import { OverviewView } from './components/OverviewView';
 import { TasksView } from './components/TasksView';
@@ -477,7 +481,7 @@ export function App() {
           </div>
           {isViewer && (
             <div className="sidebar-mobile-viewer-badge">
-              <Eye size={14} /> 읽기 전용 모드
+              <Eye size={14} /> {resolveMobileViewerBadgeText(currentUser)}
             </div>
           )}
           <button
@@ -510,7 +514,7 @@ export function App() {
             <h1 className="page-title">{NAV_LABELS[activeTab]}</h1>
             {isViewer && (
               <div className="viewer-mode-alert">
-                <Eye size={14} /> 유관부서 읽기 전용 모드 적용 중 (등록/수정 제한)
+                <Eye size={14} /> {resolveViewerModeBadgeText(currentUser)}
               </div>
             )}
           </div>

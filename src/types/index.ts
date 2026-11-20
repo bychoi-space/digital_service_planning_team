@@ -229,6 +229,7 @@ export interface SisunPolicyItem extends AuditBase {
   summary: string;                // 핵심 정책 한 줄 요약
   description: string;            // 정책 배경 및 프론트 노출 기준 설명
   rules: PolicyRuleRow[];         // 세부 기준 표 (조건별/단계별 규칙)
+  attachments?: TaskAttachment[]; // 첨부 파일 목록 (MS Office 정책서, PDF 등)
   frontScreenPath?: string;       // 시선닷컴 실제 적용 경로 (예: 'https://sisun.com/about/gradeText')
   workspaceUrl?: string;          // 연관 기획서 뷰어 URL
   status: 'active' | 'updated';   // 운영중 / 최근개편

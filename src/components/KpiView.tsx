@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import type {
   KpiItem,
   KpiQuarter,
@@ -10,6 +10,7 @@ import type {
   User,
 } from '../types';
 import { PlanningStorageService } from '../services/storage';
+import { resolveKpiAccessRole, isTeamLeadName } from '../constants/departments';
 import {
   Plus,
   Award,
@@ -30,6 +31,10 @@ import {
   ChevronUp,
   ChevronRight,
   ArrowLeft,
+  Users,
+  Lock,
+  Eye,
+  UserCheck,
 } from 'lucide-react';
 
 interface KpiViewProps {
@@ -37,6 +42,8 @@ interface KpiViewProps {
   isViewer: boolean;
   onShowToast: (msg: string, type: 'success' | 'error' | 'info') => void;
 }
+
+type KpiModeTab = 'evaluation' | 'peer_feedback';
 
 const QUARTERS: { key: KpiQuarter; label: string; shortLabel: string }[] = [
   { key: 'Annual', label: '2026 연간', shortLabel: '연간' },
@@ -128,7 +135,6 @@ const GRADE_RUBRIC: {
   },
 ];
 
-// 시선인터내셔널 서비스기획팀 직무별 객관적 KPI 표준 프리셋 (정성적·구조적·무결성 기준)
 interface KpiPreset {
   track: KpiTrack;
   pillar: string;
@@ -206,16 +212,41 @@ const KPI_PRESETS: KpiPreset[] = [
   },
 ];
 
-export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowToast }) => {
+function resolveMemberDefaultTrack(name?: string | null): KpiTrack {
+  const trimmed = (name || '').trim();
+  if (trimmed === '박수민') return '디자인';
+  if (trimmed === '김리아') return '퍼블리싱';
+  return '기획';
+}
+
+export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) => {
   const [kpis, setKpis] = useState<KpiItem[]>(() => PlanningStorageService.getKpis());
   const [tasks] = useState<TaskItem[]>(() => PlanningStorageService.getTasks());
   const [teamMembers, setTeamMembers] = useState<User[]>(() =>
     PlanningStorageService.getServicePlanningMembers()
   );
 
+  // 조직 위계 기반 KPI 열람·평가 역할 판별
+  const kpiRole = resolveKpiAccessRole(currentUser);
+  const isTeamLead = kpiRole === 'team_lead'; // 최범열 차장 (서비스기획팀장 · 1차 평가)
+  const isDivisionHead = kpiRole === 'division_head'; // 유은정 상무 (디지털마케팅실장 · 최종 평가)
+  const isExecutiveViewer = kpiRole === 'executive_viewer'; // 박종삼 전무 · 신동휘 사장 (전체 열람 전용)
+  const isTeamMember = kpiRole === 'team_member'; // 김리아 · 고범곤 · 박수민 대리 등 (본인 KPI + 동료 다면평가)
+  const isCrossDept = kpiRole === 'cross_dept'; // 타 부서 · 유관부서 임직원 (무기명 협업 다면평가 전용)
+
+  const canViewAllOrgKpis = isTeamLead || isDivisionHead || isExecutiveViewer;
+  const canCreateGoal = isTeamLead || isTeamMember;
+
+  // 상단 뷰 모드: 유관부서(cross_dept)는 'peer_feedback' 고정, 그 외는 'evaluation' 기본 시작
+  const [modeTab, setModeTab] = useState<KpiModeTab>(() =>
+    isCrossDept ? 'peer_feedback' : 'evaluation'
+  );
+  const effectiveModeTab: KpiModeTab = isCrossDept ? 'peer_feedback' : modeTab;
+
   const [selectedQuarter, setSelectedQuarter] = useState<KpiQuarter>('Annual');
   const [trackFilter, setTrackFilter] = useState<'all' | KpiTrack>('all');
   const [ownerFilter, setOwnerFilter] = useState<string>('all');
+  const [peerOwnerFilter, setPeerOwnerFilter] = useState<string>('all');
 
   // 기본 목표 수립/수정 모달
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -225,26 +256,66 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   const [isFrameworkOpen, setIsFrameworkOpen] = useState<boolean>(true);
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null);
 
-  // 상세 페이지에 표시할 현재 선택된 KPI 항목 (수정/평가 반영 시 자동 동기화)
-  const selectedKpi = useMemo(
-    () => (selectedKpiId ? kpis.find((k) => k.id === selectedKpiId) || null : null),
-    [kpis, selectedKpiId]
+  // 현재 로그인한 사용자가 해당 KPI의 본인(담당자)인지 여부 판별
+  const isKpiOwner = useCallback(
+    (kpi: KpiItem): boolean => {
+      const currentName = currentUser.name?.trim() || '';
+      if (!currentName) return false;
+      if (kpi.ownerName?.trim() === currentName) return true;
+      if (kpi.ownerId && String(kpi.ownerId) === String(currentUser.id)) return true;
+      return false;
+    },
+    [currentUser.id, currentUser.name]
   );
 
-  // 평가/점검 모달: 'self_checkin' (실적·자가평가) | 'peer_review' (타 임직원 동료 피드백 작성) | 'admin_eval' (관리자 최종평가) | 'task_mapping' (실무 과제 매핑)
+  // 현재 로그인한 사용자가 해당 KPI의 평가 내역(상세)을 열람할 수 있는지 여부 (기밀성 보호)
+  const canReadKpiEvaluation = useCallback(
+    (kpi: KpiItem): boolean => {
+      if (canViewAllOrgKpis) return true;
+      if (isTeamMember) {
+        return isKpiOwner(kpi) || kpi.targetScope === 'team';
+      }
+      return false;
+    },
+    [canViewAllOrgKpis, isTeamMember, isKpiOwner]
+  );
+
+  // 현재 로그인한 사용자가 해당 KPI의 목표/과제 매핑을 편집할 수 있는지 여부
+  const canEditKpiGoal = (kpi: KpiItem): boolean => {
+    if (isTeamLead) return true;
+    if (isTeamMember && isKpiOwner(kpi)) return true;
+    return false;
+  };
+
+  // 해당 KPI가 팀장 본인 또는 팀 공통 과제인지 여부 (팀장 1차 평가 생략 후 실장 최종 평가 직행 대상)
+  const isLeaderOwnedKpi = (kpi: KpiItem): boolean => {
+    return kpi.targetScope === 'team' || isTeamLeadName(kpi.ownerName);
+  };
+
+  // 상세 페이지에 표시할 현재 선택된 KPI 항목 (열람 권한이 없으면 자동 차단)
+  const selectedKpi = useMemo(() => {
+    if (!selectedKpiId || effectiveModeTab !== 'evaluation') return null;
+    const found = kpis.find((k) => k.id === selectedKpiId) || null;
+    if (!found || !canReadKpiEvaluation(found)) return null;
+    return found;
+  }, [kpis, selectedKpiId, effectiveModeTab, canReadKpiEvaluation]);
+
+  // 평가/점검 모달: 'self_checkin' | 'peer_review' | 'leader_eval' (팀장 1차) | 'director_eval' (실장 최종) | 'task_mapping'
   const [actionModal, setActionModal] = useState<{
-    type: 'self_checkin' | 'peer_review' | 'admin_eval' | 'task_mapping' | null;
+    type:
+      | 'self_checkin'
+      | 'peer_review'
+      | 'leader_eval'
+      | 'director_eval'
+      | 'task_mapping'
+      | null;
     kpi: KpiItem | null;
   }>({ type: null, kpi: null });
 
-  // KPI별 실무 과제 매핑 전용 모달 상태
   const [mappingTaskIds, setMappingTaskIds] = useState<string[]>([]);
   const [mappingSearch, setMappingSearch] = useState<string>('');
   const [mappingShowAllTasks, setMappingShowAllTasks] = useState<boolean>(false);
 
-  const isAdmin = currentUser.role === 'admin' || currentUser.name?.trim() === '최범열';
-
-  // 점수(0~100)를 등급(S/A/B/C)으로 변환하는 헬퍼
   const resolveSelfGrade = (selfScore?: number | null): KpiGrade | null => {
     if (typeof selfScore !== 'number' || Number.isNaN(selfScore)) return null;
     if (selfScore >= 95) return 'S';
@@ -253,14 +324,13 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     return 'C';
   };
 
-  // 등급(S/A/B/C)을 표준 점수(100/90/80/70)로 변환하는 헬퍼
   const getScoreFromGrade = (grade?: KpiGrade | null): number | null => {
     if (!grade) return null;
     const found = GRADE_RUBRIC.find((r) => r.grade === grade);
     return found ? found.score : null;
   };
 
-  // 담당자 본인이 [실적 · 자가평가]를 등록했는지 여부 판별 (최종 평가의 필수 선행 조건)
+  // 담당자 본인이 [실적 · 자가평가]를 등록했는지 여부 판별
   const checkHasSelfEval = (kpi: KpiItem): boolean => {
     return Boolean(
       (typeof kpi.selfScore === 'number' && !Number.isNaN(kpi.selfScore)) ||
@@ -269,42 +339,88 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     );
   };
 
-  // 평가 진행 단계에 따른 상태 배지 자동 결정 (수동 상태 불일치 방지)
+  // 팀원 KPI에 대해 팀장(최범열) 1차 평가가 유효하게 등록되었는지 판별
+  const getValidLeaderGrade = (kpi: KpiItem): KpiGrade | null => {
+    if (isLeaderOwnedKpi(kpi)) return null;
+    if (!checkHasSelfEval(kpi)) return null;
+    return kpi.leaderGrade || null;
+  };
+
+  // 실장(유은정 상무) 최종 평가가 유효하게 확정되었는지 판별
+  // (과거 테스트 중 팀장 계정으로 기록된 directorEvaluatorName === '최범열' 레거시 데이터는 미확정으로 분리)
+  const getValidFinalGrade = (kpi: KpiItem): KpiGrade | null => {
+    if (!checkHasSelfEval(kpi)) return null;
+    if (!kpi.directorGrade) return null;
+    if (kpi.directorEvaluatorName && isTeamLeadName(kpi.directorEvaluatorName)) {
+      return null;
+    }
+    return kpi.directorGrade;
+  };
+
+  const getValidFinalComment = (kpi: KpiItem): string => {
+    if (!getValidFinalGrade(kpi)) return '';
+    return kpi.directorComment || kpi.finalEvaluation || '';
+  };
+
+  // 평가 진행 단계에 따른 상태 배지 자동 결정
   const getKpiLifecycleBadge = (kpi: KpiItem): { label: string; classKey: string } => {
     const hasSelf = checkHasSelfEval(kpi);
-    const finalGrade = hasSelf ? kpi.directorGrade || kpi.leaderGrade || null : null;
+    const leaderGrade = getValidLeaderGrade(kpi);
+    const finalGrade = getValidFinalGrade(kpi);
 
     if (finalGrade) {
       if (finalGrade === 'S' || finalGrade === 'A') {
-        return { label: '최종 평가 완료 (목표 달성)', classKey: 'kpi-status-achieved' };
+        return { label: '실장 최종평가 완료 (목표 달성)', classKey: 'kpi-status-achieved' };
       }
       if (finalGrade === 'B') {
-        return { label: '최종 평가 완료 (부분 달성)', classKey: 'kpi-status-partial' };
+        return { label: '실장 최종평가 완료 (부분 달성)', classKey: 'kpi-status-partial' };
       }
-      return { label: '최종 평가 완료 (보완 필요)', classKey: 'kpi-status-missed' };
+      return { label: '실장 최종평가 완료 (보완 필요)', classKey: 'kpi-status-missed' };
+    }
+
+    if (leaderGrade) {
+      return { label: '팀장 1차평가 완료 · 실장 최종평가 대기', classKey: 'kpi-status-progress' };
     }
 
     if (hasSelf) {
-      return { label: '자가평가 완료 · 최종평가 대기', classKey: 'kpi-status-progress' };
+      return {
+        label: isLeaderOwnedKpi(kpi)
+          ? '자가평가 완료 · 실장 최종평가 대기'
+          : '자가평가 완료 · 팀장 1차평가 대기',
+        classKey: 'kpi-status-progress',
+      };
     }
 
     return { label: '목표 수행중 · 자가평가 대기', classKey: 'kpi-status-planning' };
   };
 
   // 개별 KPI 항목의 평가 점수 및 가중치 반영 득점(Weighted Point) 산출
-  // 단, 본인 자가평가가 선행되지 않은 항목은 최종 평가 점수로 인정하지 않음
+  // 우선순위: 실장 최종평가(final) > 팀장 1차평가(leader) > 본인 자가평가(self)
   const getKpiEvalMetrics = (kpi: KpiItem) => {
     const hasSelf = checkHasSelfEval(kpi);
-    const finalGrade = hasSelf ? kpi.directorGrade || kpi.leaderGrade || null : null;
+    const finalGrade = getValidFinalGrade(kpi);
+    const leaderGrade = getValidLeaderGrade(kpi);
     const selfGrade = resolveSelfGrade(kpi.selfScore);
     const weight = Number(kpi.weight || 0);
 
     if (finalGrade) {
-      const score = kpi.directorScore ?? kpi.leaderScore ?? getScoreFromGrade(finalGrade) ?? 90;
+      const score = kpi.directorScore ?? getScoreFromGrade(finalGrade) ?? 90;
       const weightedPoint = Math.round(((score * weight) / 100) * 10) / 10;
       return {
         source: 'final' as const,
         grade: finalGrade,
+        score,
+        weight,
+        weightedPoint,
+      };
+    }
+
+    if (leaderGrade) {
+      const score = kpi.leaderScore ?? getScoreFromGrade(leaderGrade) ?? 90;
+      const weightedPoint = Math.round(((score * weight) / 100) * 10) / 10;
+      return {
+        source: 'leader' as const,
+        grade: leaderGrade,
         score,
         weight,
         weightedPoint,
@@ -332,16 +448,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     };
   };
 
-  // 현재 로그인한 사용자가 해당 KPI의 본인(담당자)인지 여부 판별
-  const isKpiOwner = (kpi: KpiItem): boolean => {
-    const currentName = currentUser.name?.trim() || '';
-    if (kpi.ownerName?.trim() === currentName) return true;
-    if (kpi.ownerId && String(kpi.ownerId) === String(currentUser.id)) return true;
-    if (kpi.targetScope === 'team' && kpi.createdBy?.trim() === currentName) return true;
-    return false;
-  };
-
-  // 실적 및 본인 자가평가 입력 폼
+  // 입력 폼 상태들
   const [selfForm, setSelfForm] = useState({
     currentValue: '',
     status: 'in_progress' as KpiStatus,
@@ -350,7 +457,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     linkedTaskIds: [] as string[],
   });
 
-  // 동료 협업 피드백 입력 폼
   const [peerForm, setPeerForm] = useState({
     scoreCollaboration: 5,
     scoreQuality: 5,
@@ -358,8 +464,12 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     commentImprove: '',
   });
 
-  // 관리자 최종 평가 입력 폼
-  const [adminEvalForm, setAdminEvalForm] = useState({
+  const [leaderEvalForm, setLeaderEvalForm] = useState({
+    grade: 'A' as KpiGrade,
+    comment: '',
+  });
+
+  const [directorEvalForm, setDirectorEvalForm] = useState({
     grade: 'A' as KpiGrade,
     status: 'achieved' as KpiStatus,
     comment: '',
@@ -371,7 +481,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     targetScope: 'individual' as KpiTargetScope,
     ownerId: currentUser.id,
     ownerName: currentUser.name || '최범열',
-    track: '기획' as KpiTrack,
+    track: resolveMemberDefaultTrack(currentUser.name),
     title: '',
     targetMetric: '',
     targetValue: '',
@@ -386,7 +496,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     setTeamMembers(PlanningStorageService.getServicePlanningMembers());
   };
 
-  // 특정 KPI에 담당자가 직접 매핑한 실무 과제(linkedTaskIds) 목록 조회
   const getLinkedTasksForKpi = (kpi: KpiItem): TaskItem[] => {
     const ids = Array.isArray(kpi.linkedTaskIds) ? kpi.linkedTaskIds : [];
     if (ids.length === 0) return [];
@@ -394,7 +503,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     return tasks.filter((t) => idSet.has(t.id));
   };
 
-  // 매핑 모달/폼에서 선택 가능한 후보 실무 과제 목록 조회 (기본: 본인 담당 업무 또는 팀 파트 업무)
   const getCandidateTasks = (params: {
     targetScope: KpiTargetScope;
     ownerName: string;
@@ -414,12 +522,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     });
   };
 
-  // 배열 내 특정 업무 ID 토글 헬퍼
   const toggleTaskIdInList = (list: string[], taskId: string): string[] => {
     return list.includes(taskId) ? list.filter((id) => id !== taskId) : [...list, taskId];
   };
 
-  // 직무별 표준 템플릿 적용
   const handleApplyPreset = (preset: KpiPreset) => {
     setFormData((prev) => ({
       ...prev,
@@ -433,27 +539,29 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
   // 신규 KPI 목표 수립 모달 열기
   const handleOpenCreateModal = (defaultTrack?: KpiTrack) => {
-    if (isViewer) {
-      onShowToast('유관부서(읽기 전용) 모드에서는 KPI를 등록할 수 없습니다.', 'error');
+    if (!canCreateGoal) {
+      onShowToast('서비스기획팀 구성원만 KPI 목표를 수립할 수 있습니다.', 'error');
       return;
     }
     const latestMembers = PlanningStorageService.getServicePlanningMembers();
     setTeamMembers(latestMembers);
-    const defaultMember =
+    const matchedSelf =
       latestMembers.find(
         (m) => String(m.id) === String(currentUser.id) || m.name.trim() === currentUser.name.trim()
-      ) ||
-      latestMembers[0] ||
-      currentUser;
+      ) || currentUser;
+
+    const initialTrack =
+      defaultTrack ||
+      (trackFilter !== 'all' ? trackFilter : resolveMemberDefaultTrack(matchedSelf.name));
 
     setEditingKpi(null);
     setFormData({
       year: 2026,
       quarter: selectedQuarter,
       targetScope: 'individual',
-      ownerId: defaultMember.id,
-      ownerName: defaultMember.name,
-      track: defaultTrack || (trackFilter !== 'all' ? trackFilter : '기획'),
+      ownerId: matchedSelf.id,
+      ownerName: matchedSelf.name,
+      track: initialTrack,
       title: '',
       targetMetric: '',
       targetValue: '',
@@ -467,6 +575,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
   // KPI 수정 모달 열기
   const handleOpenEditModal = (item: KpiItem) => {
+    if (!canEditKpiGoal(item)) {
+      onShowToast('본인의 KPI 또는 팀장 권한만 목표를 수정할 수 있습니다.', 'error');
+      return;
+    }
     const latestMembers = PlanningStorageService.getServicePlanningMembers();
     setTeamMembers(latestMembers);
     const matchedMember = latestMembers.find(
@@ -483,8 +595,8 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         item.targetScope === 'team'
           ? '서비스기획팀 전체'
           : matchedMember
-          ? matchedMember.name
-          : item.ownerName,
+            ? matchedMember.name
+            : item.ownerName,
       track: item.track || '기획',
       title: item.title,
       targetMetric: item.targetMetric,
@@ -500,23 +612,34 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   // KPI 저장
   const handleSaveKpi = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isViewer) return;
+    if (!canCreateGoal) return;
 
     if (!formData.title.trim()) {
       onShowToast('KPI 목표명을 입력해 주세요.', 'error');
       return;
     }
 
+    const effectiveScope: KpiTargetScope = isTeamMember ? 'individual' : formData.targetScope;
+    const ownerIdFinal =
+      effectiveScope === 'team'
+        ? undefined
+        : isTeamMember
+          ? currentUser.id
+          : formData.ownerId;
     const ownerNameFinal =
-      formData.targetScope === 'team' ? '서비스기획팀 전체' : formData.ownerName;
+      effectiveScope === 'team'
+        ? '서비스기획팀 전체'
+        : isTeamMember
+          ? currentUser.name
+          : formData.ownerName;
 
     try {
       if (editingKpi) {
         PlanningStorageService.updateKpi(editingKpi.id, {
           year: Number(formData.year),
           quarter: formData.quarter,
-          targetScope: formData.targetScope,
-          ownerId: formData.targetScope === 'team' ? undefined : formData.ownerId,
+          targetScope: effectiveScope,
+          ownerId: ownerIdFinal,
           ownerName: ownerNameFinal,
           track: formData.track,
           title: formData.title.trim(),
@@ -532,8 +655,8 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         PlanningStorageService.createKpi({
           year: Number(formData.year),
           quarter: formData.quarter,
-          targetScope: formData.targetScope,
-          ownerId: formData.targetScope === 'team' ? undefined : formData.ownerId,
+          targetScope: effectiveScope,
+          ownerId: ownerIdFinal,
           ownerName: ownerNameFinal,
           track: formData.track,
           title: formData.title.trim(),
@@ -547,7 +670,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
           stage: 'aligned',
           selfEvaluation: '',
           finalEvaluation: '',
-          evaluatorName: '최범열',
+          evaluatorName: '유은정',
         });
         onShowToast('새로운 KPI 목표가 등록되었습니다.', 'success');
       }
@@ -561,21 +684,26 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
   // KPI 삭제
   const handleDeleteKpi = (id: string, title: string) => {
-    if (isViewer) return;
+    const target = kpis.find((k) => k.id === id);
+    if (!target || !canEditKpiGoal(target)) return;
     if (window.confirm(`정말 "${title}" KPI 항목을 삭제하시겠습니까?`)) {
-      PlanningStorageService.deleteKpi(id);
-      onShowToast('KPI 항목이 삭제되었습니다.', 'info');
-      setIsModalOpen(false);
-      if (selectedKpiId === id) {
-        setSelectedKpiId(null);
+      try {
+        PlanningStorageService.deleteKpi(id);
+        onShowToast('KPI 항목이 삭제되었습니다.', 'info');
+        setIsModalOpen(false);
+        if (selectedKpiId === id) {
+          setSelectedKpiId(null);
+        }
+        refreshKpis();
+      } catch (err) {
+        onShowToast(err instanceof Error ? err.message : '삭제 실패', 'error');
       }
-      refreshKpis();
     }
   };
 
-  // 0) KPI별 실무 과제 매핑 전용 모달 열기 & 저장
+  // 0) KPI별 실무 과제 매핑 전용 모달
   const handleOpenTaskMappingModal = (kpi: KpiItem) => {
-    if (isViewer) return;
+    if (!canEditKpiGoal(kpi)) return;
     setActionModal({ type: 'task_mapping', kpi });
     setMappingTaskIds(Array.isArray(kpi.linkedTaskIds) ? [...kpi.linkedTaskIds] : []);
     setMappingSearch('');
@@ -600,16 +728,17 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     }
   };
 
-  // 1) 실적 점검 및 본인 자가평가 모달 열기
+  // 1) 본인 수행 실적 및 자가평가 모달
   const handleOpenSelfModal = (kpi: KpiItem) => {
+    if (!isKpiOwner(kpi)) return;
     const scoreToGrade: KpiGrade =
       (kpi.selfScore ?? 90) >= 95
         ? 'S'
         : (kpi.selfScore ?? 90) >= 85
-        ? 'A'
-        : (kpi.selfScore ?? 90) >= 75
-        ? 'B'
-        : 'C';
+          ? 'A'
+          : (kpi.selfScore ?? 90) >= 75
+            ? 'B'
+            : 'C';
     setActionModal({ type: 'self_checkin', kpi });
     setSelfForm({
       currentValue: kpi.currentValue || '',
@@ -640,7 +769,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     }
   };
 
-  // 2-A) 타 임직원(회원) 전용 무기명 동료 피드백 평가 모달 열기
+  // 2) 사내·유관부서 무기명 동료 협업 피드백 모달
   const handleOpenPeerModal = (kpi: KpiItem) => {
     if (isKpiOwner(kpi)) {
       onShowToast('본인의 KPI에는 직접 동료 피드백을 평가할 수 없습니다.', 'info');
@@ -683,7 +812,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         commentGood: peerForm.commentGood.trim(),
         commentImprove: peerForm.commentImprove.trim(),
       });
-      onShowToast('무기명 동료 피드백이 등록되었습니다. (대상자에게는 결과만 익명으로 표시됩니다)', 'success');
+      onShowToast(
+        '무기명 협업 피드백이 등록되었습니다. (평가자 성명·부서는 철저히 비공개 처리됩니다)',
+        'success'
+      );
       setActionModal({ type: null, kpi: null });
       refreshKpis();
     } catch (err) {
@@ -691,8 +823,57 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     }
   };
 
-  // 3) 관리자(최범열) 최종 등급 및 총평 확정 모달 열기 (본인 자가평가 선행 필수)
-  const handleOpenAdminEvalModal = (kpi: KpiItem) => {
+  // 3) 팀장(최범열 차장) 1차 평가 모달 (팀원 KPI 전용)
+  const handleOpenLeaderEvalModal = (kpi: KpiItem) => {
+    if (!isTeamLead || isLeaderOwnedKpi(kpi)) return;
+    if (!checkHasSelfEval(kpi)) {
+      onShowToast(
+        '담당자의 [실적 · 자가평가]가 먼저 등록되어야 팀장 1차 평가를 진행할 수 있습니다.',
+        'error'
+      );
+      return;
+    }
+    const selfGrade = resolveSelfGrade(kpi.selfScore);
+    const existingGrade = kpi.leaderGrade || selfGrade || 'A';
+    setActionModal({ type: 'leader_eval', kpi });
+    setLeaderEvalForm({
+      grade: existingGrade,
+      comment: kpi.leaderComment || '',
+    });
+  };
+
+  const handleSaveLeaderEval = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!actionModal.kpi || !isTeamLead || isLeaderOwnedKpi(actionModal.kpi)) return;
+    if (!checkHasSelfEval(actionModal.kpi)) {
+      onShowToast('담당자의 [실적 · 자가평가]가 먼저 등록되어야 합니다.', 'error');
+      return;
+    }
+    const rubric =
+      GRADE_RUBRIC.find((r) => r.grade === leaderEvalForm.grade) || GRADE_RUBRIC[1];
+    try {
+      PlanningStorageService.updateKpi(actionModal.kpi.id, {
+        stage: getValidFinalGrade(actionModal.kpi) ? 'finalized' : 'director_eval',
+        leaderGrade: leaderEvalForm.grade,
+        leaderScore: rubric.score,
+        leaderComment: leaderEvalForm.comment.trim(),
+        leaderEvaluatorName: currentUser.name,
+        leaderEvaluatedAt: new Date().toISOString(),
+      });
+      onShowToast(
+        `팀장 1차 평가(${leaderEvalForm.grade}등급)가 저장되었습니다. 디지털마케팅실장 최종 평가 단계로 상신됩니다.`,
+        'success'
+      );
+      setActionModal({ type: null, kpi: null });
+      refreshKpis();
+    } catch (err) {
+      onShowToast(err instanceof Error ? err.message : '1차 평가 저장 실패', 'error');
+    }
+  };
+
+  // 4) 디지털마케팅실장(유은정 상무) 최종 등급 및 총평 확정 모달
+  const handleOpenDirectorEvalModal = (kpi: KpiItem) => {
+    if (!isDivisionHead) return;
     if (!checkHasSelfEval(kpi)) {
       onShowToast(
         '담당자의 [실적 · 자가평가]가 먼저 등록되어야 최종 등급을 확정할 수 있습니다.',
@@ -701,23 +882,25 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       return;
     }
     const selfGrade = resolveSelfGrade(kpi.selfScore);
-    const existingGrade = kpi.directorGrade || kpi.leaderGrade || selfGrade || 'A';
-    setActionModal({ type: 'admin_eval', kpi });
-    setAdminEvalForm({
-      grade: existingGrade,
+    const leaderGrade = getValidLeaderGrade(kpi);
+    const existingFinalGrade = getValidFinalGrade(kpi);
+    const initialGrade = existingFinalGrade || leaderGrade || selfGrade || 'A';
+    setActionModal({ type: 'director_eval', kpi });
+    setDirectorEvalForm({
+      grade: initialGrade,
       status:
-        existingGrade === 'S' || existingGrade === 'A'
+        initialGrade === 'S' || initialGrade === 'A'
           ? 'achieved'
-          : existingGrade === 'B'
-          ? 'partially_achieved'
-          : 'missed',
-      comment: kpi.directorComment || kpi.leaderComment || kpi.finalEvaluation || '',
+          : initialGrade === 'B'
+            ? 'partially_achieved'
+            : 'missed',
+      comment: getValidFinalComment(kpi),
     });
   };
 
-  const handleSaveAdminEval = (e: React.FormEvent) => {
+  const handleSaveDirectorEval = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!actionModal.kpi || !isAdmin) return;
+    if (!actionModal.kpi || !isDivisionHead) return;
     if (!checkHasSelfEval(actionModal.kpi)) {
       onShowToast(
         '담당자의 [실적 · 자가평가]가 먼저 등록되어야 최종 등급을 확정할 수 있습니다.',
@@ -725,31 +908,29 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       );
       return;
     }
-    const rubric = GRADE_RUBRIC.find((r) => r.grade === adminEvalForm.grade) || GRADE_RUBRIC[1];
+    const rubric =
+      GRADE_RUBRIC.find((r) => r.grade === directorEvalForm.grade) || GRADE_RUBRIC[1];
     const autoStatus: KpiStatus =
-      adminEvalForm.grade === 'S' || adminEvalForm.grade === 'A'
+      directorEvalForm.grade === 'S' || directorEvalForm.grade === 'A'
         ? 'achieved'
-        : adminEvalForm.grade === 'B'
-        ? 'partially_achieved'
-        : 'missed';
+        : directorEvalForm.grade === 'B'
+          ? 'partially_achieved'
+          : 'missed';
     try {
       PlanningStorageService.updateKpi(actionModal.kpi.id, {
         stage: 'finalized',
         status: autoStatus,
-        leaderGrade: adminEvalForm.grade,
-        leaderScore: rubric.score,
-        leaderComment: adminEvalForm.comment.trim(),
-        leaderEvaluatorName: currentUser.name,
-        directorGrade: adminEvalForm.grade,
+        directorGrade: directorEvalForm.grade,
         directorScore: rubric.score,
-        directorComment: adminEvalForm.comment.trim(),
+        directorComment: directorEvalForm.comment.trim(),
         directorEvaluatorName: currentUser.name,
-        finalEvaluation: adminEvalForm.comment.trim(),
+        directorEvaluatedAt: new Date().toISOString(),
+        finalEvaluation: directorEvalForm.comment.trim(),
         evaluatorName: currentUser.name,
         achievementRate: rubric.score,
       });
       onShowToast(
-        `최종 평가 등급(${adminEvalForm.grade}등급) 및 관리자 총평이 확정되었습니다.`,
+        `최종 평가 등급(${directorEvalForm.grade}등급) 및 실장 총평이 확정되었습니다.`,
         'success'
       );
       setActionModal({ type: null, kpi: null });
@@ -759,26 +940,65 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     }
   };
 
-  // 필터링된 KPI 목록
+  // [권한 기반 스코핑 1] 평가 열람 탭에서 접속자에게 허용된 KPI 원본 풀
+  const accessibleEvalKpis = useMemo(() => {
+    return kpis.filter((k) => canReadKpiEvaluation(k));
+  }, [kpis, canReadKpiEvaluation]);
+
+  // [권한 기반 스코핑 2] 평가 열람 탭 필터 적용 목록
   const currentKpis = useMemo(() => {
-    return kpis.filter((k) => {
+    return accessibleEvalKpis.filter((k) => {
       const matchesQuarter =
         selectedQuarter === 'Annual'
           ? true
           : k.quarter === selectedQuarter || k.quarter === 'Annual';
       const matchesTrack = trackFilter === 'all' || (k.track || '기획') === trackFilter;
-      const matchesOwner =
-        ownerFilter === 'all'
+      const matchesOwner = !canViewAllOrgKpis
+        ? true
+        : ownerFilter === 'all'
           ? true
           : ownerFilter === 'team'
-          ? k.targetScope === 'team'
-          : k.ownerName?.trim() === ownerFilter.trim();
+            ? k.targetScope === 'team'
+            : k.ownerName?.trim() === ownerFilter.trim();
 
       return matchesQuarter && matchesTrack && matchesOwner;
     });
-  }, [kpis, selectedQuarter, trackFilter, ownerFilter]);
+  }, [accessibleEvalKpis, selectedQuarter, trackFilter, ownerFilter, canViewAllOrgKpis]);
 
-  // 대상별(팀 공통 및 개인별) 가중치 합산 종합 점수·등급 자동 산출 (MBO + BARS 가중 평균)
+  // [권한 기반 스코핑 3] 협업 다면평가(무기명 피드백) 탭 대상 KPI 목록 (본인 제외 개인 KPI)
+  const peerBaseKpis = useMemo(() => {
+    return kpis.filter((k) => k.targetScope !== 'team' && !isKpiOwner(k));
+  }, [kpis, isKpiOwner]);
+
+  const visiblePeerKpis = useMemo(() => {
+    return peerBaseKpis.filter((k) => {
+      const matchesQuarter =
+        selectedQuarter === 'Annual'
+          ? true
+          : k.quarter === selectedQuarter || k.quarter === 'Annual';
+      const matchesTrack = trackFilter === 'all' || (k.track || '기획') === trackFilter;
+      const matchesPeerOwner =
+        peerOwnerFilter === 'all' ? true : k.ownerName?.trim() === peerOwnerFilter.trim();
+      return matchesQuarter && matchesTrack && matchesPeerOwner;
+    });
+  }, [peerBaseKpis, selectedQuarter, trackFilter, peerOwnerFilter]);
+
+  const peerCandidateMembers = useMemo(() => {
+    const names = new Set<string>();
+    teamMembers.forEach((m) => {
+      if (m.name.trim() !== currentUser.name?.trim()) {
+        names.add(m.name.trim());
+      }
+    });
+    peerBaseKpis.forEach((k) => {
+      if (k.ownerName?.trim() && k.ownerName.trim() !== currentUser.name?.trim()) {
+        names.add(k.ownerName.trim());
+      }
+    });
+    return Array.from(names);
+  }, [teamMembers, peerBaseKpis, currentUser.name]);
+
+  // 대상별 가중치 합산 종합 점수·등급 자동 산출 (허용된 KPI 범위 내 계산)
   const ownerScorecards = useMemo(() => {
     const map = new Map<
       string,
@@ -789,6 +1009,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         track: KpiTrack;
         kpiCount: number;
         selfDoneCount: number;
+        leaderDoneCount: number;
         finalizedCount: number;
         evaluatedCount: number;
         totalWeight: number;
@@ -803,14 +1024,16 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       const ownerLabel = isTeam ? '서비스기획팀 공통' : ownerKey;
       const evalInfo = getKpiEvalMetrics(item);
       const hasSelf = checkHasSelfEval(item);
+      const hasLeader = Boolean(getValidLeaderGrade(item));
 
       const existing = map.get(ownerKey) || {
         ownerKey,
         ownerLabel,
         isTeam,
-        track: (item.track || '기획') as KpiTrack,
+        track: (item.track || resolveMemberDefaultTrack(ownerKey)) as KpiTrack,
         kpiCount: 0,
         selfDoneCount: 0,
+        leaderDoneCount: 0,
         finalizedCount: 0,
         evaluatedCount: 0,
         totalWeight: 0,
@@ -823,6 +1046,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
       if (hasSelf) {
         existing.selfDoneCount += 1;
+      }
+      if (hasLeader) {
+        existing.leaderDoneCount += 1;
       }
       if (evalInfo.source === 'final') {
         existing.finalizedCount += 1;
@@ -844,39 +1070,306 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
           : null;
       const overallGrade = resolveSelfGrade(normalizedScore);
       const isAllFinalized = entry.kpiCount > 0 && entry.finalizedCount === entry.kpiCount;
-      const evalStageLabel = isAllFinalized
-        ? '최종 확정'
-        : entry.evaluatedCount > 0
-        ? '가집계 (진행중)'
-        : '평가 대기';
 
       return {
         ...entry,
         normalizedScore,
         overallGrade,
         isAllFinalized,
-        evalStageLabel,
       };
     });
   }, [currentKpis]);
 
+  // 현재 접속자의 권한 안내 배너 문구
+  const roleContextBanner = useMemo(() => {
+    if (isExecutiveViewer) {
+      return {
+        icon: Eye,
+        badge: `${currentUser.department} · 상위 임원 열람 권한`,
+        desc: '산하 소속(서비스기획팀 전원)의 KPI 목표, 수행 근거 과제, 무기명 협업 다면평가 및 1차·최종 평가 현황 전체를 열람합니다.',
+        classKey: 'is-executive',
+      };
+    }
+    if (isDivisionHead) {
+      return {
+        icon: Award,
+        badge: '디지털마케팅실장 · 최종 평가 권한',
+        desc: '소속 서비스기획팀 전원의 KPI 수행 실적·다면평가·팀장 1차 평가를 종합 검토하고 최종 평가 등급을 확정합니다.',
+        classKey: 'is-director',
+      };
+    }
+    if (isTeamLead) {
+      return {
+        icon: UserCheck,
+        badge: '서비스기획팀장 · 팀 전체 열람 및 1차 평가 권한',
+        desc: '서비스기획팀 구성원 전원의 KPI를 관리·1차 평가하며, 최종 평가는 디지털마케팅실장(유은정 상무)이 확정합니다.',
+        classKey: 'is-leader',
+      };
+    }
+    if (isTeamMember) {
+      return {
+        icon: Lock,
+        badge: '개인 평가 기밀 보호 적용 중',
+        desc: '내 KPI 평가 내역은 본인과 직속 상위 평가자(팀장 · 실장 · 총괄 · 본부장)에게만 공개되며, 동료 간에는 노출되지 않습니다.',
+        classKey: 'is-member',
+      };
+    }
+    return {
+      icon: Users,
+      badge: `${currentUser.department} · 협업 다면평가 참여 모드`,
+      desc: '서비스기획팀 담당자들과 협업하며 느낀 산출물 명확성·소통 만족도를 무기명으로 평가합니다. (평가자 성명·부서는 철저히 비공개 처리됩니다)',
+      classKey: 'is-cross',
+    };
+  }, [isExecutiveViewer, isDivisionHead, isTeamLead, isTeamMember, currentUser.department]);
+
+  const BannerIcon = roleContextBanner.icon;
+
   return (
     <div className="kpi-container">
-      {selectedKpi ? (
+      {/* 상단 권한·기밀 안내 및 뷰 전환 바 (상세 페이지 진입 중이 아닐 때 표시) */}
+      {!selectedKpi && (
+        <div className={`card kpi-access-banner ${roleContextBanner.classKey}`}>
+          <div className="kpi-access-banner-left">
+            <span className="kpi-access-role-pill">
+              <BannerIcon size={15} />
+              <span>{roleContextBanner.badge}</span>
+            </span>
+            <span className="kpi-access-role-desc">{roleContextBanner.desc}</span>
+          </div>
+
+          {(isTeamMember || isTeamLead) && (
+            <div className="kpi-mode-switch" role="tablist" aria-label="KPI 화면 모드 전환">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={effectiveModeTab === 'evaluation'}
+                onClick={() => setModeTab('evaluation')}
+                className={`kpi-mode-switch-btn ${
+                  effectiveModeTab === 'evaluation' ? 'active' : ''
+                }`}
+              >
+                <Award size={15} />
+                <span>{isTeamMember ? '내 KPI 목표 · 평가' : '소속 구성원 KPI 평가'}</span>
+                <span className="kpi-mode-switch-count">{accessibleEvalKpis.length}</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={effectiveModeTab === 'peer_feedback'}
+                onClick={() => setModeTab('peer_feedback')}
+                className={`kpi-mode-switch-btn ${
+                  effectiveModeTab === 'peer_feedback' ? 'active' : ''
+                }`}
+              >
+                <MessageSquare size={15} />
+                <span>협업 다면평가 (무기명)</span>
+                <span className="kpi-mode-switch-count">{peerBaseKpis.length}</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =====================================================================
+          모드 B: 사내 · 유관부서 무기명 협업 다면평가 전용 화면 (개인 점수·등급 완전 비공개)
+          ===================================================================== */}
+      {effectiveModeTab === 'peer_feedback' ? (
+        <>
+          <div className="card kpi-control-card">
+            <div className="kpi-unified-toolbar">
+              <div className="tasks-track-tabs">
+                <button
+                  type="button"
+                  onClick={() => setTrackFilter('all')}
+                  className={`tasks-track-tab track-all ${trackFilter === 'all' ? 'active' : ''}`}
+                >
+                  <span>전체 파트</span>
+                  <span className="tasks-track-count">{peerBaseKpis.length}</span>
+                </button>
+
+                {TRACK_LIST.map((trackKey) => {
+                  const cfg = TRACK_CONFIG[trackKey];
+                  const IconComp = cfg.icon;
+                  const isSelected = trackFilter === trackKey;
+                  const count = peerBaseKpis.filter((k) => (k.track || '기획') === trackKey).length;
+                  return (
+                    <button
+                      key={trackKey}
+                      type="button"
+                      onClick={() => setTrackFilter(trackKey)}
+                      className={`tasks-track-tab ${cfg.classKey} ${isSelected ? 'active' : ''}`}
+                    >
+                      <IconComp size={15} className="tasks-track-tab-icon" />
+                      <span>{cfg.label}</span>
+                      <span className="tasks-track-count">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="kpi-toolbar-right">
+                <div className="kpi-quarter-tabs">
+                  {QUARTERS.map((q) => (
+                    <button
+                      key={q.key}
+                      type="button"
+                      onClick={() => setSelectedQuarter(q.key)}
+                      className={`kpi-quarter-btn ${selectedQuarter === q.key ? 'active' : ''}`}
+                    >
+                      <span className="quarter-label-full">{q.label}</span>
+                      <span className="quarter-label-short">{q.shortLabel}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <select
+                  value={peerOwnerFilter}
+                  onChange={(e) => setPeerOwnerFilter(e.target.value)}
+                  className="form-select kpi-owner-select"
+                  aria-label="협업 피드백 대상 담당자 선택"
+                >
+                  <option value="all">전체 담당자</option>
+                  {peerCandidateMembers.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {visiblePeerKpis.length === 0 ? (
+            <div className="card kpi-empty-card">
+              <MessageSquare size={36} className="kpi-empty-icon" />
+              <div className="kpi-empty-title">현재 선택된 조건에 해당하는 협업 피드백 대상 KPI가 없습니다.</div>
+              <p className="kpi-empty-desc">
+                서비스기획팀 구성원이 개인 KPI 목표를 등록하면 이곳에서 공개 목표와 협업 과제를 확인하고 무기명 피드백을 남길 수 있습니다.
+              </p>
+            </div>
+          ) : (
+            <div className="kpi-peer-blind-list">
+              {visiblePeerKpis.map((item) => {
+                const trackCfg = TRACK_CONFIG[item.track || '기획'] || TRACK_CONFIG['기획'];
+                const TrackIcon = trackCfg.icon;
+                const linkedTasks = getLinkedTasksForKpi(item);
+                const myPeerReview = (item.peerReviews || []).find(
+                  (p) => String(p.reviewerId) === String(currentUser.id)
+                );
+
+                return (
+                  <article
+                    key={item.id}
+                    className={`card kpi-peer-blind-card ${trackCfg.classKey}`}
+                  >
+                    <div className="kpi-peer-blind-top">
+                      <div className="kpi-peer-blind-main">
+                        <div className="tasks-card-badges">
+                          <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                            <TrackIcon size={13} /> {trackCfg.label}
+                          </span>
+                          <span className="kpi-peer-owner-pill">{item.ownerName}</span>
+                          <span className="kpi-weight-badge">
+                            {QUARTERS.find((q) => q.key === (item.quarter || 'Annual'))?.label ||
+                              '2026 연간'}
+                          </span>
+                          {myPeerReview && (
+                            <span className="kpi-stage-pill is-done-peer">
+                              내 피드백 참여 완료 (완성도 {myPeerReview.scoreQuality}점 · 소통{' '}
+                              {myPeerReview.scoreCollaboration}점)
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="kpi-peer-blind-title">{item.title}</h3>
+                        {item.targetValue && (
+                          <p className="kpi-peer-blind-dod">달성 기준: {item.targetValue}</p>
+                        )}
+                      </div>
+
+                      <div className="kpi-peer-blind-actions">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPeerModal(item)}
+                          className={`btn ${
+                            myPeerReview ? 'btn-secondary' : 'btn-primary'
+                          } kpi-peer-submit-btn`}
+                        >
+                          <MessageSquare size={15} />
+                          <span>
+                            {myPeerReview ? '내 무기명 피드백 수정' : '무기명 협업 피드백 작성'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {linkedTasks.length > 0 && (
+                      <div className="kpi-peer-blind-tasks">
+                        <span className="kpi-peer-blind-tasks-label">
+                          <LinkIcon size={14} /> 연관 협업 과제 ({linkedTasks.length}건)
+                        </span>
+                        <div className="kpi-peer-blind-task-chips">
+                          {linkedTasks.map((t) => {
+                            const outUrl = t.links?.[0]?.url || t.artifactUrl;
+                            return outUrl ? (
+                              <a
+                                key={t.id}
+                                href={outUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="kpi-peer-task-chip is-link"
+                                title="클릭하여 산출물 새 창으로 확인"
+                              >
+                                <span>{t.title}</span>
+                                <ExternalLink size={13} />
+                              </a>
+                            ) : (
+                              <span key={t.id} className="kpi-peer-task-chip">
+                                {t.title}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {myPeerReview && (
+                      <div className="kpi-my-peer-preview">
+                        <span className="kpi-my-peer-preview-badge">
+                          <Lock size={13} /> 내가 작성한 무기명 코멘트 (본인에게만 표시)
+                        </span>
+                        <p className="kpi-my-peer-preview-text">{myPeerReview.commentGood}</p>
+                        {myPeerReview.commentImprove && (
+                          <p className="kpi-my-peer-preview-sub">
+                            보완/건의: {myPeerReview.commentImprove}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : selectedKpi ? (
+        /* =====================================================================
+           모드 A-상세: 권한 검증된 KPI 상세 평가 워크플로우 페이지
+           ===================================================================== */
         (() => {
           const item = selectedKpi;
           const trackCfg = TRACK_CONFIG[item.track || '기획'] || TRACK_CONFIG['기획'];
           const TrackIcon = trackCfg.icon;
           const lifecycleBadge = getKpiLifecycleBadge(item);
           const hasSelfEvaluated = checkHasSelfEval(item);
-          const finalGrade = hasSelfEvaluated
-            ? item.directorGrade || item.leaderGrade || null
-            : null;
+          const isLeaderKpi = isLeaderOwnedKpi(item);
+          const leaderGrade = getValidLeaderGrade(item);
+          const finalGrade = getValidFinalGrade(item);
           const selfGrade = resolveSelfGrade(item.selfScore);
           const evalMetrics = getKpiEvalMetrics(item);
           const linkedTasks = getLinkedTasksForKpi(item);
           const doneLinkedCount = linkedTasks.filter((t) => t.status === 'done').length;
           const isSelf = isKpiOwner(item);
+          const canEditThisGoal = canEditKpiGoal(item);
           const peerReviews = item.peerReviews || [];
           const peerCount = peerReviews.length;
           const myPeerReview = peerReviews.find(
@@ -900,9 +1393,8 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
               ? item.peerAvgScore ??
                 Number(((Number(avgQuality) + Number(avgCollab)) / 2).toFixed(1))
               : 0;
-          const finalComment = hasSelfEvaluated
-            ? item.directorComment || item.leaderComment || item.finalEvaluation || ''
-            : '';
+          const finalComment = getValidFinalComment(item);
+          const finalStepNum = isLeaderKpi ? 'STEP 3' : 'STEP 4';
 
           return (
             <div className="kpi-detail-view">
@@ -916,7 +1408,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   <ArrowLeft size={16} /> KPI 목록으로 돌아가기
                 </button>
 
-                {!isViewer && (isSelf || isAdmin) && (
+                {canEditThisGoal && (
                   <div className="tasks-row-actions">
                     <button
                       type="button"
@@ -960,8 +1452,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     <h2 className="kpi-detail-title">{item.title}</h2>
                   </div>
 
-                  {/* 우측 핵심 평가 스코어 요약 박스 (4열) */}
-                  <div className="kpi-detail-score-strip">
+                  {/* 우측 핵심 평가 스코어 요약 박스 */}
+                  <div
+                    className={`kpi-detail-score-strip ${isLeaderKpi ? 'is-four-col' : 'is-five-col'}`}
+                  >
                     <div className="kpi-detail-score-box">
                       <span className="kpi-detail-score-label">배점 가중치</span>
                       <strong className="kpi-detail-score-val">{item.weight}%</strong>
@@ -975,14 +1469,23 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     </div>
 
                     <div className="kpi-detail-score-box">
-                      <span className="kpi-detail-score-label">동료 피드백</span>
+                      <span className="kpi-detail-score-label">협업 다면평가</span>
                       <strong className="kpi-detail-score-val is-peer">
-                        {peerCount > 0 ? `${avgTotal}점 (${peerCount}명)` : `대기 (0명)`}
+                        {peerCount > 0 ? `${avgTotal}점 (${peerCount}명)` : '대기 (0명)'}
                       </strong>
                     </div>
 
+                    {!isLeaderKpi && (
+                      <div className="kpi-detail-score-box">
+                        <span className="kpi-detail-score-label">팀장 1차평가</span>
+                        <strong className="kpi-detail-score-val is-leader">
+                          {leaderGrade ? `${leaderGrade}등급` : '미등록'}
+                        </strong>
+                      </div>
+                    )}
+
                     <div className="kpi-detail-score-box is-final-box">
-                      <span className="kpi-detail-score-label">최종 확정 등급</span>
+                      <span className="kpi-detail-score-label">실장 최종평가</span>
                       <strong className="kpi-detail-score-val is-final">
                         {finalGrade
                           ? `${finalGrade}등급 (${evalMetrics.weightedPoint}/${item.weight}점)`
@@ -992,7 +1495,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   </div>
                 </div>
 
-                {/* 하단 측정 기준(Metric) & 완료/달성 기준(DoD) 2열 와이드 배너 */}
+                {/* 하단 측정 기준(Metric) & 완료/달성 기준(DoD) */}
                 <div className="kpi-detail-criteria-grid">
                   <div className="kpi-detail-criteria-item">
                     <span className="kpi-detail-criteria-label">측정 기준 (Metric)</span>
@@ -1008,7 +1511,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                 </div>
               </div>
 
-              {/* 섹션 2. 매핑된 실무 수행 근거 과제 (독립 풀와이드 섹션 카드) */}
+              {/* 섹션 2. 매핑된 실무 수행 근거 과제 */}
               <div className="card kpi-detail-section-card">
                 <div className="kpi-detail-section-header">
                   <div className="kpi-detail-section-title-wrap">
@@ -1023,7 +1526,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     )}
                   </div>
 
-                  {!isViewer && (isSelf || isAdmin) && (
+                  {canEditThisGoal && (
                     <button
                       type="button"
                       onClick={() => handleOpenTaskMappingModal(item)}
@@ -1037,7 +1540,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
                 {linkedTasks.length === 0 ? (
                   <div className="kpi-detail-empty-box">
-                    {!isViewer && (isSelf || isAdmin)
+                    {canEditThisGoal
                       ? '아직 이 KPI 목표에 매핑된 실무 수행 근거 과제가 없습니다. 우측 상단 [+ 실무 과제 매핑하기] 버튼을 눌러 업무를 연결해 주세요.'
                       : '아직 담당자가 이 KPI 목표에 매핑한 실무 수행 근거 과제가 없습니다.'}
                   </div>
@@ -1084,7 +1587,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                 )}
               </div>
 
-              {/* 섹션 3. 단계별 성과 평가 상세 워크플로우 (STEP 1 ➔ STEP 2 ➔ STEP 3) */}
+              {/* 섹션 3. 단계별 성과 평가 상세 워크플로우 */}
               <div className="kpi-eval-steps-grid is-detail-page">
                 {/* STEP 1: 본인 수행 실적 및 자가평가 */}
                 <div
@@ -1105,7 +1608,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       )}
                     </div>
 
-                    {isSelf && !isViewer && (
+                    {isSelf && (
                       <button
                         type="button"
                         onClick={() => handleOpenSelfModal(item)}
@@ -1134,14 +1637,14 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     </div>
                   ) : (
                     <div className="kpi-detail-empty-box">
-                      {isSelf && !isViewer
+                      {isSelf
                         ? '아직 수행 실적과 자가평가가 등록되지 않았습니다. 우측 상단 [실적 · 자가평가 등록] 버튼을 눌러 먼저 작성해 주세요.'
                         : '담당자 본인의 수행 실적 및 자가평가 등록을 대기 중입니다.'}
                     </div>
                   )}
                 </div>
 
-                {/* STEP 2: 무기명 동료 피드백 */}
+                {/* STEP 2: 사내 · 유관부서 무기명 협업 다면평가 */}
                 <div
                   className={`card kpi-eval-step-card is-detail ${
                     peerCount > 0 ? 'is-completed-peer' : 'is-pending'
@@ -1150,7 +1653,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   <div className="kpi-eval-step-header">
                     <div className="kpi-step-badge-wrap">
                       <span className="kpi-step-num step-2">STEP 2</span>
-                      <span className="kpi-step-title">무기명 동료 피드백 ({peerCount}명)</span>
+                      <span className="kpi-step-title">
+                        사내 · 유관부서 무기명 협업 다면평가 ({peerCount}명 참여)
+                      </span>
                       {peerCount > 0 ? (
                         <span className="kpi-peer-score-chip">평균 {avgTotal} / 5.0점</span>
                       ) : (
@@ -1158,7 +1663,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       )}
                     </div>
 
-                    {!isSelf && (
+                    {!isSelf && !isDivisionHead && !isExecutiveViewer && (
                       <button
                         type="button"
                         onClick={() => handleOpenPeerModal(item)}
@@ -1174,9 +1679,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
                   {peerCount === 0 ? (
                     <div className="kpi-detail-empty-box">
-                      {isSelf
-                        ? '타 임직원이 평가하면 평가자 정보 없이 결과만 무기명으로 이곳에 표시됩니다.'
-                        : '아직 등록된 동료 피드백이 없습니다. 우측 상단 버튼으로 무기명 피드백을 남길 수 있습니다.'}
+                      팀 동료 및 유관부서 협업 담당자가 무기명 피드백을 등록하면 평가자 신원 없이 집계 점수와 코멘트만 이곳에 표시됩니다.
                     </div>
                   ) : (
                     <div className="kpi-step-body is-detail">
@@ -1188,7 +1691,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                         {peerReviews.map((pr, idx) => (
                           <div key={pr.id || idx} className="kpi-peer-anon-item">
                             <div className="kpi-peer-anon-item-head">
-                              <span className="kpi-peer-anon-tag">익명 피드백 #{idx + 1}</span>
+                              <span className="kpi-peer-anon-tag">익명 협업 피드백 #{idx + 1}</span>
                               <span className="kpi-peer-anon-subscore">
                                 완성도 {pr.scoreQuality}점 · 소통 {pr.scoreCollaboration}점
                               </span>
@@ -1206,7 +1709,73 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   )}
                 </div>
 
-                {/* STEP 3: 관리자 최종 평가 */}
+                {/* STEP 3 (팀원 KPI인 경우에만 표시): 서비스기획팀장 1차 평가 */}
+                {!isLeaderKpi && (
+                  <div
+                    className={`card kpi-eval-step-card is-detail ${
+                      leaderGrade
+                        ? 'is-completed-self'
+                        : !hasSelfEvaluated
+                          ? 'is-locked'
+                          : 'is-pending'
+                    }`}
+                  >
+                    <div className="kpi-eval-step-header">
+                      <div className="kpi-step-badge-wrap">
+                        <span className="kpi-step-num step-1">STEP 3</span>
+                        <span className="kpi-step-title">팀장 1차 평가 (서비스기획팀장)</span>
+                        {leaderGrade ? (
+                          <span className={`kpi-grade-chip grade-${leaderGrade.toLowerCase()}`}>
+                            1차 {leaderGrade}등급
+                          </span>
+                        ) : !hasSelfEvaluated ? (
+                          <span className="kpi-step-pending-badge is-locked">STEP 1 선행 필요</span>
+                        ) : (
+                          <span className="kpi-step-pending-badge">1차 평가 대기</span>
+                        )}
+                      </div>
+
+                      {isTeamLead && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenLeaderEvalModal(item)}
+                          disabled={!hasSelfEvaluated}
+                          className={`btn ${hasSelfEvaluated ? 'btn-primary' : 'btn-secondary'} tasks-action-btn`}
+                        >
+                          <UserCheck size={14} />{' '}
+                          {!hasSelfEvaluated
+                            ? '1차 평가 (자가평가 선행 필요)'
+                            : leaderGrade
+                              ? '팀장 1차 평가 수정'
+                              : '팀장 1차 평가 등록'}
+                        </button>
+                      )}
+                    </div>
+
+                    {leaderGrade ? (
+                      <div className="kpi-step-body is-detail">
+                        <div className="kpi-detail-eval-content-box">
+                          <span className="kpi-step-field-label">
+                            서비스기획팀장 1차 평가 의견 ({item.leaderEvaluatorName || '최범열'})
+                          </span>
+                          <p className="kpi-step-field-val is-detail">
+                            {item.leaderComment?.trim() || '등록된 1차 평가 코멘트가 없습니다.'}
+                          </p>
+                        </div>
+                      </div>
+                    ) : !hasSelfEvaluated ? (
+                      <div className="kpi-detail-empty-box">
+                        STEP 1 [본인 수행 실적 및 자가평가]가 먼저 등록되어야 팀장 1차 평가를 진행할 수 있습니다.
+                      </div>
+                    ) : (
+                      <div className="kpi-detail-empty-box">
+                        서비스기획팀장(최범열 차장)의 1차 평가를 대기 중입니다.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 최종 단계 (팀원 STEP 4 / 팀장 본인 STEP 3): 디지털마케팅실장(유은정 상무) 최종 평가 */}
                 <div
                   className={`card kpi-eval-step-card is-detail ${
                     finalGrade
@@ -1218,8 +1787,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                 >
                   <div className="kpi-eval-step-header">
                     <div className="kpi-step-badge-wrap">
-                      <span className="kpi-step-num step-3">STEP 3</span>
-                      <span className="kpi-step-title">관리자 최종 평가</span>
+                      <span className="kpi-step-num step-3">{finalStepNum}</span>
+                      <span className="kpi-step-title">
+                        실장 최종 평가 (디지털마케팅실장 · 유은정 상무)
+                      </span>
                       {finalGrade ? (
                         <span className={`kpi-grade-chip grade-${finalGrade.toLowerCase()}`}>
                           최종 {finalGrade}등급 ({evalMetrics.weightedPoint} / {item.weight}점)
@@ -1227,19 +1798,19 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       ) : !hasSelfEvaluated ? (
                         <span className="kpi-step-pending-badge is-locked">STEP 1 선행 필요</span>
                       ) : (
-                        <span className="kpi-step-pending-badge">최종 평가 대기</span>
+                        <span className="kpi-step-pending-badge">실장 최종평가 대기</span>
                       )}
                     </div>
 
-                    {isAdmin && (
+                    {isDivisionHead && (
                       <button
                         type="button"
-                        onClick={() => handleOpenAdminEvalModal(item)}
+                        onClick={() => handleOpenDirectorEvalModal(item)}
                         disabled={!hasSelfEvaluated}
                         className={`btn ${hasSelfEvaluated ? 'btn-primary' : 'btn-secondary'} tasks-action-btn kpi-final-eval-btn`}
                         title={
                           hasSelfEvaluated
-                            ? '관리자 최종 등급 및 코멘트 확정'
+                            ? '디지털마케팅실장 최종 등급 및 총평 확정'
                             : '담당자 본인의 [실적 · 자가평가]가 먼저 등록되어야 최종 등급을 확정할 수 있습니다.'
                         }
                       >
@@ -1256,7 +1827,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   {finalGrade ? (
                     <div className="kpi-step-body is-detail">
                       <div className="kpi-detail-eval-content-box">
-                        <span className="kpi-step-field-label">관리자 최종 평가 의견</span>
+                        <span className="kpi-step-field-label">
+                          디지털마케팅실장 최종 평가 총평 ({item.directorEvaluatorName || '유은정'} 상무)
+                        </span>
                         <p className="kpi-step-field-val is-detail">
                           {finalComment || '등록된 최종 평가 코멘트가 없습니다.'}
                         </p>
@@ -1264,11 +1837,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     </div>
                   ) : !hasSelfEvaluated ? (
                     <div className="kpi-detail-empty-box">
-                      STEP 1 [본인 수행 실적 및 자가평가]가 먼저 등록되어야 관리자 최종 등급을 확정할 수 있습니다.
+                      STEP 1 [본인 수행 실적 및 자가평가]가 먼저 등록되어야 실장 최종 등급을 확정할 수 있습니다.
                     </div>
                   ) : (
                     <div className="kpi-detail-empty-box">
-                      본인 자가평가가 완료되었습니다. 관리자가 실무 근거와 자가평가를 검토하여 최종 등급을 확정합니다.
+                      디지털마케팅실장(유은정 상무)의 최종 등급 및 총평 확정을 대기 중입니다.
                     </div>
                   )}
                 </div>
@@ -1277,8 +1850,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
           );
         })()
       ) : (
+        /* =====================================================================
+           모드 A-목록: 내 KPI 평가 관리(팀원) / 소속 구성원 KPI 종합 평가(팀장·실장·임원)
+           ===================================================================== */
         <>
-          {/* 1. 통합 컨트롤 바 (파트 탭 + 분기 + 대상 필터 + 평가 기준 토글 + 목표 수립) */}
           <div className="card kpi-control-card">
             <div className="kpi-unified-toolbar">
               <div className="tasks-track-tabs">
@@ -1288,14 +1863,16 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   className={`tasks-track-tab track-all ${trackFilter === 'all' ? 'active' : ''}`}
                 >
                   <span>전체</span>
-                  <span className="tasks-track-count">{kpis.length}</span>
+                  <span className="tasks-track-count">{accessibleEvalKpis.length}</span>
                 </button>
 
                 {TRACK_LIST.map((trackKey) => {
                   const cfg = TRACK_CONFIG[trackKey];
                   const IconComp = cfg.icon;
                   const isSelected = trackFilter === trackKey;
-                  const count = kpis.filter((k) => (k.track || '기획') === trackKey).length;
+                  const count = accessibleEvalKpis.filter(
+                    (k) => (k.track || '기획') === trackKey
+                  ).length;
                   return (
                     <button
                       key={trackKey}
@@ -1326,20 +1903,22 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   ))}
                 </div>
 
-                <select
-                  value={ownerFilter}
-                  onChange={(e) => setOwnerFilter(e.target.value)}
-                  className="form-select kpi-owner-select"
-                  aria-label="KPI 대상자 필터"
-                >
-                  <option value="all">전체 대상</option>
-                  <option value="team">팀 공통 목표</option>
-                  {teamMembers.map((m) => (
-                    <option key={m.id} value={m.name}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
+                {canViewAllOrgKpis && (
+                  <select
+                    value={ownerFilter}
+                    onChange={(e) => setOwnerFilter(e.target.value)}
+                    className="form-select kpi-owner-select"
+                    aria-label="KPI 대상자 필터"
+                  >
+                    <option value="all">전체 구성원 ({teamMembers.length}명)</option>
+                    <option value="team">팀 공통 목표</option>
+                    {teamMembers.map((m) => (
+                      <option key={m.id} value={m.name}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
 
                 <button
                   type="button"
@@ -1351,19 +1930,15 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   {isFrameworkOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleOpenCreateModal()}
-                  disabled={isViewer}
-                  className="btn btn-primary kpi-create-main-btn"
-                  title={
-                    isViewer
-                      ? '유관부서(읽기 전용) 모드에서는 등록이 제한됩니다'
-                      : '신규 KPI 목표 수립'
-                  }
-                >
-                  <Plus size={16} /> KPI 목표 수립
-                </button>
+                {canCreateGoal && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenCreateModal()}
+                    className="btn btn-primary kpi-create-main-btn"
+                  >
+                    <Plus size={16} /> {isTeamMember ? '내 KPI 목표 수립' : 'KPI 목표 수립'}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1393,7 +1968,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       <span className="kpi-pillar-name">③ 서비스·운영 개선 및 협업 기여</span>
                     </div>
                     <p className="kpi-pillar-desc">
-                      시선닷컴 탐색·주문 사용성 강화, 어드민 수기 공수 절감 및 기획➔디자인➔퍼블 인수인계 협업 품질
+                      시선닷컴 탐색·주문 사용성 강화, 어드민 수기 공수 절감 및 사내·유관부서 협업 만족도
                     </p>
                   </div>
                 </div>
@@ -1410,27 +1985,29 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             )}
           </div>
 
-          {/* 2. 대상자별 종합 산출 요약 바 (핵심 지표만 1줄 표시) */}
+          {/* 대상자별 종합 산출 요약 바 */}
           {ownerScorecards.length > 0 && (
             <div className="kpi-scorecard-list">
               {ownerScorecards.map((sc) => {
                 const trackCfg = TRACK_CONFIG[sc.track] || TRACK_CONFIG['기획'];
                 const TrackIcon = trackCfg.icon;
                 const isSelectedOwner =
-                  (sc.isTeam && ownerFilter === 'team') ||
-                  (!sc.isTeam && ownerFilter === sc.ownerKey);
+                  canViewAllOrgKpis &&
+                  ((sc.isTeam && ownerFilter === 'team') ||
+                    (!sc.isTeam && ownerFilter === sc.ownerKey));
 
                 return (
                   <div
                     key={sc.ownerKey}
                     onClick={() => {
+                      if (!canViewAllOrgKpis) return;
                       const targetFilter = sc.isTeam ? 'team' : sc.ownerKey;
                       setOwnerFilter((prev) => (prev === targetFilter ? 'all' : targetFilter));
                     }}
                     className={`card kpi-scorecard-row ${trackCfg.classKey} ${
                       isSelectedOwner ? 'is-selected' : ''
                     }`}
-                    title="클릭하여 해당 대상 KPI만 필터링"
+                    title={canViewAllOrgKpis ? '클릭하여 해당 구성원 KPI만 필터링' : undefined}
                   >
                     <div className="kpi-scorecard-row-left">
                       <span className={`tasks-badge-track ${trackCfg.classKey}`}>
@@ -1451,14 +2028,21 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       <span className="kpi-scorecard-stat-pill">
                         자가평가 <strong>{sc.selfDoneCount}/{sc.kpiCount}</strong>
                       </span>
+                      {!sc.isTeam && !isTeamLeadName(sc.ownerKey) && (
+                        <span className="kpi-scorecard-stat-pill">
+                          팀장1차 <strong>{sc.leaderDoneCount}/{sc.kpiCount}</strong>
+                        </span>
+                      )}
                       <span className="kpi-scorecard-stat-pill">
-                        최종확정 <strong>{sc.finalizedCount}/{sc.kpiCount}</strong>
+                        실장최종 <strong>{sc.finalizedCount}/{sc.kpiCount}</strong>
                       </span>
 
                       <span className="kpi-scorecard-divider" aria-hidden="true" />
 
                       <div className="kpi-scorecard-inline-metric">
-                        <span className="kpi-scorecard-metric-label">종합 점수</span>
+                        <span className="kpi-scorecard-metric-label">
+                          {sc.isAllFinalized ? '최종 점수' : '가집계 점수'}
+                        </span>
                         <strong className="kpi-scorecard-metric-val is-highlight">
                           {sc.normalizedScore !== null ? `${sc.normalizedScore}점` : '미산출'}
                         </strong>
@@ -1468,7 +2052,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                         <span
                           className={`kpi-grade-chip grade-${sc.overallGrade.toLowerCase()}`}
                         >
-                          종합 {sc.overallGrade}등급
+                          {sc.isAllFinalized ? '최종' : '잠정'} {sc.overallGrade}등급
                         </span>
                       )}
                     </div>
@@ -1478,21 +2062,27 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             </div>
           )}
 
-          {/* 3. 정렬된 KPI 테이블 목록 (클릭 시 상세 평가 페이지 이동) */}
+          {/* KPI 테이블 목록 */}
           {currentKpis.length === 0 ? (
             <div className="card kpi-empty-card">
               <Award size={36} className="kpi-empty-icon" />
-              <div className="kpi-empty-title">등록된 KPI 목표 과제가 없습니다.</div>
+              <div className="kpi-empty-title">
+                {isTeamMember
+                  ? `${currentUser.name}님의 등록된 KPI 목표 과제가 없습니다.`
+                  : '선택한 조건에 등록된 KPI 목표 과제가 없습니다.'}
+              </div>
               <p className="kpi-empty-desc">
-                상단 <strong>[+ KPI 목표 수립]</strong> 버튼을 눌러 목표와 달성 기준을 등록해 주세요.
+                {canCreateGoal
+                  ? '상단 [+ KPI 목표 수립] 버튼을 눌러 직무 파트별 목표와 달성 기준(DoD)을 등록해 주세요.'
+                  : '소속 구성원이 KPI 목표를 등록하면 이곳에서 진행 현황과 평가 내역을 열람하실 수 있습니다.'}
               </p>
-              {!isViewer && (
+              {canCreateGoal && (
                 <button
                   type="button"
                   onClick={() => handleOpenCreateModal()}
                   className="btn btn-primary"
                 >
-                  <Plus size={16} /> KPI 목표 수립
+                  <Plus size={16} /> {isTeamMember ? '내 KPI 목표 수립' : 'KPI 목표 수립'}
                 </button>
               )}
             </div>
@@ -1507,8 +2097,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       <th className="kpi-col-weight">가중치</th>
                       <th className="kpi-col-tasks">연결 과제</th>
                       <th className="kpi-col-self">자가평가</th>
-                      <th className="kpi-col-peer">동료평가</th>
-                      <th className="kpi-col-final">최종등급</th>
+                      <th className="kpi-col-peer">협업다면</th>
+                      <th className="kpi-col-leader">1차(팀장)</th>
+                      <th className="kpi-col-final">최종(실장)</th>
                       <th className="kpi-col-action">상세</th>
                     </tr>
                   </thead>
@@ -1517,9 +2108,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       const trackCfg = TRACK_CONFIG[item.track || '기획'] || TRACK_CONFIG['기획'];
                       const TrackIcon = trackCfg.icon;
                       const hasSelfEvaluated = checkHasSelfEval(item);
-                      const finalGrade = hasSelfEvaluated
-                        ? item.directorGrade || item.leaderGrade || null
-                        : null;
+                      const isLeaderKpi = isLeaderOwnedKpi(item);
+                      const leaderGrade = getValidLeaderGrade(item);
+                      const finalGrade = getValidFinalGrade(item);
                       const selfGrade = resolveSelfGrade(item.selfScore);
                       const evalMetrics = getKpiEvalMetrics(item);
                       const linkedTasks = getLinkedTasksForKpi(item);
@@ -1592,7 +2183,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                               }`}
                             >
                               {hasSelfEvaluated
-                                ? `완료${selfGrade ? ` (${selfGrade}등급)` : ''}`
+                                ? `완료${selfGrade ? ` (${selfGrade})` : ''}`
                                 : '대기'}
                             </span>
                           </td>
@@ -1603,8 +2194,22 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                                 peerCount > 0 ? 'is-done-peer' : 'is-wait'
                               }`}
                             >
-                              {peerCount > 0 ? `${peerCount}명 (${avgTotal}점)` : '대기'}
+                              {peerCount > 0 ? `${peerCount}명 (${avgTotal})` : '대기'}
                             </span>
+                          </td>
+
+                          <td className="kpi-col-leader">
+                            {isLeaderKpi ? (
+                              <span className="kpi-stage-pill is-wait">-</span>
+                            ) : (
+                              <span
+                                className={`kpi-stage-pill ${
+                                  leaderGrade ? 'is-done-self' : 'is-wait'
+                                }`}
+                              >
+                                {leaderGrade ? `${leaderGrade}등급` : '대기'}
+                              </span>
+                            )}
                           </td>
 
                           <td className="kpi-col-final">
@@ -1637,8 +2242,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         </>
       )}
 
-      {/* 5. KPI 목표 수립 / 수정 모달 */}
-      {isModalOpen && (
+      {/* =====================================================================
+          모달 1: KPI 목표 수립 / 수정 모달
+          ===================================================================== */}
+      {isModalOpen && canCreateGoal && (
         <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div className="modal-box kpi-modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -1657,7 +2264,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
             <form onSubmit={handleSaveKpi} className="tasks-modal-form">
               <div className="modal-body">
-                {/* 0. 직무 파트 선택 (기획=파랑 / 디자인=녹색 / 퍼블리싱=보라) */}
                 <div className="form-group tasks-modal-track-group">
                   <label className="form-label">직무 파트 구분 *</label>
                   <div className="tasks-modal-track-grid">
@@ -1669,7 +2275,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                         <button
                           key={trackKey}
                           type="button"
-                          disabled={isViewer}
                           onClick={() => setFormData({ ...formData, track: trackKey })}
                           className={`tasks-modal-track-btn ${config.classKey} ${
                             isSelected ? 'active' : ''
@@ -1693,13 +2298,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   </div>
                 </div>
 
-                {/* 직무별 추천 표준 KPI 템플릿 원클릭 적용 */}
-                {!editingKpi && !isViewer && (
+                {!editingKpi && (
                   <div className="kpi-preset-box">
                     <div className="kpi-preset-header">
-                      <span>
-                        [{formData.track}] 파트 객관적 KPI 표준 템플릿 (클릭 시 자동 입력)
-                      </span>
+                      <span>[{formData.track}] 파트 객관적 KPI 표준 템플릿 (클릭 시 자동 입력)</span>
                     </div>
                     <div className="kpi-preset-list">
                       {KPI_PRESETS.filter((p) => p.track === formData.track).map((preset, idx) => (
@@ -1717,13 +2319,12 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   </div>
                 )}
 
-                {/* 구분 & 담당자 */}
                 <div className="tasks-form-grid-2">
                   <div className="form-group">
                     <label className="form-label">목표 범위 *</label>
                     <select
-                      disabled={isViewer}
-                      value={formData.targetScope}
+                      disabled={isTeamMember}
+                      value={isTeamMember ? 'individual' : formData.targetScope}
                       onChange={(e) => {
                         const nextScope = e.target.value as KpiTargetScope;
                         setFormData({
@@ -1738,22 +2339,28 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       className="form-select"
                     >
                       <option value="individual">개인별 KPI 과제</option>
-                      <option value="team">서비스기획팀 공통 과제</option>
+                      {isTeamLead && <option value="team">서비스기획팀 공통 과제</option>}
                     </select>
                   </div>
 
                   <div className="form-group">
                     <label className="form-label">담당자 *</label>
-                    {formData.targetScope === 'team' ? (
+                    {formData.targetScope === 'team' && isTeamLead ? (
                       <input
                         type="text"
                         disabled
                         value="서비스기획팀 전체"
                         className="form-input"
                       />
+                    ) : isTeamMember ? (
+                      <input
+                        type="text"
+                        disabled
+                        value={currentUser.name}
+                        className="form-input"
+                      />
                     ) : (
                       <select
-                        disabled={isViewer}
                         value={formData.ownerName}
                         onChange={(e) => {
                           const target = teamMembers.find((m) => m.name === e.target.value);
@@ -1761,6 +2368,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                             ...formData,
                             ownerId: target ? target.id : formData.ownerId,
                             ownerName: e.target.value,
+                            track: resolveMemberDefaultTrack(e.target.value),
                           });
                         }}
                         className="form-select"
@@ -1775,12 +2383,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   </div>
                 </div>
 
-                {/* 평가 기간 & 가중치 & 진행 상태 */}
                 <div className="tasks-form-grid-3">
                   <div className="form-group">
                     <label className="form-label">평가 기간 *</label>
                     <select
-                      disabled={isViewer}
                       value={formData.quarter}
                       onChange={(e) =>
                         setFormData({ ...formData, quarter: e.target.value as KpiQuarter })
@@ -1802,7 +2408,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       min={5}
                       max={100}
                       step={5}
-                      disabled={isViewer}
                       required
                       value={formData.weight}
                       onChange={(e) =>
@@ -1815,7 +2420,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   <div className="form-group">
                     <label className="form-label">진행 상태</label>
                     <select
-                      disabled={isViewer}
                       value={formData.status}
                       onChange={(e) =>
                         setFormData({ ...formData, status: e.target.value as KpiStatus })
@@ -1831,12 +2435,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   </div>
                 </div>
 
-                {/* KPI 목표명 */}
                 <div className="form-group">
                   <label className="form-label">KPI 핵심 목표명 *</label>
                   <input
                     type="text"
-                    disabled={isViewer}
                     required
                     placeholder="예: 시선닷컴 Front UI Renewal 및 프로모션 화면설계(SB) 적기 완수"
                     value={formData.title}
@@ -1845,12 +2447,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   />
                 </div>
 
-                {/* 객관적 측정 지표 */}
                 <div className="form-group">
                   <label className="form-label">객관적 측정 기준 (Metric) *</label>
                   <input
                     type="text"
-                    disabled={isViewer}
                     required
                     placeholder="예: 마일스톤 마감 일정 준수 여부 및 QA 단계 스펙 누락/결함 최소화"
                     value={formData.targetMetric}
@@ -1861,12 +2461,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   />
                 </div>
 
-                {/* 완료 기준 (DoD: Definition of Done) */}
                 <div className="form-group">
                   <label className="form-label">완료 및 달성 기준 (DoD · A등급 기준) *</label>
                   <textarea
                     rows={2}
-                    disabled={isViewer}
                     required
                     placeholder="예: 합의된 일정 내 기획서/디자인/마크업 산출물 확정 및 중대 결함 없이 정상 오픈"
                     value={formData.targetValue}
@@ -1877,12 +2475,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   />
                 </div>
 
-                {/* 현재 수행 실적 요약 */}
                 <div className="form-group">
                   <label className="form-label">현재 수행 실적 요약 (선택)</label>
                   <textarea
                     rows={2}
-                    disabled={isViewer}
                     placeholder="현재까지 완료한 주요 과제나 산출물 현황을 요약해 주세요."
                     value={formData.currentValue}
                     onChange={(e) =>
@@ -1892,12 +2488,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   />
                 </div>
 
-                {/* KPI별 직접 매핑할 실무 수행 근거 과제 선택 */}
                 {(() => {
                   const candidateTasks = getCandidateTasks({
-                    targetScope: formData.targetScope,
-                    ownerName: formData.ownerName,
-                    ownerId: formData.ownerId,
+                    targetScope: isTeamMember ? 'individual' : formData.targetScope,
+                    ownerName: isTeamMember ? currentUser.name : formData.ownerName,
+                    ownerId: isTeamMember ? currentUser.id : formData.ownerId,
                     track: formData.track,
                   });
                   return (
@@ -1909,9 +2504,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       {candidateTasks.length === 0 ? (
                         <div className="kpi-task-map-empty">
                           [서비스기획 업무 관리]에 등록된{' '}
-                          {formData.targetScope === 'team'
+                          {formData.targetScope === 'team' && isTeamLead
                             ? `${formData.track} 파트`
-                            : `${formData.ownerName} 담당`}{' '}
+                            : `${isTeamMember ? currentUser.name : formData.ownerName} 담당`}{' '}
                           업무가 없습니다.
                         </div>
                       ) : (
@@ -1925,7 +2520,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                               >
                                 <input
                                   type="checkbox"
-                                  disabled={isViewer}
                                   checked={isChecked}
                                   onChange={() =>
                                     setFormData((prev) => ({
@@ -1972,7 +2566,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
               </div>
 
               <div className="modal-footer">
-                {editingKpi && !isViewer && (
+                {editingKpi && canEditKpiGoal(editingKpi) && (
                   <button
                     type="button"
                     onClick={() => handleDeleteKpi(editingKpi.id, editingKpi.title)}
@@ -1988,18 +2582,18 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                 >
                   취소
                 </button>
-                {!isViewer && (
-                  <button type="submit" className="btn btn-primary">
-                    {editingKpi ? '수정 내용 저장' : 'KPI 목표 등록'}
-                  </button>
-                )}
+                <button type="submit" className="btn btn-primary">
+                  {editingKpi ? '수정 내용 저장' : 'KPI 목표 등록'}
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* 6-0. KPI별 실무 수행 근거 과제 전용 매핑 모달 */}
+      {/* =====================================================================
+          모달 2: 실무 수행 근거 과제 전용 매핑 모달
+          ===================================================================== */}
       {actionModal.type === 'task_mapping' &&
         actionModal.kpi &&
         (() => {
@@ -2135,8 +2729,8 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                                   {t.status === 'done'
                                     ? '완료'
                                     : t.status === 'in_progress'
-                                    ? '진행중'
-                                    : '대기'}
+                                      ? '진행중'
+                                      : '대기'}
                                 </span>
                               </div>
                             </label>
@@ -2164,7 +2758,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
           );
         })()}
 
-      {/* 6-A. 실적 점검 및 본인 자가평가 모달 */}
+      {/* =====================================================================
+          모달 3: 본인 수행 실적 및 자가평가 모달
+          ===================================================================== */}
       {actionModal.type === 'self_checkin' && actionModal.kpi && (
         <div
           className="modal-overlay"
@@ -2225,7 +2821,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   </div>
                 </div>
 
-                {/* 자가평가 시에도 매핑 과제 바로 체크/해제 지원 */}
                 {(() => {
                   const candidateTasks = getCandidateTasks({
                     targetScope: actionModal.kpi.targetScope,
@@ -2239,9 +2834,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                         매핑된 실무 수행 근거 과제 확인 (선택됨 {selfForm.linkedTaskIds.length}건)
                       </label>
                       {candidateTasks.length === 0 ? (
-                        <div className="kpi-task-map-empty">
-                          등록된 담당 업무가 없습니다.
-                        </div>
+                        <div className="kpi-task-map-empty">등록된 담당 업무가 없습니다.</div>
                       ) : (
                         <div className="kpi-task-map-list is-compact">
                           {candidateTasks.map((t) => {
@@ -2328,7 +2921,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         </div>
       )}
 
-      {/* 6-B. 타 임직원(회원) 전용 무기명 동료 피드백 평가 모달 */}
+      {/* =====================================================================
+          모달 4: 사내 · 유관부서 무기명 협업 다면평가 모달
+          ===================================================================== */}
       {actionModal.type === 'peer_review' && actionModal.kpi && (
         <div
           className="modal-overlay"
@@ -2336,7 +2931,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         >
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">무기명 동료 피드백 평가</h3>
+              <h3 className="modal-title">사내 · 유관부서 무기명 협업 다면평가</h3>
               <button
                 type="button"
                 onClick={() => setActionModal({ type: null, kpi: null })}
@@ -2353,13 +2948,13 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     [{actionModal.kpi.ownerName}] {actionModal.kpi.title}
                   </strong>
                   <span>
-                    익명 보장 안내: 평가자 성명·부서 등 신원 정보는 일체 노출되지 않으며, 대상자 본인에게는 평가 점수와 피드백 결과만 무기명으로 표시됩니다.
+                    익명 보장 안내: 작성자의 성명·소속 부서 등 신원 정보는 일절 저장·노출되지 않으며, 대상자 본인과 상위 평가자에게는 무기명 결과만 전달됩니다.
                   </span>
                 </div>
 
                 <div className="tasks-form-grid-2">
                   <div className="form-group">
-                    <label className="form-label">인수인계 산출물 명확성 · 완성도 (1~5점)</label>
+                    <label className="form-label">산출물 명확성 · 완성도 (1~5점)</label>
                     <select
                       value={peerForm.scoreQuality}
                       onChange={(e) =>
@@ -2376,7 +2971,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">일정 공유 및 협업 소통 (1~5점)</label>
+                    <label className="form-label">일정 공유 및 부서 간 협업 소통 (1~5점)</label>
                     <select
                       value={peerForm.scoreCollaboration}
                       onChange={(e) =>
@@ -2401,7 +2996,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   <textarea
                     rows={3}
                     required
-                    placeholder="기획서 정책 명시, 디자인 가이드 일관성, 마크업 구현 정확도 등 협업에 도움이 된 점을 남겨주세요."
+                    placeholder="기획서 정책 명시, 디자인 가이드 일관성, 마크업 정확도, 유관부서 요청 대응 등 협업에 도움이 된 점을 남겨주세요."
                     value={peerForm.commentGood}
                     onChange={(e) =>
                       setPeerForm({ ...peerForm, commentGood: e.target.value })
@@ -2414,7 +3009,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   <label className="form-label">향후 보완/건의 사항 (선택)</label>
                   <textarea
                     rows={2}
-                    placeholder="다음 프로젝트에서 더 원활한 인수인계를 위해 바라는 점이 있다면 남겨주세요."
+                    placeholder="다음 프로젝트에서 더 원활한 부서 간 협업을 위해 바라는 점이 있다면 남겨주세요."
                     value={peerForm.commentImprove}
                     onChange={(e) =>
                       setPeerForm({ ...peerForm, commentImprove: e.target.value })
@@ -2441,9 +3036,12 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         </div>
       )}
 
-      {/* 6-C. 관리자(최범열) 최종 평가 등급 확정 모달 */}
-      {actionModal.type === 'admin_eval' &&
+      {/* =====================================================================
+          모달 5: 서비스기획팀장(최범열 차장) 1차 평가 모달 (팀원 KPI 전용)
+          ===================================================================== */}
+      {actionModal.type === 'leader_eval' &&
         actionModal.kpi &&
+        isTeamLead &&
         (() => {
           const targetKpi = actionModal.kpi;
           const modalLinkedTasks = getLinkedTasksForKpi(targetKpi);
@@ -2462,7 +3060,129 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   (
                     modalPeerReviews.reduce(
                       (acc, r) =>
-                        acc + (Number(r.scoreQuality || 5) + Number(r.scoreCollaboration || 5)) / 2,
+                        acc +
+                        (Number(r.scoreQuality || 5) + Number(r.scoreCollaboration || 5)) / 2,
+                      0
+                    ) / modalPeerCount
+                  ).toFixed(1)
+                )
+              : null;
+
+          return (
+            <div
+              className="modal-overlay"
+              onClick={() => setActionModal({ type: null, kpi: null })}
+            >
+              <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3 className="modal-title">서비스기획팀장 1차 평가 등록</h3>
+                  <button
+                    type="button"
+                    onClick={() => setActionModal({ type: null, kpi: null })}
+                    className="tasks-modal-close-btn"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveLeaderEval} className="tasks-modal-form">
+                  <div className="modal-body">
+                    <div className="kpi-modal-target-summary">
+                      <strong>
+                        [{targetKpi.ownerName}] {targetKpi.title} (가중치 {targetKpi.weight}%)
+                      </strong>
+                      <span>완료 기준(DoD): {targetKpi.targetValue}</span>
+                      <span>
+                        실무 수행 완료 {modalDoneTasks}/{modalLinkedTasks.length}건 · 본인 자가진단:{' '}
+                        {modalSelfGrade ? `${modalSelfGrade}등급` : '미입력'} · 협업 다면평가:{' '}
+                        {modalPeerAvg5 !== null ? `${modalPeerAvg5}/5.0 (${modalPeerCount}명)` : '미참여'}
+                      </span>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">팀장 1차 평가 등급 (루브릭 기준) *</label>
+                      <select
+                        value={leaderEvalForm.grade}
+                        onChange={(e) =>
+                          setLeaderEvalForm({
+                            ...leaderEvalForm,
+                            grade: e.target.value as KpiGrade,
+                          })
+                        }
+                        className="form-select"
+                      >
+                        {GRADE_RUBRIC.map((r) => (
+                          <option key={r.grade} value={r.grade}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">팀장 1차 평가 의견 (실장 상신용 코멘트) *</label>
+                      <textarea
+                        rows={4}
+                        required
+                        placeholder="소속 팀원의 일정 준수, 산출물 무결성, 협업 기여도에 대한 1차 평가 의견을 작성해 주세요."
+                        value={leaderEvalForm.comment}
+                        onChange={(e) =>
+                          setLeaderEvalForm({ ...leaderEvalForm, comment: e.target.value })
+                        }
+                        className="form-textarea"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      onClick={() => setActionModal({ type: null, kpi: null })}
+                      className="btn btn-secondary"
+                    >
+                      취소
+                    </button>
+                    <button type="submit" className="btn btn-primary">
+                      1차 평가 저장 및 상신
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          );
+        })()}
+
+      {/* =====================================================================
+          모달 6: 디지털마케팅실장(유은정 상무) 최종 등급 및 총평 확정 모달
+          ===================================================================== */}
+      {actionModal.type === 'director_eval' &&
+        actionModal.kpi &&
+        isDivisionHead &&
+        (() => {
+          const targetKpi = actionModal.kpi;
+          const isLeaderKpi = isLeaderOwnedKpi(targetKpi);
+          const modalLinkedTasks = getLinkedTasksForKpi(targetKpi);
+          const modalDoneTasks = modalLinkedTasks.filter((t) => t.status === 'done').length;
+          const modalSelfScore =
+            typeof targetKpi.selfScore === 'number' && !Number.isNaN(targetKpi.selfScore)
+              ? targetKpi.selfScore
+              : null;
+          const modalSelfGrade = resolveSelfGrade(modalSelfScore);
+          const modalLeaderGrade = getValidLeaderGrade(targetKpi);
+          const modalLeaderScore = modalLeaderGrade
+            ? targetKpi.leaderScore ?? getScoreFromGrade(modalLeaderGrade)
+            : null;
+          const modalPeerReviews = targetKpi.peerReviews || [];
+          const modalPeerCount = modalPeerReviews.length;
+          const modalPeerAvg5 =
+            modalPeerCount > 0
+              ? targetKpi.peerAvgScore ??
+                Number(
+                  (
+                    modalPeerReviews.reduce(
+                      (acc, r) =>
+                        acc +
+                        (Number(r.scoreQuality || 5) + Number(r.scoreCollaboration || 5)) / 2,
                       0
                     ) / modalPeerCount
                   ).toFixed(1)
@@ -2471,19 +3191,17 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
           const modalPeerScore100 =
             modalPeerAvg5 !== null ? Math.round((modalPeerAvg5 / 5) * 100) : null;
 
-          // 다각도 참고 산출 점수 (본인 자가진단 점수 및 다면 협업 피드백 환산 점수 평균)
+          const scoreParts = [modalSelfScore, modalLeaderScore, modalPeerScore100].filter(
+            (v): v is number => v !== null
+          );
           const referenceScore =
-            modalSelfScore !== null && modalPeerScore100 !== null
-              ? Math.round(((modalSelfScore + modalPeerScore100) / 2) * 10) / 10
-              : modalSelfScore !== null
-              ? modalSelfScore
-              : modalPeerScore100 !== null
-              ? modalPeerScore100
+            scoreParts.length > 0
+              ? Math.round((scoreParts.reduce((a, b) => a + b, 0) / scoreParts.length) * 10) / 10
               : 90;
           const recommendedGrade = resolveSelfGrade(referenceScore) || 'A';
 
           const selectedRubric =
-            GRADE_RUBRIC.find((r) => r.grade === adminEvalForm.grade) || GRADE_RUBRIC[1];
+            GRADE_RUBRIC.find((r) => r.grade === directorEvalForm.grade) || GRADE_RUBRIC[1];
           const selectedWeightedPoint =
             Math.round(((selectedRubric.score * Number(targetKpi.weight || 0)) / 100) * 10) / 10;
 
@@ -2494,7 +3212,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             >
               <div className="modal-box" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                  <h3 className="modal-title">관리자 최종 등급 및 평가 확정</h3>
+                  <h3 className="modal-title">디지털마케팅실장 최종 등급 및 평가 확정</h3>
                   <button
                     type="button"
                     onClick={() => setActionModal({ type: null, kpi: null })}
@@ -2504,7 +3222,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   </button>
                 </div>
 
-                <form onSubmit={handleSaveAdminEval} className="tasks-modal-form">
+                <form onSubmit={handleSaveDirectorEval} className="tasks-modal-form">
                   <div className="modal-body">
                     <div className="kpi-modal-target-summary">
                       <strong>
@@ -2514,27 +3232,31 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       {targetKpi.selfEvaluation && (
                         <span>본인 자가평가 의견: {targetKpi.selfEvaluation}</span>
                       )}
+                      {!isLeaderKpi && targetKpi.leaderComment && (
+                        <span>
+                          팀장 1차 평가({modalLeaderGrade}등급): {targetKpi.leaderComment}
+                        </span>
+                      )}
                     </div>
 
-                    {/* 다각도 종합 산출 가이드 박스 */}
                     <div className="kpi-admin-calc-box">
                       <div className="kpi-admin-calc-header">
                         <span className="kpi-admin-calc-title">
-                          다각도 평가 산출 참고 지표 (업적 · 동료 다면피드백 종합)
+                          다각도 평가 산출 참고 지표 (업적 · 협업 다면평가 · 1차 평가 종합)
                         </span>
-                        {adminEvalForm.grade !== recommendedGrade && (
+                        {directorEvalForm.grade !== recommendedGrade && (
                           <button
                             type="button"
                             onClick={() =>
-                              setAdminEvalForm((prev) => ({
+                              setDirectorEvalForm((prev) => ({
                                 ...prev,
                                 grade: recommendedGrade,
                                 status:
                                   recommendedGrade === 'S' || recommendedGrade === 'A'
                                     ? 'achieved'
                                     : recommendedGrade === 'B'
-                                    ? 'partially_achieved'
-                                    : 'missed',
+                                      ? 'partially_achieved'
+                                      : 'missed',
                               }))
                             }
                             className="kpi-recommend-apply-btn"
@@ -2562,11 +3284,17 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                         </div>
 
                         <div className="kpi-admin-calc-item">
-                          <span className="kpi-admin-calc-label">동료 피드백 환산</span>
+                          <span className="kpi-admin-calc-label">
+                            {isLeaderKpi ? '협업 다면평가' : '팀장 1차 / 다면평가'}
+                          </span>
                           <strong className="kpi-admin-calc-value">
-                            {modalPeerAvg5 !== null
-                              ? `${modalPeerAvg5}/5.0 (환산 ${modalPeerScore100}점)`
-                              : '미참여'}
+                            {isLeaderKpi
+                              ? modalPeerAvg5 !== null
+                                ? `${modalPeerAvg5}/5.0 (${modalPeerScore100}점)`
+                                : '미참여'
+                              : `${modalLeaderGrade ? `1차 ${modalLeaderGrade}` : '1차 대기'} · ${
+                                  modalPeerAvg5 !== null ? `다면 ${modalPeerAvg5}` : '다면 대기'
+                                }`}
                           </strong>
                         </div>
 
@@ -2580,7 +3308,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
                       <div className="kpi-admin-weighted-preview">
                         <span>
-                          선택 등급(<strong>{adminEvalForm.grade}등급 · {selectedRubric.score}점</strong>) 확정 시 가중치 반영 득점:
+                          선택 등급(
+                          <strong>
+                            {directorEvalForm.grade}등급 · {selectedRubric.score}점
+                          </strong>
+                          ) 확정 시 가중치 반영 득점:
                         </span>
                         <strong>
                           {selectedWeightedPoint}점 / {targetKpi.weight}점 만점
@@ -2590,20 +3322,20 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
                     <div className="tasks-form-grid-2">
                       <div className="form-group">
-                        <label className="form-label">최종 평가 등급 (루브릭 기준) *</label>
+                        <label className="form-label">실장 최종 확정 등급 (루브릭 기준) *</label>
                         <select
-                          value={adminEvalForm.grade}
+                          value={directorEvalForm.grade}
                           onChange={(e) => {
                             const g = e.target.value as KpiGrade;
-                            setAdminEvalForm({
-                              ...adminEvalForm,
+                            setDirectorEvalForm({
+                              ...directorEvalForm,
                               grade: g,
                               status:
                                 g === 'S' || g === 'A'
                                   ? 'achieved'
                                   : g === 'B'
-                                  ? 'partially_achieved'
-                                  : 'missed',
+                                    ? 'partially_achieved'
+                                    : 'missed',
                             });
                           }}
                           className="form-select"
@@ -2619,10 +3351,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       <div className="form-group">
                         <label className="form-label">달성 결과 상태</label>
                         <select
-                          value={adminEvalForm.status}
+                          value={directorEvalForm.status}
                           onChange={(e) =>
-                            setAdminEvalForm({
-                              ...adminEvalForm,
+                            setDirectorEvalForm({
+                              ...directorEvalForm,
                               status: e.target.value as KpiStatus,
                             })
                           }
@@ -2636,14 +3368,14 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">최종 평가 총평 (근거 기반 피드백) *</label>
+                      <label className="form-label">실장 최종 평가 총평 *</label>
                       <textarea
                         rows={4}
                         required
-                        placeholder="일정 준수, 산출물 무결성, 서비스·협업 기여도 기준에 따른 최종 평가 의견을 작성해 주세요."
-                        value={adminEvalForm.comment}
+                        placeholder="일정 준수, 산출물 무결성, 유관부서 협업 기여도를 종합한 최종 평가 총평을 작성해 주세요."
+                        value={directorEvalForm.comment}
                         onChange={(e) =>
-                          setAdminEvalForm({ ...adminEvalForm, comment: e.target.value })
+                          setDirectorEvalForm({ ...directorEvalForm, comment: e.target.value })
                         }
                         className="form-textarea"
                       />

@@ -1,6 +1,13 @@
-import React, { useState, useMemo } from 'react';
-import type { User, PolicyDomain, PolicyRuleRow, SisunPolicyItem } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import type {
+  User,
+  PolicyDomain,
+  PolicyRuleRow,
+  SisunPolicyItem,
+  TaskAttachment,
+} from '../types';
 import { PlanningStorageService, generateUniqueId } from '../services/storage';
+import { AttachmentField, AttachmentRowList } from './common/AttachmentField';
 import {
   Package,
   Users,
@@ -115,6 +122,7 @@ function renderDomainIcon(domain: PolicyDomain, size = 16) {
 }
 
 export const PolicyView: React.FC<PolicyViewProps> = ({
+  currentUser,
   isViewer,
   onShowToast,
 }) => {
@@ -139,6 +147,17 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
   const [formSummary, setFormSummary] = useState('');
   const [formWorkspaceUrl, setFormWorkspaceUrl] = useState('');
   const [formRules, setFormRules] = useState<PolicyRuleRow[]>([]);
+  const [formAttachments, setFormAttachments] = useState<TaskAttachment[]>([]);
+
+  useEffect(() => {
+    const handlePolicySynced = () => {
+      setItems(PlanningStorageService.getPolicies());
+    };
+    window.addEventListener('ds-portal-policies-updated', handlePolicySynced);
+    return () => {
+      window.removeEventListener('ds-portal-policies-updated', handlePolicySynced);
+    };
+  }, []);
 
   const notify = (msg: string, type: 'success' | 'error' | 'info' = 'info') => {
     if (onShowToast) {
@@ -174,7 +193,8 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
             r.classification.toLowerCase().includes(q) ||
             r.ruleDetail.toLowerCase().includes(q) ||
             (r.exceptionNote || '').toLowerCase().includes(q)
-        );
+        ) ||
+        (item.attachments || []).some((att) => att.name.toLowerCase().includes(q));
       if (matched) {
         counts[item.domain] += 1;
       }
@@ -218,11 +238,14 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
         item.summary.toLowerCase().includes(q);
       if (inHeader) return true;
 
-      return item.rules.some(
-        (r) =>
-          r.classification.toLowerCase().includes(q) ||
-          r.ruleDetail.toLowerCase().includes(q) ||
-          (r.exceptionNote || '').toLowerCase().includes(q)
+      return (
+        item.rules.some(
+          (r) =>
+            r.classification.toLowerCase().includes(q) ||
+            r.ruleDetail.toLowerCase().includes(q) ||
+            (r.exceptionNote || '').toLowerCase().includes(q)
+        ) ||
+        (item.attachments || []).some((att) => att.name.toLowerCase().includes(q))
       );
     });
   }, [currentDomainItems, selectedSubCategory, searchQuery]);
@@ -248,6 +271,7 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
     setFormTitle('');
     setFormSummary('');
     setFormWorkspaceUrl('');
+    setFormAttachments([]);
     setFormRules([
       {
         id: generateUniqueId('rule'),
@@ -269,6 +293,7 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
     setFormTitle(item.title);
     setFormSummary(item.summary);
     setFormWorkspaceUrl(item.workspaceUrl || '');
+    setFormAttachments(Array.isArray(item.attachments) ? item.attachments : []);
     setFormRules(
       item.rules.length > 0
         ? item.rules.map((r) => ({ ...r }))
@@ -282,6 +307,25 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
           ]
     );
     setIsModalOpen(true);
+  };
+
+  // 첨부파일 업로드/삭제 시 상태 갱신 및 기존 정책 수정 중에는 즉시 저장 반영
+  const handleAttachmentsChange = (nextAttachments: TaskAttachment[]) => {
+    setFormAttachments(nextAttachments);
+    if (editingItem && !isViewer) {
+      try {
+        const updated = PlanningStorageService.updatePolicyItem(editingItem.id, {
+          attachments: nextAttachments,
+        });
+        setEditingItem(updated);
+        setItems(PlanningStorageService.getPolicies());
+      } catch (err) {
+        notify(
+          err instanceof Error ? err.message : '첨부 파일 반영 중 오류가 발생했습니다.',
+          'error'
+        );
+      }
+    }
   };
 
   // 도메인 변경 시 신규 등록 모드면 정책 코드 프리픽스 자동 갱신
@@ -361,6 +405,7 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
           summary: formSummary.trim(),
           description: '',
           rules: cleanedRules,
+          attachments: formAttachments,
           workspaceUrl: formWorkspaceUrl.trim() || undefined,
         });
         notify(`정책 [${formTitle.trim()}] 항목이 수정되었습니다.`, 'success');
@@ -373,6 +418,7 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
           summary: formSummary.trim(),
           description: '',
           rules: cleanedRules,
+          attachments: formAttachments,
           workspaceUrl: formWorkspaceUrl.trim() || undefined,
         });
         notify(`신규 정책 [${formTitle.trim()}] 항목이 등록되었습니다.`, 'success');
@@ -633,6 +679,17 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
                 </div>
               </div>
 
+              {/* 첨부된 MS Office 정책서 등 문서 목록 (새창열기 · 다운로드) */}
+              {item.attachments && item.attachments.length > 0 && (
+                <div className="policy-card-attachments-wrap">
+                  <AttachmentRowList
+                    attachments={item.attachments}
+                    isViewer={true}
+                    className="policy-card-attachments-list"
+                  />
+                </div>
+              )}
+
               {/* 세부 프론트 정책 기준 테이블 */}
               {item.rules && item.rules.length > 0 && (
                 <div className="policy-rules-table-wrap">
@@ -780,6 +837,18 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
                     />
                   </div>
                 </div>
+
+                {/* 첨부 파일 업로드 및 열람/다운로드 (공통 컴포넌트) */}
+                <AttachmentField
+                  attachments={formAttachments}
+                  isViewer={isViewer}
+                  uploaderName={currentUser.name || '시스템'}
+                  storageFolder="policies"
+                  label="첨부 파일 (MS Office 정책서 · Excel · PPT · Word · PDF)"
+                  emptyHint="MS Office 정책서(.xlsx, .pptx, .docx) 또는 PDF 파일을 끌어다 놓거나 클릭하여 첨부하세요."
+                  onAttachmentsChange={handleAttachmentsChange}
+                  onShowToast={notify}
+                />
 
                 {/* 세부 정책 기준 행 편집기 */}
                 <div className="policy-rules-editor-section">

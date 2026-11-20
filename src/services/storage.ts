@@ -19,6 +19,7 @@ import type {
   SisunPolicyItem,
 } from '../types';
 import { getSupabaseClient, isSupabaseEnabled, SUPABASE_URL } from './supabase';
+import { resolveKpiAccessRole } from '../constants/departments';
 
 const STORAGE_KEYS = {
   USERS: 'ds_planning_users_v2',
@@ -1187,6 +1188,45 @@ export function computeTaskStatusByDates(
   return 'in_progress';
 }
 
+// 첨부파일 용량(bytes) 사람이 읽기 좋은 문자열 포맷 반환
+export function formatAttachmentSize(bytes: number): string {
+  if (!bytes || bytes < 1024) return `${bytes || 0} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// 첨부파일 확장자별 배지/칩 메타데이터 반환
+export function getAttachmentMeta(ext?: string): {
+  badge: string;
+  chipLabel: string;
+  classKey: string;
+} {
+  const normalized = (ext || '').toLowerCase();
+  if (normalized === 'xlsx' || normalized === 'xls' || normalized === 'csv') {
+    return { badge: 'EXCEL', chipLabel: 'Excel', classKey: 'is-excel' };
+  }
+  if (normalized === 'pptx' || normalized === 'ppt') {
+    return { badge: 'PPT', chipLabel: 'PPT', classKey: 'is-ppt' };
+  }
+  if (normalized === 'docx' || normalized === 'doc') {
+    return { badge: 'WORD', chipLabel: 'Word', classKey: 'is-doc' };
+  }
+  if (normalized === 'pdf') {
+    return { badge: 'PDF', chipLabel: 'PDF', classKey: 'is-pdf' };
+  }
+  if (normalized === 'hwp' || normalized === 'hwpx') {
+    return { badge: 'HWP', chipLabel: 'HWP', classKey: 'is-doc' };
+  }
+  if (normalized === 'zip' || normalized === '7z' || normalized === 'rar') {
+    return { badge: 'ZIP', chipLabel: 'ZIP', classKey: 'is-file' };
+  }
+  return {
+    badge: (normalized || 'FILE').toUpperCase().slice(0, 5),
+    chipLabel: '첨부',
+    classKey: 'is-file',
+  };
+}
+
 // 첨부파일 원본 다운로드 전용 URL 반환 (?download=원본파일명 보장)
 export function resolveAttachmentDownloadUrl(att: TaskAttachment): string {
   const rawUrl = (att.url || '').split('?')[0];
@@ -1235,24 +1275,24 @@ export function resolveNamedAttachmentProxyUrl(att: TaskAttachment): string {
   return rawUrl;
 }
 
-// 첨부파일 브라우저 읽기 모드 바로 열기 URL 반환 (MS Office 파일은 원본 파일명이 보존된 공식 Office Web Viewer 연동)
+// 첨부파일 브라우저 새창열기(Google 읽기 전용 뷰어) URL 반환
 export function resolveAttachmentViewerUrl(att: TaskAttachment): string {
   const rawUrl = (att.url || '').split('?')[0];
   if (!rawUrl) return '#';
   const ext = (att.ext || att.name?.split('.').pop() || '').toLowerCase();
   const namedFileUrl = resolveNamedAttachmentProxyUrl(att);
 
-  // MS Office 문서 (Excel, PowerPoint, Word) -> 원본 한글 파일명이 표시되는 Microsoft 공식 Office Web Viewer 새 탭 열람
+  // MS Office 문서 (Excel, PowerPoint, Word) -> 원본 한글 파일명이 보존되는 Google 읽기 전용 뷰어 새 창 열기
   if (['xlsx', 'xls', 'pptx', 'ppt', 'docx', 'doc'].includes(ext)) {
-    return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(namedFileUrl)}`;
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(namedFileUrl)}`;
   }
 
-  // PDF 및 이미지 -> 원본 한글 파일명이 보존된 인라인 스트리밍 URL로 브라우저 내장 뷰어에서 즉시 열람
+  // PDF 및 이미지 -> 원본 한글 파일명이 보존된 인라인 스트리밍 URL로 브라우저 새 창 열기
   if (['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) {
     return namedFileUrl;
   }
 
-  // 그 외(ZIP, HWP 등)는 다운로드 URL 반환
+  // 그 외(CSV, ZIP, HWP 등)는 다운로드 URL 반환
   return resolveAttachmentDownloadUrl(att);
 }
 
@@ -1381,17 +1421,40 @@ export class PlanningStorageService {
           const prevCurrentUser =
             localUsers.find((u) => String(u.id) === String(prevCurrentId)) || prevSnapshot;
 
-          const mappedRemoteUsers: User[] = remoteUsers.map((row) => ({
-            id: String(row.id),
-            username: row.username || `user_${String(row.id)}`,
-            name: row.name,
-            password: row.password ?? '',
-            role: row.role as UserRole,
-            department: row.department,
-            position: row.position || (row.role === 'admin' ? '팀장 / 수석기획자' : row.role === 'member' ? '서비스기획자' : '유관부서 담당자'),
-            email: row.email || `${row.name.replace(/\s+/g, '').toLowerCase()}@company.com`,
-            avatarColor: row.avatar_color || '#2563eb',
-          }));
+          const mappedRemoteUsers: User[] = remoteUsers.map((row) => {
+            const trimmedName = String(row.name || '').trim();
+            const isDivisionHead = trimmedName === '유은정';
+            const isExecPlan = trimmedName === '박종삼' || trimmedName === '박종상';
+            const isExecHq = trimmedName === '신동휘';
+            return {
+              id: String(row.id),
+              username: row.username || `user_${String(row.id)}`,
+              name: row.name,
+              password: row.password ?? '',
+              role: isDivisionHead || isExecPlan || isExecHq ? 'viewer' : (row.role as UserRole),
+              department: isDivisionHead
+                ? '디지털마케팅실'
+                : isExecPlan
+                  ? '경영기획 총괄'
+                  : isExecHq
+                    ? '경영관리본부'
+                    : row.department,
+              position: isDivisionHead
+                ? '디지털마케팅실장 (상무)'
+                : isExecPlan
+                  ? '경영기획 총괄 (전무)'
+                  : isExecHq
+                    ? '경영관리본부장 (사장)'
+                    : row.position ||
+                      (row.role === 'admin'
+                        ? '팀장 / 수석기획자'
+                        : row.role === 'member'
+                          ? '서비스기획자'
+                          : '유관부서 담당자'),
+              email: row.email || `${row.name.replace(/\s+/g, '').toLowerCase()}@company.com`,
+              avatarColor: row.avatar_color || '#2563eb',
+            };
+          });
 
           const userMap = new Map<string, User>();
           mappedRemoteUsers.forEach((u) => userMap.set(u.name.trim(), u));
@@ -1658,10 +1721,26 @@ export class PlanningStorageService {
         localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(Array.from(kpiMap.values())));
       }
 
-      // 4. audit_logs, 업무 관련 정보(work_infos), KPI 확장/동료피드백 데이터 동기화
-      const { data: remoteLogs, error: logErr } = await client.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(200);
-      if (!logErr && remoteLogs && remoteLogs.length > 0) {
-        const cloudWorkInfoRow = remoteLogs.find((row) => row.id === WORK_INFO_CLOUD_RECORD_ID);
+      // 4. audit_logs, 업무 관련 정보(work_infos), 온보딩, 정책서, KPI 확장 데이터 동기화
+      const [{ data: remoteLogs, error: logErr }, { data: remoteStoreRows }] = await Promise.all([
+        client.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(200),
+        client
+          .from('audit_logs')
+          .select('*')
+          .in('id', [
+            WORK_INFO_CLOUD_RECORD_ID,
+            ONBOARDING_CLOUD_RECORD_ID,
+            POLICY_CLOUD_RECORD_ID,
+            KPI_CLOUD_RECORD_ID,
+          ]),
+      ]);
+
+      const findStoreRow = (recordId: string) =>
+        (remoteStoreRows || []).find((row) => row.id === recordId) ||
+        (remoteLogs || []).find((row) => row.id === recordId);
+
+      if (!logErr && ((remoteLogs && remoteLogs.length > 0) || (remoteStoreRows && remoteStoreRows.length > 0))) {
+        const cloudWorkInfoRow = findStoreRow(WORK_INFO_CLOUD_RECORD_ID);
         if (cloudWorkInfoRow && typeof cloudWorkInfoRow.summary === 'string') {
           const parsedWorkInfos = safeJsonParse<WorkInfoItem[]>(cloudWorkInfoRow.summary, []);
           if (Array.isArray(parsedWorkInfos) && parsedWorkInfos.length > 0) {
@@ -1669,7 +1748,7 @@ export class PlanningStorageService {
           }
         }
 
-        const cloudOnboardingRow = remoteLogs.find((row) => row.id === ONBOARDING_CLOUD_RECORD_ID);
+        const cloudOnboardingRow = findStoreRow(ONBOARDING_CLOUD_RECORD_ID);
         if (cloudOnboardingRow && typeof cloudOnboardingRow.summary === 'string') {
           const parsedOnboarding = safeJsonParse<OnboardingChecklistItem[]>(cloudOnboardingRow.summary, []);
           if (Array.isArray(parsedOnboarding) && parsedOnboarding.length > 0) {
@@ -1677,15 +1756,18 @@ export class PlanningStorageService {
           }
         }
 
-        const cloudPolicyRow = remoteLogs.find((row) => row.id === POLICY_CLOUD_RECORD_ID);
+        const cloudPolicyRow = findStoreRow(POLICY_CLOUD_RECORD_ID);
         if (cloudPolicyRow && typeof cloudPolicyRow.summary === 'string') {
           const parsedPolicies = safeJsonParse<SisunPolicyItem[]>(cloudPolicyRow.summary, []);
           if (Array.isArray(parsedPolicies) && parsedPolicies.length > 0) {
             localStorage.setItem(STORAGE_KEYS.POLICY_ITEMS, JSON.stringify(parsedPolicies));
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('ds-portal-policies-updated'));
+            }
           }
         }
 
-        const cloudKpiRow = remoteLogs.find((row) => row.id === KPI_CLOUD_RECORD_ID);
+        const cloudKpiRow = findStoreRow(KPI_CLOUD_RECORD_ID);
         if (cloudKpiRow && typeof cloudKpiRow.summary === 'string') {
           const parsedExtendedKpis = safeJsonParse<KpiItem[]>(cloudKpiRow.summary, []).filter(
             (k) => String(k.id) !== 'kpi-mw1s2aoz-2clky'
@@ -1718,7 +1800,7 @@ export class PlanningStorageService {
           }
         }
 
-        const mappedLogs: AuditLog[] = remoteLogs
+        const mappedLogs: AuditLog[] = (remoteLogs || [])
           .filter(
             (row) =>
               row.id !== WORK_INFO_CLOUD_RECORD_ID &&
@@ -1761,19 +1843,23 @@ export class PlanningStorageService {
     return safeJsonParse<User[]>(localStorage.getItem(STORAGE_KEYS.USERS), []);
   }
 
-  // 서비스기획팀 소속으로 가입된 팀원 목록 조회 (담당자/대행자 선택용)
+  // 서비스기획팀 소속으로 가입된 팀원 목록 조회 (최범열·김리아·박수민·고범곤 등 전원 팀원으로 동일 포함, 실장/임원 제외)
   public static getServicePlanningMembers(): User[] {
     const users = this.getUsers();
-    const members = users.filter(
-      (u) =>
-        u.department === '서비스기획팀' ||
-        u.department?.includes('서비스기획') ||
-        u.role === 'admin' ||
-        u.role === 'member'
-    );
+    const members = users.filter((u) => {
+      const kpiRole = resolveKpiAccessRole(u);
+      return (
+        u.department?.trim() === '서비스기획팀' &&
+        (kpiRole === 'team_lead' || kpiRole === 'team_member')
+      );
+    });
     if (members.length > 0) return members;
     const current = this.getCurrentUser();
-    return current ? [current] : [];
+    const currentKpiRole = resolveKpiAccessRole(current);
+    return current &&
+      (currentKpiRole === 'team_lead' || currentKpiRole === 'team_member')
+      ? [current]
+      : [];
   }
 
   // 원격 Supabase users 테이블로 회원 정보 업서트 (id/username 포함 스키마 및 시퀀스 스키마 모두 호환)
@@ -1942,9 +2028,32 @@ export class PlanningStorageService {
     const users = this.getUsers();
     const trimmedName = params.name.trim();
 
-    // 역할 자동 결정: 서비스기획팀이면 member, 그 외 유관부서는 viewer
-    const isPlanTeam = params.department.includes('서비스기획') || params.department.includes('기획');
+    // 역할 자동 결정: 정확히 '서비스기획팀'일 때만 member, 직책자(실장/전무/사장) 및 타 유관부서는 viewer
+    const isDivisionHead = trimmedName === '유은정';
+    const isExecPlan = trimmedName === '박종삼' || trimmedName === '박종상';
+    const isExecHq = trimmedName === '신동휘';
+    const isPlanTeam =
+      params.department.trim() === '서비스기획팀' &&
+      !isDivisionHead &&
+      !isExecPlan &&
+      !isExecHq;
     const role: UserRole = isPlanTeam ? 'member' : 'viewer';
+    const resolvedDepartment = isDivisionHead
+      ? '디지털마케팅실'
+      : isExecPlan
+        ? '경영기획 총괄'
+        : isExecHq
+          ? '경영관리본부'
+          : params.department;
+    const resolvedPosition = isDivisionHead
+      ? '디지털마케팅실장 (상무)'
+      : isExecPlan
+        ? '경영기획 총괄 (전무)'
+        : isExecHq
+          ? '경영관리본부장 (사장)'
+          : isPlanTeam
+            ? '서비스기획자'
+            : '유관부서 담당자';
 
     // 이미 동일 이름이 존재하는 경우: 비밀번호 미설정(복구 계정) 또는 초기 시드 계정('1234')이면 비밀번호/부서 갱신 허용
     const existingUser = users.find((u) => u.name.trim() === trimmedName);
@@ -1956,9 +2065,9 @@ export class PlanningStorageService {
 
       if (isInitialSeedAccount) {
         existingUser.password = params.password;
-        existingUser.department = params.department;
+        existingUser.department = resolvedDepartment;
         existingUser.role = role;
-        existingUser.position = isPlanTeam ? '서비스기획자' : '유관부서 담당자';
+        existingUser.position = resolvedPosition;
         localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
         localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, existingUser.id);
         localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(existingUser));
@@ -1982,8 +2091,8 @@ export class PlanningStorageService {
       name: trimmedName,
       password: params.password,
       role,
-      department: params.department,
-      position: isPlanTeam ? '서비스기획자' : '유관부서 담당자',
+      department: resolvedDepartment,
+      position: resolvedPosition,
       email: `${trimmedName.replace(/\s+/g, '').toLowerCase()}@company.com`,
       avatarColor: randomColor,
     };
@@ -2335,10 +2444,11 @@ export class PlanningStorageService {
       });
   }
 
-  // 업무 첨부파일(Excel · PPT · PDF 등) Supabase Storage 업로드
+  // 공통 첨부파일(MS Office Excel · PPT · Word · PDF 등) Supabase Storage 업로드
   public static async uploadTaskAttachment(
     file: File,
-    uploaderName: string
+    uploaderName: string,
+    folder: 'tasks' | 'policies' = 'tasks'
   ): Promise<TaskAttachment> {
     if (this.isViewer()) {
       throw new Error('유관부서(읽기 전용) 모드에서는 파일을 업로드할 수 없습니다.');
@@ -2353,12 +2463,13 @@ export class PlanningStorageService {
       throw new Error('클라우드 스토리지 연결이 활성화되어 있지 않습니다.');
     }
 
-    const parts = file.name.split('.');
+    const safeDisplayName = file.name.replace(/[\\/]/g, '_');
+    const parts = safeDisplayName.split('.');
     const rawExt = parts.length > 1 ? parts.pop() || 'file' : 'file';
     const ext = rawExt.toLowerCase();
     const safeExt = ext.replace(/[^a-z0-9]/g, '') || 'bin';
     const uniqueKey = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    const storagePath = `tasks/${uniqueKey}.${safeExt}`;
+    const storagePath = `${folder}/${uniqueKey}.${safeExt}`;
 
     const mimeByExt: Record<string, string> = {
       xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -2384,11 +2495,11 @@ export class PlanningStorageService {
     }
 
     const { data: pubData } = client.storage.from('task-attachments').getPublicUrl(storagePath);
-    const downloadUrl = `${pubData.publicUrl}?download=${encodeURIComponent(file.name)}`;
+    const downloadUrl = `${pubData.publicUrl}?download=${encodeURIComponent(safeDisplayName)}`;
 
     return {
       id: generateUniqueId('att'),
-      name: file.name,
+      name: safeDisplayName,
       url: downloadUrl,
       storagePath,
       size: file.size,
@@ -3017,17 +3128,36 @@ export class PlanningStorageService {
   }
 
   public static createKpi(data: Omit<KpiItem, 'id' | 'createdBy' | 'createdAt' | 'updatedBy' | 'updatedAt'>): KpiItem {
-    if (this.isViewer()) {
-      throw new Error('유관부서(읽기 전용) 모드에서는 KPI를 등록할 수 없습니다.');
-    }
     const currentUser = this.getCurrentUser();
+    const kpiRole = resolveKpiAccessRole(currentUser);
+    if (kpiRole !== 'team_lead' && kpiRole !== 'team_member') {
+      throw new Error('서비스기획팀 구성원만 KPI 목표를 수립할 수 있습니다.');
+    }
+
+    // 일반 팀원(team_member)은 오직 본인 명의의 개인 KPI만 등록 가능
+    const enforcedScope = kpiRole === 'team_member' ? 'individual' : data.targetScope;
+    const enforcedOwnerId =
+      kpiRole === 'team_member'
+        ? currentUser.id
+        : enforcedScope === 'team'
+          ? undefined
+          : data.ownerId || currentUser.id;
+    const enforcedOwnerName =
+      kpiRole === 'team_member'
+        ? currentUser.name
+        : enforcedScope === 'team'
+          ? '서비스기획팀 전체'
+          : data.ownerName || currentUser.name;
+
     const now = new Date().toISOString();
     const newKpi: KpiItem = {
       ...data,
+      targetScope: enforcedScope,
+      ownerId: enforcedOwnerId,
+      ownerName: enforcedOwnerName,
       id: generateUniqueId('kpi'),
       stage: data.stage || 'draft',
       track: data.track || '기획',
-      ownerId: data.ownerId || currentUser.id,
       checkins: data.checkins || [],
       peerReviews: data.peerReviews || [],
       createdBy: currentUser.name,
@@ -3080,16 +3210,28 @@ export class PlanningStorageService {
   }
 
   public static updateKpi(id: string, changes: Partial<KpiItem>): KpiItem {
-    if (this.isViewer()) {
-      throw new Error('유관부서(읽기 전용) 모드에서는 KPI를 수정/평가할 수 없습니다.');
-    }
     const kpis = this.getKpis();
     const index = kpis.findIndex((k) => k.id === id);
     if (index === -1) throw new Error('KPI 항목을 찾을 수 없습니다.');
 
     const currentUser = this.getCurrentUser();
-    const now = new Date().toISOString();
+    const kpiRole = resolveKpiAccessRole(currentUser);
     const original = kpis[index];
+    const isOwner =
+      original.ownerName?.trim() === currentUser.name?.trim() ||
+      (original.ownerId ? String(original.ownerId) === String(currentUser.id) : false);
+
+    // 허용 권한: 본인(자가평가/목표수정), 팀장(최범열 - 팀원 1차 평가/목표조율), 실장(유은정 상무 - 최종 평가 확정)
+    const canModify =
+      kpiRole === 'division_head' ||
+      kpiRole === 'team_lead' ||
+      (kpiRole === 'team_member' && isOwner);
+
+    if (!canModify) {
+      throw new Error('해당 KPI 항목을 수정하거나 평가할 권한이 없습니다.');
+    }
+
+    const now = new Date().toISOString();
     const updated: KpiItem = {
       ...original,
       ...changes,
@@ -3306,12 +3448,19 @@ export class PlanningStorageService {
   }
 
   public static deleteKpi(id: string): void {
-    if (this.isViewer()) {
-      throw new Error('유관부서(읽기 전용) 모드에서는 KPI를 삭제할 수 없습니다.');
-    }
     const kpis = this.getKpis();
     const target = kpis.find((k) => k.id === id);
     if (!target) return;
+
+    const currentUser = this.getCurrentUser();
+    const kpiRole = resolveKpiAccessRole(currentUser);
+    const isOwner =
+      target.ownerName?.trim() === currentUser.name?.trim() ||
+      (target.ownerId ? String(target.ownerId) === String(currentUser.id) : false);
+
+    if (kpiRole !== 'team_lead' && !(kpiRole === 'team_member' && isOwner)) {
+      throw new Error('본인의 KPI 또는 팀장 권한만 삭제할 수 있습니다.');
+    }
 
     const filtered = kpis.filter((k) => k.id !== id);
     localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(filtered));
@@ -3818,11 +3967,16 @@ export class PlanningStorageService {
       search: 5,
       common: 6,
     };
-    return [...items].sort((a, b) => {
-      const dDiff = (domainRank[a.domain] ?? 99) - (domainRank[b.domain] ?? 99);
-      if (dDiff !== 0) return dDiff;
-      return (a.sortOrder ?? 999) - (b.sortOrder ?? 999);
-    });
+    return [...items]
+      .map((item) => ({
+        ...item,
+        attachments: Array.isArray(item.attachments) ? item.attachments : [],
+      }))
+      .sort((a, b) => {
+        const dDiff = (domainRank[a.domain] ?? 99) - (domainRank[b.domain] ?? 99);
+        if (dDiff !== 0) return dDiff;
+        return (a.sortOrder ?? 999) - (b.sortOrder ?? 999);
+      });
   }
 
   private static async pushPoliciesToRemote(items: SisunPolicyItem[]): Promise<void> {
@@ -3857,6 +4011,7 @@ export class PlanningStorageService {
     summary: string;
     description: string;
     rules: PolicyRuleRow[];
+    attachments?: TaskAttachment[];
     frontScreenPath?: string;
     workspaceUrl?: string;
     status?: 'active' | 'updated';
@@ -3882,6 +4037,7 @@ export class PlanningStorageService {
       summary: data.summary.trim(),
       description: data.description.trim(),
       rules: Array.isArray(data.rules) ? data.rules : [],
+      attachments: Array.isArray(data.attachments) ? data.attachments : [],
       frontScreenPath: data.frontScreenPath?.trim() || undefined,
       workspaceUrl: data.workspaceUrl?.trim() || undefined,
       status: data.status || 'active',
@@ -3919,6 +4075,7 @@ export class PlanningStorageService {
         | 'summary'
         | 'description'
         | 'rules'
+        | 'attachments'
         | 'frontScreenPath'
         | 'workspaceUrl'
         | 'status'
@@ -3941,6 +4098,12 @@ export class PlanningStorageService {
     const updatedItem: SisunPolicyItem = {
       ...items[idx],
       ...updates,
+      attachments:
+        updates.attachments !== undefined
+          ? updates.attachments
+          : Array.isArray(items[idx].attachments)
+            ? items[idx].attachments
+            : [],
       id: items[idx].id,
       createdBy: items[idx].createdBy,
       createdAt: items[idx].createdAt,
@@ -3972,6 +4135,12 @@ export class PlanningStorageService {
     const items = this.getPolicies();
     const target = items.find((item) => item.id === id);
     if (!target) return;
+
+    if (Array.isArray(target.attachments) && target.attachments.length > 0) {
+      target.attachments.forEach((att) => {
+        this.removeTaskAttachmentFromStorage(att.storagePath);
+      });
+    }
 
     const filtered = items.filter((item) => item.id !== id);
     localStorage.setItem(STORAGE_KEYS.POLICY_ITEMS, JSON.stringify(filtered));
