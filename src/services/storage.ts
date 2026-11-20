@@ -46,6 +46,31 @@ const KPI_CLOUD_RECORD_ID = 'sys-kpi-extended-store-v1';
 const ONBOARDING_CLOUD_RECORD_ID = 'sys-onboarding-store-v3';
 const POLICY_CLOUD_RECORD_ID = 'sys-policy-store-v1';
 
+export const AUDIT_LOG_RETENTION_DAYS = 90;
+export const AUDIT_LOG_MAX_COUNT = 300;
+
+function isSystemAuditStoreRow(id?: string | null, entityTitle?: string | null): boolean {
+  const cleanId = String(id || '');
+  const cleanTitle = String(entityTitle || '');
+  return (
+    cleanId.startsWith('sys-') ||
+    cleanId === WORK_INFO_CLOUD_RECORD_ID ||
+    cleanId === ONBOARDING_CLOUD_RECORD_ID ||
+    cleanId === POLICY_CLOUD_RECORD_ID ||
+    cleanId === KPI_CLOUD_RECORD_ID ||
+    cleanTitle === 'WORK_INFO_STORE' ||
+    cleanTitle === 'ONBOARDING_STORE' ||
+    cleanTitle === 'POLICY_STORE' ||
+    cleanTitle === 'KPI_EXTENDED_STORE'
+  );
+}
+
+function isNoiseAuditLogRow(action?: string | null, entityType?: string | null): boolean {
+  if (action === 'LOGIN') return true;
+  if (entityType === 'onboarding' && action === 'STATUS_CHANGE') return true;
+  return false;
+}
+
 const INITIAL_WORK_INFO_ITEMS: WorkInfoItem[] = [
   {
     id: 'winfo-1',
@@ -1731,9 +1756,9 @@ export class PlanningStorageService {
         localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(Array.from(kpiMap.values())));
       }
 
-      // 4. audit_logs, 업무 관련 정보(work_infos), 온보딩, 정책서, KPI 확장 데이터 동기화
+      // 4. audit_logs, 업무 관련 정보(work_infos), 온보딩, 정책서, KPI 확장 데이터 동기화 + 감사 로그 자동 보관 정리
       const [{ data: remoteLogs, error: logErr }, { data: remoteStoreRows }] = await Promise.all([
-        client.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(200),
+        client.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(500),
         client
           .from('audit_logs')
           .select('*')
@@ -1810,31 +1835,69 @@ export class PlanningStorageService {
           }
         }
 
-        const mappedLogs: AuditLog[] = (remoteLogs || [])
-          .filter(
-            (row) =>
-              row.id !== WORK_INFO_CLOUD_RECORD_ID &&
-              row.entity_title !== 'WORK_INFO_STORE' &&
-              row.id !== ONBOARDING_CLOUD_RECORD_ID &&
-              row.entity_title !== 'ONBOARDING_STORE' &&
-              row.id !== POLICY_CLOUD_RECORD_ID &&
-              row.entity_title !== 'POLICY_STORE' &&
-              row.id !== KPI_CLOUD_RECORD_ID &&
-              row.entity_title !== 'KPI_EXTENDED_STORE'
-          )
-          .map((row) => ({
-            id: row.id,
-            entityType: row.entity_type,
-            entityId: row.entity_id,
-            entityTitle: row.entity_title,
-            action: row.action,
-            actorId: row.actor_id,
-            actorName: row.actor_name,
-            actorRole: row.actor_role,
-            timestamp: row.timestamp,
-            summary: row.summary,
-          }));
+        const retentionCutoffMs =
+          Date.now() - AUDIT_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+        const idsToPrune: string[] = [];
+        const retainedRows: any[] = [];
+
+        for (const row of remoteLogs || []) {
+          if (isSystemAuditStoreRow(row.id, row.entity_title)) {
+            continue;
+          }
+          const isTaskDeleteTombstone =
+            row.entity_type === 'task' && row.action === 'DELETE';
+
+          // 1) 단순 로그인·로그아웃 및 온보딩 체크 토글 노이즈 로그는 즉시 정리 대상
+          if (isNoiseAuditLogRow(row.action, row.entity_type)) {
+            idsToPrune.push(String(row.id));
+            continue;
+          }
+
+          const rowTimeMs = new Date(row.timestamp).getTime();
+          const isExpired =
+            Number.isFinite(rowTimeMs) && rowTimeMs < retentionCutoffMs;
+          const isOverLimit = retainedRows.length >= AUDIT_LOG_MAX_COUNT;
+
+          // 2) 최근 90일 초과 또는 최대 300건 초과 로그는 정리 (단, 업무 삭제 동기화 키는 보존)
+          if (isExpired || isOverLimit) {
+            if (!isTaskDeleteTombstone) {
+              idsToPrune.push(String(row.id));
+            }
+            continue;
+          }
+
+          retainedRows.push(row);
+        }
+
+        if (idsToPrune.length > 0) {
+          for (let i = 0; i < idsToPrune.length; i += 100) {
+            const batchIds = idsToPrune.slice(i, i + 100);
+            client
+              .from('audit_logs')
+              .delete()
+              .in('id', batchIds)
+              .then(({ error }) => {
+                if (error) console.warn('Supabase audit prune note:', error.message);
+              });
+          }
+        }
+
+        const mappedLogs: AuditLog[] = retainedRows.map((row) => ({
+          id: row.id,
+          entityType: row.entity_type,
+          entityId: row.entity_id,
+          entityTitle: row.entity_title,
+          action: row.action,
+          actorId: row.actor_id,
+          actorName: row.actor_name,
+          actorRole: row.actor_role,
+          timestamp: row.timestamp,
+          summary: row.summary,
+        }));
         localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(mappedLogs));
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ds-portal-audit-updated'));
+        }
       }
     } catch (e) {
       console.warn('Supabase background sync skipped (tables pending creation):', e);
@@ -1991,14 +2054,6 @@ export class PlanningStorageService {
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(target));
       localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
       localStorage.setItem('ds_planning_session_recovered_v1', 'true');
-      this.recordAuditLog({
-        entityType: 'auth',
-        entityId: target.id,
-        entityTitle: target.name,
-        action: 'LOGIN',
-        summary: `${target.name}(${target.role === 'viewer' ? '유관부서 뷰어' : '기획팀원'}) 계정으로 전환/로그인`,
-        actorOverride: { id: target.id, name: target.name, role: target.role },
-      });
       return target;
     }
     return this.getCurrentUser();
@@ -2025,7 +2080,7 @@ export class PlanningStorageService {
       return { success: false, message: '비밀번호가 일치하지 않습니다.' };
     }
 
-    // 비밀번호가 비어있던 복구 계정의 경우 최초 로그인 비밀번호를 저장 및 동기화
+    // 비밀번호가 비어있던 복구/사전등록 계정의 경우 최초 로그인 비밀번호를 저장 및 동기화
     if (!found.password) {
       found.password = password;
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
@@ -2036,15 +2091,6 @@ export class PlanningStorageService {
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(found));
     localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
     localStorage.setItem('ds_planning_session_recovered_v1', 'true');
-
-    this.recordAuditLog({
-      entityType: 'auth',
-      entityId: found.id,
-      entityTitle: found.name,
-      action: 'LOGIN',
-      summary: `${found.name} (${found.department}) 포털 로그인 성공`,
-      actorOverride: { id: found.id, name: found.name, role: found.role },
-    });
 
     return { success: true, user: found };
   }
@@ -2142,22 +2188,11 @@ export class PlanningStorageService {
     return { success: true, user: newUser };
   }
 
-  // 로그아웃 처리 (세션 스토리지 완전 정리)
+  // 로그아웃 처리 (세션 스토리지 완전 정리 · 단순 로그아웃 노이즈 로그 미기록)
   public static logout(): void {
-    const current = this.getCurrentUser();
     localStorage.setItem('ds_planning_is_logged_in_v1', 'false');
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT);
-    if (current.id && current.name) {
-      this.recordAuditLog({
-        entityType: 'auth',
-        entityId: current.id,
-        entityTitle: current.name,
-        action: 'LOGIN',
-        summary: `${current.name} 포털 로그아웃`,
-        actorOverride: { id: current.id, name: current.name, role: current.role },
-      });
-    }
   }
 
   // [비밀번호 관리 1] 비로그인 상태: 이름 + 가입 소속 부서 일치 검증 후 즉시 새 비밀번호 재설정
@@ -2488,21 +2523,23 @@ export class PlanningStorageService {
     return this.getCurrentUser().role === 'viewer';
   }
 
-  // --- 감사 로그 (Audit Logs) 기록 유틸리티 ---
+  // --- 감사 로그 (Audit Logs) 기록 및 자동 보관(90일 · 최대 300건) 관리 ---
   public static getAuditLogs(): AuditLog[] {
     this.initialize();
+    const retentionCutoffMs =
+      Date.now() - AUDIT_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
     const logs = safeJsonParse<AuditLog[]>(localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS), []).filter(
-      (log) =>
-        log.id !== WORK_INFO_CLOUD_RECORD_ID &&
-        log.entityTitle !== 'WORK_INFO_STORE' &&
-        log.id !== ONBOARDING_CLOUD_RECORD_ID &&
-        log.entityTitle !== 'ONBOARDING_STORE' &&
-        log.id !== POLICY_CLOUD_RECORD_ID &&
-        log.entityTitle !== 'POLICY_STORE' &&
-        log.id !== KPI_CLOUD_RECORD_ID &&
-        log.entityTitle !== 'KPI_EXTENDED_STORE'
+      (log) => {
+        if (isSystemAuditStoreRow(log.id, log.entityTitle)) return false;
+        if (isNoiseAuditLogRow(log.action, log.entityType)) return false;
+        const ts = new Date(log.timestamp).getTime();
+        if (Number.isFinite(ts) && ts < retentionCutoffMs) return false;
+        return true;
+      }
     );
-    return logs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return logs
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, AUDIT_LOG_MAX_COUNT);
   }
 
   public static recordAuditLog(params: {
@@ -2513,6 +2550,11 @@ export class PlanningStorageService {
     summary: string;
     actorOverride?: { id: string; name: string; role: UserRole };
   }): void {
+    // 단순 로그인·로그아웃 및 온보딩 체크 토글은 기록 제외
+    if (isNoiseAuditLogRow(params.action, params.entityType)) {
+      return;
+    }
+
     const actor = params.actorOverride || this.getCurrentUser();
     const newLog: AuditLog = {
       id: generateUniqueId('log'),
@@ -2528,8 +2570,11 @@ export class PlanningStorageService {
     };
 
     const logs = this.getAuditLogs();
-    const updated = [newLog, ...logs].slice(0, 200);
+    const updated = [newLog, ...logs].slice(0, AUDIT_LOG_MAX_COUNT);
     localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(updated));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ds-portal-audit-updated'));
+    }
 
     // Supabase DB 비동기 반영
     if (isSupabaseEnabled()) {
@@ -2549,6 +2594,130 @@ export class PlanningStorageService {
         if (error) console.warn('Supabase audit log insert note:', error.message);
       });
     }
+  }
+
+  // 최고 관리자(최범열) 전용: 보관 기준(기본 90일 · 최대 300건) 초과 및 불필요 노이즈 감사 로그 수동 일괄 정리
+  public static async adminPruneAuditLogs(options?: {
+    keepDays?: number;
+    keepMax?: number;
+  }): Promise<{
+    success: boolean;
+    deletedCount: number;
+    remainingCount: number;
+    message: string;
+  }> {
+    const currentUser = this.getCurrentUser();
+    if (!canManageUserPermissions(currentUser)) {
+      return {
+        success: false,
+        deletedCount: 0,
+        remainingCount: this.getAuditLogs().length,
+        message: '감사 로그 수동 정리는 관리자(최범열)만 수행할 수 있습니다.',
+      };
+    }
+
+    const keepDays = options?.keepDays ?? AUDIT_LOG_RETENTION_DAYS;
+    const keepMax = options?.keepMax ?? AUDIT_LOG_MAX_COUNT;
+    const cutoffMs = Date.now() - keepDays * 24 * 60 * 60 * 1000;
+
+    if (!isSupabaseEnabled()) {
+      const localCleaned = this.getAuditLogs().slice(0, keepMax);
+      localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(localCleaned));
+      return {
+        success: true,
+        deletedCount: 0,
+        remainingCount: localCleaned.length,
+        message: `로컬 감사 로그 정리 완료 (현재 ${localCleaned.length}건 유지)`,
+      };
+    }
+
+    const client = getSupabaseClient();
+    if (!client) {
+      return {
+        success: false,
+        deletedCount: 0,
+        remainingCount: this.getAuditLogs().length,
+        message: '클라우드 DB 클라이언트를 초기화할 수 없습니다.',
+      };
+    }
+
+    const { data: allRows, error } = await client
+      .from('audit_logs')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(2000);
+
+    if (error || !allRows) {
+      return {
+        success: false,
+        deletedCount: 0,
+        remainingCount: this.getAuditLogs().length,
+        message: `로그 조회 실패: ${error?.message || '알 수 없는 오류'}`,
+      };
+    }
+
+    const idsToDelete: string[] = [];
+    const keptRows: any[] = [];
+
+    for (const row of allRows) {
+      // 시스템 스토어 레코드는 절대 삭제 금지
+      if (isSystemAuditStoreRow(row.id, row.entity_title)) {
+        continue;
+      }
+      const isTaskDeleteTombstone =
+        row.entity_type === 'task' && row.action === 'DELETE';
+
+      if (isNoiseAuditLogRow(row.action, row.entity_type)) {
+        idsToDelete.push(String(row.id));
+        continue;
+      }
+
+      const rowMs = new Date(row.timestamp).getTime();
+      const isExpired = Number.isFinite(rowMs) && rowMs < cutoffMs;
+      const isOverMax = keptRows.length >= keepMax;
+
+      if (isExpired || isOverMax) {
+        if (!isTaskDeleteTombstone) {
+          idsToDelete.push(String(row.id));
+        }
+        continue;
+      }
+
+      keptRows.push(row);
+    }
+
+    for (let i = 0; i < idsToDelete.length; i += 100) {
+      const batch = idsToDelete.slice(i, i + 100);
+      await client.from('audit_logs').delete().in('id', batch);
+    }
+
+    const mappedKept: AuditLog[] = keptRows.map((row) => ({
+      id: row.id,
+      entityType: row.entity_type,
+      entityId: row.entity_id,
+      entityTitle: row.entity_title,
+      action: row.action,
+      actorId: row.actor_id,
+      actorName: row.actor_name,
+      actorRole: row.actor_role,
+      timestamp: row.timestamp,
+      summary: row.summary,
+    }));
+
+    localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(mappedKept));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ds-portal-audit-updated'));
+    }
+
+    return {
+      success: true,
+      deletedCount: idsToDelete.length,
+      remainingCount: mappedKept.length,
+      message:
+        idsToDelete.length > 0
+          ? `불필요·만료 로그 ${idsToDelete.length}건을 정리했습니다. (현재 ${mappedKept.length}건 보관)`
+          : `정리 대상 로그가 없습니다. (최근 ${keepDays}일 · 최대 ${keepMax}건 기준 ${mappedKept.length}건 정상 보관 중)`,
+    };
   }
 
   // --- 1. 업무 관리 (Task) CRUD ---
@@ -3960,14 +4129,6 @@ export class PlanningStorageService {
     updatedList[idx] = updatedItem;
     localStorage.setItem(STORAGE_KEYS.ONBOARDING_ITEMS, JSON.stringify(updatedList));
     this.pushOnboardingToRemote(updatedList);
-
-    this.recordAuditLog({
-      entityType: 'onboarding',
-      entityId: updatedItem.id,
-      entityTitle: updatedItem.title,
-      action: 'STATUS_CHANGE',
-      summary: `[신규 입사자 온보딩] ${nextCompleted ? '완료 체크' : '체크 해제'}: ${updatedItem.title}`,
-    });
 
     return updatedItem;
   }
