@@ -12459,15 +12459,58 @@ button.kpi-peer-task-chip.is-link:hover {
   font-size: 14px;
 }
 
+.kpi-modal-mapped-tasks-bar {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed #cbd5e1;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kpi-modal-mapped-tasks-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.kpi-modal-mapped-tasks-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.kpi-modal-mapped-task-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 600;
+  max-width: 100%;
+}
+
 .kpi-five-score-grid {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .kpi-five-score-btn {
   width: 100%;
-  padding: 10px 14px;
+  padding: 9px 14px;
   border-radius: 10px;
   border: 1px solid #e2e8f0;
   background: #ffffff;

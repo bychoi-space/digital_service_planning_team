@@ -371,12 +371,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   const [mappingSearch, setMappingSearch] = useState<string>('');
   const [mappingShowAllTasks, setMappingShowAllTasks] = useState<boolean>(false);
 
-  // 입력 폼 상태들 (1~3단계 모두 1~5점 통일, 4단계만 S~C 등급)
+  // 입력 폼 상태들 (1~3단계 모두 1~5점 통일, 4단계만 S~C 등급 — 평가 모달은 점수·의견만 간결하게 입력)
   const [selfForm, setSelfForm] = useState({
     status: 'in_progress' as KpiStatus,
     selfScore5: 4,
     unifiedComment: '',
-    linkedTaskIds: [] as string[],
   });
 
   const [peerForm, setPeerForm] = useState({
@@ -668,7 +667,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       status: kpi.status === 'planning' ? 'in_progress' : kpi.status,
       selfScore5: existing5 !== null ? Math.round(existing5) : 4,
       unifiedComment: resolveUnifiedSelfComment(kpi),
-      linkedTaskIds: Array.isArray(kpi.linkedTaskIds) ? [...kpi.linkedTaskIds] : [],
     });
   };
 
@@ -686,7 +684,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         status: selfForm.status,
         selfEvaluation: cleanComment,
         selfScore: Number(selfForm.selfScore5),
-        linkedTaskIds: selfForm.linkedTaskIds,
       });
       onShowToast(
         `자가평가(${selfForm.selfScore5} / 5점) 및 수행 실적이 저장되었습니다.`,
@@ -2419,255 +2416,242 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         })()}
 
       {/* =====================================================================
-          모달 3: STEP 1 본인 자가평가 모달 (5.0 만점 점수 + 단일 통합 코멘트)
+          모달 3: STEP 1 본인 자가평가 모달 (상단 매핑 과제 요약 + 점수·의견만 간결 입력)
           ===================================================================== */}
-      {actionModal.type === 'self_checkin' && actionModal.kpi && (
-        <div
-          className="modal-overlay"
-          onClick={() => setActionModal({ type: null, kpi: null })}
-        >
-          <div className="modal-box kpi-modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">STEP 1 — 본인 자가평가 등록 (5점 척도)</h3>
-              <button
-                type="button"
-                onClick={() => setActionModal({ type: null, kpi: null })}
-                className="tasks-modal-close-btn"
-              >
-                <X size={20} />
-              </button>
-            </div>
+      {actionModal.type === 'self_checkin' &&
+        actionModal.kpi &&
+        (() => {
+          const targetKpi = actionModal.kpi;
+          const modalLinkedTasks = getLinkedTasksForKpi(targetKpi);
 
-            <form onSubmit={handleSaveSelfCheckin} className="tasks-modal-form">
-              <div className="modal-body">
-                <div className="kpi-modal-target-summary">
-                  <strong>{actionModal.kpi.title}</strong>
-                  <span>완료 기준(DoD): {actionModal.kpi.targetValue}</span>
+          return (
+            <div
+              className="modal-overlay"
+              onClick={() => setActionModal({ type: null, kpi: null })}
+            >
+              <div className="modal-box kpi-modal-box" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3 className="modal-title">STEP 1 — 본인 자가평가 등록 (5점 척도)</h3>
+                  <button
+                    type="button"
+                    onClick={() => setActionModal({ type: null, kpi: null })}
+                    className="tasks-modal-close-btn"
+                  >
+                    <X size={20} />
+                  </button>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">본인 자가평가 점수 선택 (1~5점) *</label>
-                  <div className="kpi-five-score-grid">
-                    {SCORE_5_RUBRIC.map((item5) => {
-                      const isSelected = selfForm.selfScore5 === item5.score;
-                      return (
-                        <button
-                          key={item5.score}
-                          type="button"
-                          onClick={() =>
-                            setSelfForm({ ...selfForm, selfScore5: item5.score })
-                          }
-                          className={`kpi-five-score-btn ${isSelected ? 'is-active' : ''}`}
-                        >
-                          <strong className="kpi-five-score-num">{item5.shortLabel}</strong>
-                          <span className="kpi-five-score-desc">{item5.desc}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {(() => {
-                  const candidateTasks = getCandidateTasks({
-                    targetScope: actionModal.kpi.targetScope,
-                    ownerName: actionModal.kpi.ownerName,
-                    ownerId: actionModal.kpi.ownerId,
-                    track: actionModal.kpi.track,
-                  });
-                  return (
-                    <div className="form-group">
-                      <label className="form-label">
-                        매핑된 실무 수행 근거 과제 확인 (선택됨 {selfForm.linkedTaskIds.length}건)
-                      </label>
-                      {candidateTasks.length === 0 ? (
-                        <div className="kpi-task-map-empty">등록된 담당 업무가 없습니다.</div>
-                      ) : (
-                        <div className="kpi-task-map-list is-compact">
-                          {candidateTasks.map((t) => {
-                            const isChecked = selfForm.linkedTaskIds.includes(t.id);
-                            return (
-                              <label
-                                key={t.id}
-                                className={`kpi-task-map-item ${isChecked ? 'is-checked' : ''}`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() =>
-                                    setSelfForm((prev) => ({
-                                      ...prev,
-                                      linkedTaskIds: toggleTaskIdInList(prev.linkedTaskIds, t.id),
-                                    }))
-                                  }
-                                  className="kpi-task-map-checkbox"
-                                />
-                                <div className="kpi-task-map-info">
-                                  <div className="kpi-task-map-title-row">
-                                    <span className="tasks-badge-category">{t.category}</span>
-                                    <span className="kpi-task-map-title">{t.title}</span>
-                                  </div>
-                                  <span className="kpi-task-map-meta">
-                                    {t.startDate || t.dueDate
-                                      ? `${t.startDate || '미정'} ~ ${t.dueDate || '미정'}`
-                                      : '일정 미정'}{' '}
-                                    ({t.status === 'done' ? '완료' : '진행/대기'})
-                                  </span>
-                                </div>
-                              </label>
-                            );
-                          })}
+                <form onSubmit={handleSaveSelfCheckin} className="tasks-modal-form">
+                  <div className="modal-body">
+                    <div className="kpi-modal-target-summary">
+                      <strong>{targetKpi.title}</strong>
+                      <span>완료 기준(DoD): {targetKpi.targetValue}</span>
+                      {modalLinkedTasks.length > 0 && (
+                        <div className="kpi-modal-mapped-tasks-bar">
+                          <span className="kpi-modal-mapped-tasks-label">
+                            <LinkIcon size={13} /> 매핑 과제 ({modalLinkedTasks.length}건)
+                          </span>
+                          <div className="kpi-modal-mapped-tasks-pills">
+                            {modalLinkedTasks.map((t) => (
+                              <span key={t.id} className="kpi-modal-mapped-task-pill">
+                                {t.title}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>
-                  );
-                })()}
 
-                <div className="form-group">
-                  <label className="form-label">수행 실적 및 자가평가 의견 *</label>
-                  <textarea
-                    rows={4}
-                    required
-                    placeholder="완료 기준(DoD) 대비 주요 수행 실적과 달성 근거를 하나로 작성해 주세요."
-                    value={selfForm.unifiedComment}
-                    onChange={(e) =>
-                      setSelfForm({ ...selfForm, unifiedComment: e.target.value })
-                    }
-                    className="form-textarea"
-                  />
-                </div>
-              </div>
+                    <div className="form-group">
+                      <label className="form-label">본인 자가평가 점수 선택 (1~5점) *</label>
+                      <div className="kpi-five-score-grid">
+                        {SCORE_5_RUBRIC.map((item5) => {
+                          const isSelected = selfForm.selfScore5 === item5.score;
+                          return (
+                            <button
+                              key={item5.score}
+                              type="button"
+                              onClick={() =>
+                                setSelfForm({ ...selfForm, selfScore5: item5.score })
+                              }
+                              className={`kpi-five-score-btn ${isSelected ? 'is-active' : ''}`}
+                            >
+                              <strong className="kpi-five-score-num">{item5.shortLabel}</strong>
+                              <span className="kpi-five-score-desc">{item5.desc}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
 
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  onClick={() => setActionModal({ type: null, kpi: null })}
-                  className="btn btn-secondary"
-                >
-                  취소
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  자가평가 저장 ({selfForm.selfScore5} / 5점)
-                </button>
+                    <div className="form-group">
+                      <label className="form-label">수행 실적 및 자가평가 의견 *</label>
+                      <textarea
+                        rows={3}
+                        required
+                        placeholder="완료 기준(DoD) 대비 주요 수행 실적과 달성 근거를 작성해 주세요."
+                        value={selfForm.unifiedComment}
+                        onChange={(e) =>
+                          setSelfForm({ ...selfForm, unifiedComment: e.target.value })
+                        }
+                        className="form-textarea"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      onClick={() => setActionModal({ type: null, kpi: null })}
+                      className="btn btn-secondary"
+                    >
+                      취소
+                    </button>
+                    <button type="submit" className="btn btn-primary">
+                      자가평가 저장 ({selfForm.selfScore5} / 5점)
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+          );
+        })()}
 
       {/* =====================================================================
           모달 4: 사내 · 유관부서 무기명 협업 다면평가 모달
           ===================================================================== */}
-      {actionModal.type === 'peer_review' && actionModal.kpi && (
-        <div
-          className="modal-overlay"
-          onClick={() => setActionModal({ type: null, kpi: null })}
-        >
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">사내 · 유관부서 무기명 협업 다면평가</h3>
-              <button
-                type="button"
-                onClick={() => setActionModal({ type: null, kpi: null })}
-                className="tasks-modal-close-btn"
-              >
-                <X size={20} />
-              </button>
+      {actionModal.type === 'peer_review' &&
+        actionModal.kpi &&
+        (() => {
+          const targetKpi = actionModal.kpi;
+          const modalLinkedTasks = getLinkedTasksForKpi(targetKpi);
+
+          return (
+            <div
+              className="modal-overlay"
+              onClick={() => setActionModal({ type: null, kpi: null })}
+            >
+              <div className="modal-box kpi-modal-box" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <h3 className="modal-title">STEP 2 — 사내 · 유관부서 무기명 협업 다면평가</h3>
+                  <button
+                    type="button"
+                    onClick={() => setActionModal({ type: null, kpi: null })}
+                    className="tasks-modal-close-btn"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSavePeerReview} className="tasks-modal-form">
+                  <div className="modal-body">
+                    <div className="kpi-modal-target-summary">
+                      <strong>
+                        [{targetKpi.ownerName}] {targetKpi.title}
+                      </strong>
+                      <span>
+                        익명 보장 안내: 작성자의 성명·소속 부서 등 신원 정보는 일절 저장·노출되지 않으며, 대상자 본인과 상위 평가자에게는 무기명 결과만 전달됩니다.
+                      </span>
+                      {modalLinkedTasks.length > 0 && (
+                        <div className="kpi-modal-mapped-tasks-bar">
+                          <span className="kpi-modal-mapped-tasks-label">
+                            <LinkIcon size={13} /> 매핑 과제 ({modalLinkedTasks.length}건)
+                          </span>
+                          <div className="kpi-modal-mapped-tasks-pills">
+                            {modalLinkedTasks.map((t) => (
+                              <span key={t.id} className="kpi-modal-mapped-task-pill">
+                                {t.title}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="tasks-form-grid-2">
+                      <div className="form-group">
+                        <label className="form-label">산출물 명확성 · 완성도 (1~5점)</label>
+                        <select
+                          value={peerForm.scoreQuality}
+                          onChange={(e) =>
+                            setPeerForm({ ...peerForm, scoreQuality: Number(e.target.value) })
+                          }
+                          className="form-select"
+                        >
+                          <option value={5}>5점 - 매우 명확하고 완성도 높음</option>
+                          <option value={4}>4점 - 우수함</option>
+                          <option value={3}>3점 - 보통</option>
+                          <option value={2}>2점 - 보완 필요</option>
+                          <option value={1}>1점 - 미흡</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">일정 공유 및 부서 간 협업 소통 (1~5점)</label>
+                        <select
+                          value={peerForm.scoreCollaboration}
+                          onChange={(e) =>
+                            setPeerForm({
+                              ...peerForm,
+                              scoreCollaboration: Number(e.target.value),
+                            })
+                          }
+                          className="form-select"
+                        >
+                          <option value={5}>5점 - 적극적이고 원활한 소통</option>
+                          <option value={4}>4점 - 우수함</option>
+                          <option value={3}>3점 - 보통</option>
+                          <option value={2}>2점 - 보완 필요</option>
+                          <option value={1}>1점 - 미흡</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">협업 시 좋았던 점 (강점) *</label>
+                      <textarea
+                        rows={3}
+                        required
+                        placeholder="기획서 정책 명시, 디자인 가이드 일관성, 마크업 정확도, 유관부서 요청 대응 등 협업에 도움이 된 점을 남겨주세요."
+                        value={peerForm.commentGood}
+                        onChange={(e) =>
+                          setPeerForm({ ...peerForm, commentGood: e.target.value })
+                        }
+                        className="form-textarea"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">향후 보완/건의 사항 (선택)</label>
+                      <textarea
+                        rows={2}
+                        placeholder="다음 프로젝트에서 더 원활한 부서 간 협업을 위해 바라는 점이 있다면 남겨주세요."
+                        value={peerForm.commentImprove}
+                        onChange={(e) =>
+                          setPeerForm({ ...peerForm, commentImprove: e.target.value })
+                        }
+                        className="form-textarea"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      onClick={() => setActionModal({ type: null, kpi: null })}
+                      className="btn btn-secondary"
+                    >
+                      취소
+                    </button>
+                    <button type="submit" className="btn btn-primary">
+                      무기명 피드백 등록
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-
-            <form onSubmit={handleSavePeerReview} className="tasks-modal-form">
-              <div className="modal-body">
-                <div className="kpi-modal-target-summary">
-                  <strong>
-                    [{actionModal.kpi.ownerName}] {actionModal.kpi.title}
-                  </strong>
-                  <span>
-                    익명 보장 안내: 작성자의 성명·소속 부서 등 신원 정보는 일절 저장·노출되지 않으며, 대상자 본인과 상위 평가자에게는 무기명 결과만 전달됩니다.
-                  </span>
-                </div>
-
-                <div className="tasks-form-grid-2">
-                  <div className="form-group">
-                    <label className="form-label">산출물 명확성 · 완성도 (1~5점)</label>
-                    <select
-                      value={peerForm.scoreQuality}
-                      onChange={(e) =>
-                        setPeerForm({ ...peerForm, scoreQuality: Number(e.target.value) })
-                      }
-                      className="form-select"
-                    >
-                      <option value={5}>5점 - 매우 명확하고 완성도 높음</option>
-                      <option value={4}>4점 - 우수함</option>
-                      <option value={3}>3점 - 보통</option>
-                      <option value={2}>2점 - 보완 필요</option>
-                      <option value={1}>1점 - 미흡</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">일정 공유 및 부서 간 협업 소통 (1~5점)</label>
-                    <select
-                      value={peerForm.scoreCollaboration}
-                      onChange={(e) =>
-                        setPeerForm({
-                          ...peerForm,
-                          scoreCollaboration: Number(e.target.value),
-                        })
-                      }
-                      className="form-select"
-                    >
-                      <option value={5}>5점 - 적극적이고 원활한 소통</option>
-                      <option value={4}>4점 - 우수함</option>
-                      <option value={3}>3점 - 보통</option>
-                      <option value={2}>2점 - 보완 필요</option>
-                      <option value={1}>1점 - 미흡</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">협업 시 좋았던 점 (강점) *</label>
-                  <textarea
-                    rows={3}
-                    required
-                    placeholder="기획서 정책 명시, 디자인 가이드 일관성, 마크업 정확도, 유관부서 요청 대응 등 협업에 도움이 된 점을 남겨주세요."
-                    value={peerForm.commentGood}
-                    onChange={(e) =>
-                      setPeerForm({ ...peerForm, commentGood: e.target.value })
-                    }
-                    className="form-textarea"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">향후 보완/건의 사항 (선택)</label>
-                  <textarea
-                    rows={2}
-                    placeholder="다음 프로젝트에서 더 원활한 부서 간 협업을 위해 바라는 점이 있다면 남겨주세요."
-                    value={peerForm.commentImprove}
-                    onChange={(e) =>
-                      setPeerForm({ ...peerForm, commentImprove: e.target.value })
-                    }
-                    className="form-textarea"
-                  />
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  onClick={() => setActionModal({ type: null, kpi: null })}
-                  className="btn btn-secondary"
-                >
-                  취소
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  무기명 피드백 등록
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+          );
+        })()}
 
       {/* =====================================================================
           모달 5: STEP 3 서비스기획팀장(최범열 차장) 1차 평가 모달 (5.0 만점 점수 입력)
@@ -2678,7 +2662,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         (() => {
           const targetKpi = actionModal.kpi;
           const modalLinkedTasks = getLinkedTasksForKpi(targetKpi);
-          const modalDoneTasks = modalLinkedTasks.filter((t) => t.status === 'done').length;
           const modalSelf5 = getSelfScore5(targetKpi);
           const modalPeerInfo = getPeerScore5Info(targetKpi);
 
@@ -2707,12 +2690,26 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       </strong>
                       <span>완료 기준(DoD): {targetKpi.targetValue}</span>
                       <span>
-                        실무 수행 완료 {modalDoneTasks}/{modalLinkedTasks.length}건 · STEP 1 자가평가:{' '}
+                        STEP 1 자가평가:{' '}
                         {modalSelf5 !== null ? `${modalSelf5.toFixed(1)} / 5.0점` : '미입력'} · STEP 2 협업다면:{' '}
                         {modalPeerInfo.avg !== null
                           ? `${modalPeerInfo.avg.toFixed(1)} / 5.0점 (${modalPeerInfo.count}명)`
                           : '미참여'}
                       </span>
+                      {modalLinkedTasks.length > 0 && (
+                        <div className="kpi-modal-mapped-tasks-bar">
+                          <span className="kpi-modal-mapped-tasks-label">
+                            <LinkIcon size={13} /> 매핑 과제 ({modalLinkedTasks.length}건)
+                          </span>
+                          <div className="kpi-modal-mapped-tasks-pills">
+                            {modalLinkedTasks.map((t) => (
+                              <span key={t.id} className="kpi-modal-mapped-task-pill">
+                                {t.title}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="form-group">
@@ -2743,7 +2740,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     <div className="form-group">
                       <label className="form-label">팀장 1차 평가 의견 (실장 상신용 코멘트) *</label>
                       <textarea
-                        rows={4}
+                        rows={3}
                         required
                         placeholder="소속 팀원의 일정 준수, 산출물 무결성, 협업 기여도에 대한 1차 평가 의견을 작성해 주세요."
                         value={leaderEvalForm.comment}
@@ -2829,12 +2826,26 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                           {targetKpi.leaderComment}
                         </span>
                       )}
+                      {modalLinkedTasks.length > 0 && (
+                        <div className="kpi-modal-mapped-tasks-bar">
+                          <span className="kpi-modal-mapped-tasks-label">
+                            <LinkIcon size={13} /> 매핑 과제 ({modalDoneTasks}/{modalLinkedTasks.length}건 완료)
+                          </span>
+                          <div className="kpi-modal-mapped-tasks-pills">
+                            {modalLinkedTasks.map((t) => (
+                              <span key={t.id} className="kpi-modal-mapped-task-pill">
+                                {t.title}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="kpi-admin-calc-box">
                       <div className="kpi-admin-calc-header">
                         <span className="kpi-admin-calc-title">
-                          1~3단계 통일 점수(5.0 만점) 종합 확인 (근거 과제 완료 {modalDoneTasks}/{modalLinkedTasks.length}건)
+                          1~3단계 통일 점수(5.0 만점) 종합 확인
                         </span>
                         {directorEvalForm.grade !== recommendedGrade && (
                           <button
@@ -2944,7 +2955,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     <div className="form-group">
                       <label className="form-label">실장 최종 평가 총평 *</label>
                       <textarea
-                        rows={4}
+                        rows={3}
                         required
                         placeholder="1~3단계 점수와 산출물·협업 기여도를 종합한 최종 평가 총평을 작성해 주세요."
                         value={directorEvalForm.comment}
