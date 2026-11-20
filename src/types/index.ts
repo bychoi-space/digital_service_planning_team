@@ -10,11 +10,20 @@ export interface AuditBase {
 // 사용자 역할: 관리자(전체권한), 기획팀원(등록/수정/삭제), 유관부서(읽기전용 뷰어)
 export type UserRole = 'admin' | 'member' | 'viewer';
 
+// 조직 위계 및 KPI 평가/열람 권한 등급
+export type KpiAccessRole =
+  | 'executive_viewer' // 최상위 임원 (포털 읽기 전용 + KPI 산하 전체 열람)
+  | 'division_head'    // 상위 실장 · 최종 평가권자 (포털 읽기 전용 + KPI 전체 열람 및 최종 평가 확정)
+  | 'team_lead'        // 서비스기획팀장 · 1차 평가권자 (포털 편집 권한 + KPI 팀 전체 열람 및 1차 평가)
+  | 'team_member'      // 서비스기획팀원 (포털 편집 권한 + 본인 KPI 관리 및 무기명 다면평가)
+  | 'cross_dept';      // 타 부서 / 유관부서 (포털 읽기 전용 + 무기명 협업 다면평가 참여)
+
 export interface User {
-  id: string; // 시퀀스 PK (1, 2, 3...)
+  id: string; // 시퀀스 PK 또는 고유 ID
   name: string; // 성명 (로그인 식별자)
   password?: string;
   role: UserRole;
+  kpiRole?: KpiAccessRole;
   department: string;
   position: string;
   email: string;

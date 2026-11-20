@@ -101,7 +101,7 @@ const NAV_LABELS: Record<NavTab, string> = {
   work_info: '업무 관련 정보',
   onboarding: '신규 입사자 온보딩',
   policy: '시선닷컴 정책서',
-  audit: '감사 로그',
+  audit: '권한 설정 및 감사 로그',
 };
 
 const TAB_TITLES: Record<NavTab, string> = {
@@ -136,19 +136,16 @@ export function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   const isViewer = currentUser.role === 'viewer';
-  const isAdmin = currentUser.role === 'admin' || currentUser.name?.trim() === '최범열';
 
   // URL Hash 변경 함수 (브라우저 히스토리 및 타이틀 동기화)
-  const navigateTo = (tab: NavTab, adminOverride?: boolean) => {
-    const canAccessAudit = adminOverride ?? isAdmin;
-    const safeTab: NavTab = tab === 'audit' && !canAccessAudit ? 'overview' : tab;
-    const targetHash = tabToHash(safeTab);
+  const navigateTo = (tab: NavTab) => {
+    const targetHash = tabToHash(tab);
     if (window.location.hash !== targetHash) {
       window.location.hash = targetHash;
     }
-    setActiveTabState(safeTab);
+    setActiveTabState(tab);
     setIsMobileMenuOpen(false);
-    document.title = TAB_TITLES[safeTab] || '서비스기획팀 업무포털';
+    document.title = TAB_TITLES[tab] || '서비스기획팀 업무포털';
   };
 
   // 로그인/회원가입 모드 전환 시 URL 해시 동기화
@@ -182,23 +179,13 @@ export function App() {
         }
       } else {
         if (!currentHash || currentHash === '#' || currentHash === '#/' || isAuthHash(currentHash)) {
-          const safeTab: NavTab = activeTab === 'audit' && !isAdmin ? 'overview' : activeTab;
-          if (safeTab !== activeTab) {
-            setActiveTabState(safeTab);
-          }
-          const targetHash = tabToHash(safeTab);
+          const targetHash = tabToHash(activeTab);
           window.history.replaceState(null, '', targetHash);
-          document.title = TAB_TITLES[safeTab] || '서비스기획팀 업무포털';
+          document.title = TAB_TITLES[activeTab] || '서비스기획팀 업무포털';
         } else {
           const parsed = parseTabFromHash(currentHash);
-          if (parsed === 'audit' && !isAdmin) {
-            window.history.replaceState(null, '', '#/overview');
-            setActiveTabState('overview');
-            document.title = TAB_TITLES.overview;
-          } else {
-            setActiveTabState(parsed);
-            document.title = TAB_TITLES[parsed] || '서비스기획팀 업무포털';
-          }
+          setActiveTabState(parsed);
+          document.title = TAB_TITLES[parsed] || '서비스기획팀 업무포털';
         }
       }
     };
@@ -207,7 +194,7 @@ export function App() {
 
     window.addEventListener('hashchange', syncRouteWithAuth);
     return () => window.removeEventListener('hashchange', syncRouteWithAuth);
-  }, [isAuthenticated, activeTab, isAdmin]);
+  }, [isAuthenticated, activeTab]);
 
   const [syncKey, setSyncKey] = useState(0);
 
@@ -284,10 +271,9 @@ export function App() {
 
   // 로그인 성공 콜백
   const handleLoginSuccess = (user: User) => {
-    const nextIsAdmin = user.role === 'admin' || user.name?.trim() === '최범열';
     setCurrentUser(user);
     setIsAuthenticated(true);
-    navigateTo(activeTab, nextIsAdmin);
+    navigateTo(activeTab);
     showToast(`${user.name}님 환영합니다! (${user.department})`, 'success');
   };
 
@@ -456,23 +442,19 @@ export function App() {
             <span>{NAV_LABELS.policy}</span>
           </a>
 
-          {isAdmin && (
-            <>
-              <div className="sidebar-divider" />
+          <div className="sidebar-divider" />
 
-              <a
-                href="#/audit"
-                className={`nav-item ${activeTab === 'audit' ? 'active' : ''}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigateTo('audit');
-                }}
-              >
-                <ShieldAlert size={18} />
-                <span>{NAV_LABELS.audit}</span>
-              </a>
-            </>
-          )}
+          <a
+            href="#/audit"
+            className={`nav-item ${activeTab === 'audit' ? 'active' : ''}`}
+            onClick={(e) => {
+              e.preventDefault();
+              navigateTo('audit');
+            }}
+          >
+            <ShieldAlert size={18} />
+            <span>{NAV_LABELS.audit}</span>
+          </a>
         </nav>
 
         <div className="sidebar-mobile-footer">
@@ -592,8 +574,13 @@ export function App() {
               onShowToast={showToast}
             />
           )}
-          {activeTab === 'audit' &&
-            (isAdmin ? <AuditLogsView onShowToast={showToast} /> : <OverviewView />)}
+          {activeTab === 'audit' && (
+            <AuditLogsView
+              currentUser={currentUser}
+              onShowToast={showToast}
+              onUserUpdated={(updatedUser) => setCurrentUser(updatedUser)}
+            />
+          )}
         </div>
       </main>
 

@@ -11436,6 +11436,236 @@ textarea {
   }
 }
 
+/* ============================================================================
+   조직 계정 권한 및 직책 설정 (AuditLogsView 확장 스타일)
+   ============================================================================ */
+
+.audit-readonly-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 9999px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.audit-td-position {
+  color: #1e293b;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.audit-role-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.audit-role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.audit-role-badge.role-executive_viewer {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.audit-role-badge.role-division_head {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.audit-role-badge.role-team_lead {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.audit-role-badge.role-team_member {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.audit-role-badge.role-cross_dept {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.audit-role-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.audit-col-user-actions {
+  width: 370px;
+}
+
+.audit-mobile-meta-line {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.audit-user-action-btns.is-mobile-triple {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.audit-user-action-btns.is-mobile-triple .btn:first-child {
+  grid-column: 1 / -1;
+}
+
+.audit-user-action-btns.is-mobile-triple .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.audit-role-modal-box {
+  max-width: 620px;
+}
+
+.audit-role-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.audit-role-option-card {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.audit-role-option-card:hover:not(:disabled) {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.audit-role-option-card:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.audit-role-option-card.is-selected {
+  border: 2px solid #2563eb;
+  background: #eff6ff;
+}
+
+.audit-role-option-card.is-selected.role-executive_viewer {
+  border-color: #7c3aed;
+  background: #f5f3ff;
+}
+
+.audit-role-option-card.is-selected.role-division_head {
+  border-color: #d97706;
+  background: #fffbeb;
+}
+
+.audit-role-option-card.is-selected.role-team_member {
+  border-color: #059669;
+  background: #f0fdf4;
+}
+
+.audit-role-option-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.audit-role-option-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.audit-role-option-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.audit-role-option-check {
+  color: #2563eb;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.audit-self-lock-note {
+  margin: 8px 0 0 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.audit-position-presets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.audit-preset-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.audit-preset-chip {
+  padding: 5px 10px;
+  border-radius: 9999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.audit-preset-chip:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.audit-preset-chip.is-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+@media (max-width: 767px) {
+  .audit-readonly-pill {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+
 
 
 

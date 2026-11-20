@@ -11,6 +11,7 @@ import type {
   KpiGrade,
   AuditLog,
   UserRole,
+  KpiAccessRole,
   WorkInfoItem,
   OnboardingChecklistItem,
   OnboardingPhase,
@@ -19,7 +20,13 @@ import type {
   SisunPolicyItem,
 } from '../types';
 import { getSupabaseClient, isSupabaseEnabled, SUPABASE_URL } from './supabase';
-import { resolveKpiAccessRole } from '../constants/departments';
+import {
+  canManageUserPermissions,
+  isValidKpiAccessRole,
+  KPI_ACCESS_ROLE_META,
+  resolveDefaultOrgProfile,
+  resolveKpiAccessRole,
+} from '../constants/departments';
 
 const STORAGE_KEYS = {
   USERS: 'ds_planning_users_v2',
@@ -1423,34 +1430,34 @@ export class PlanningStorageService {
 
           const mappedRemoteUsers: User[] = remoteUsers.map((row) => {
             const trimmedName = String(row.name || '').trim();
-            const isDivisionHead = trimmedName === '유은정';
-            const isExecPlan = trimmedName === '박종삼' || trimmedName === '박종상';
-            const isExecHq = trimmedName === '신동휘';
+            const fallbackProfile = resolveDefaultOrgProfile(
+              trimmedName,
+              String(row.department || '서비스기획팀')
+            );
+            const resolvedRole: UserRole =
+              row.role === 'admin' || row.role === 'member' || row.role === 'viewer'
+                ? row.role
+                : fallbackProfile.role;
+            const resolvedDepartment = String(row.department || '').trim() || fallbackProfile.department;
+            const resolvedPosition = String(row.position || '').trim() || fallbackProfile.position;
+            const resolvedKpiRole: KpiAccessRole = isValidKpiAccessRole(row.kpi_role)
+              ? row.kpi_role
+              : resolveKpiAccessRole({
+                  name: trimmedName,
+                  department: resolvedDepartment,
+                  position: resolvedPosition,
+                  role: resolvedRole,
+                });
+
             return {
               id: String(row.id),
               username: row.username || `user_${String(row.id)}`,
               name: row.name,
               password: row.password ?? '',
-              role: isDivisionHead || isExecPlan || isExecHq ? 'viewer' : (row.role as UserRole),
-              department: isDivisionHead
-                ? '디지털마케팅실'
-                : isExecPlan
-                  ? '경영기획 총괄'
-                  : isExecHq
-                    ? '경영관리본부'
-                    : row.department,
-              position: isDivisionHead
-                ? '디지털마케팅실장 (상무)'
-                : isExecPlan
-                  ? '경영기획 총괄 (전무)'
-                  : isExecHq
-                    ? '경영관리본부장 (사장)'
-                    : row.position ||
-                      (row.role === 'admin'
-                        ? '팀장 / 수석기획자'
-                        : row.role === 'member'
-                          ? '서비스기획자'
-                          : '유관부서 담당자'),
+              role: resolvedRole,
+              kpiRole: resolvedKpiRole,
+              department: resolvedDepartment,
+              position: resolvedPosition,
               email: row.email || `${row.name.replace(/\s+/g, '').toLowerCase()}@company.com`,
               avatarColor: row.avatar_color || '#2563eb',
             };
@@ -1475,6 +1482,9 @@ export class PlanningStorageService {
 
           const mergedUsers = Array.from(userMap.values());
           localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(mergedUsers));
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('ds-portal-users-updated'));
+          }
 
           // 로그인된 사용자 세션 ID가 이름 기준으로 매칭되는 원격 회원 ID로 갱신되어야 하는 경우 보정
           if (this.isLoggedIn() && prevCurrentUser) {
@@ -1862,11 +1872,15 @@ export class PlanningStorageService {
       : [];
   }
 
-  // 원격 Supabase users 테이블로 회원 정보 업서트 (id/username 포함 스키마 및 시퀀스 스키마 모두 호환)
+  // 원격 Supabase users 테이블로 회원 정보 업서트 (id/username/kpi_role 포함 스키마 호환)
   public static async pushUserToRemote(user: User): Promise<void> {
     if (!isSupabaseEnabled()) return;
     const client = getSupabaseClient();
     if (!client) return;
+
+    const resolvedKpiRole = resolveKpiAccessRole(user);
+    const resolvedPosition =
+      user.position || KPI_ACCESS_ROLE_META[resolvedKpiRole]?.defaultPosition || '서비스기획자';
 
     const payloadFull = {
       id: user.id,
@@ -1874,27 +1888,44 @@ export class PlanningStorageService {
       name: user.name,
       password: user.password || '',
       role: user.role,
+      kpi_role: resolvedKpiRole,
       department: user.department,
-      position: user.position || (user.role === 'viewer' ? '유관부서 담당자' : '서비스기획자'),
+      position: resolvedPosition,
       email: user.email || `${user.name.replace(/\s+/g, '').toLowerCase()}@company.com`,
       avatar_color: user.avatarColor || '#2563eb',
     };
 
     try {
-      // 먼저 동일 성명(name)으로 등록된 원격 레코드가 있으면 비밀번호·부서·역할을 즉시 업데이트
-      await client
+      // 먼저 동일 성명(name)으로 등록된 원격 레코드가 있으면 비밀번호·부서·역할·KPI권한을 즉시 업데이트
+      const { error: updateErr } = await client
         .from('users')
         .update({
           password: user.password || '',
           department: user.department,
           role: user.role,
-          position: user.position || (user.role === 'viewer' ? '유관부서 담당자' : '서비스기획자'),
+          kpi_role: resolvedKpiRole,
+          position: resolvedPosition,
         })
         .eq('name', user.name.trim());
 
+      if (updateErr && updateErr.message.includes('kpi_role')) {
+        await client
+          .from('users')
+          .update({
+            password: user.password || '',
+            department: user.department,
+            role: user.role,
+            position: resolvedPosition,
+          })
+          .eq('name', user.name.trim());
+      }
+
       const { error } = await client.from('users').upsert(payloadFull);
       if (error) {
-        if (error.message.includes('username')) {
+        if (error.message.includes('kpi_role')) {
+          const { kpi_role: _unusedKpiRole, ...payloadWithoutKpiRole } = payloadFull;
+          await client.from('users').upsert(payloadWithoutKpiRole);
+        } else if (error.message.includes('username')) {
           const { username: _unused, ...payloadWithoutUsername } = payloadFull;
           await client.from('users').upsert(payloadWithoutUsername);
         } else {
@@ -2028,34 +2059,9 @@ export class PlanningStorageService {
     const users = this.getUsers();
     const trimmedName = params.name.trim();
 
-    // 역할 자동 결정: 정확히 '서비스기획팀'일 때만 member, 직책자(실장/전무/사장) 및 타 유관부서는 viewer
-    const isDivisionHead = trimmedName === '유은정';
-    const isExecPlan = trimmedName === '박종삼' || trimmedName === '박종상';
-    const isExecHq = trimmedName === '신동휘';
-    const isPlanTeam =
-      params.department.trim() === '서비스기획팀' &&
-      !isDivisionHead &&
-      !isExecPlan &&
-      !isExecHq;
-    const role: UserRole = isPlanTeam ? 'member' : 'viewer';
-    const resolvedDepartment = isDivisionHead
-      ? '디지털마케팅실'
-      : isExecPlan
-        ? '경영기획 총괄'
-        : isExecHq
-          ? '경영관리본부'
-          : params.department;
-    const resolvedPosition = isDivisionHead
-      ? '디지털마케팅실장 (상무)'
-      : isExecPlan
-        ? '경영기획 총괄 (전무)'
-        : isExecHq
-          ? '경영관리본부장 (사장)'
-          : isPlanTeam
-            ? '서비스기획자'
-            : '유관부서 담당자';
+    const defaultProfile = resolveDefaultOrgProfile(trimmedName, params.department);
 
-    // 이미 동일 이름이 존재하는 경우: 비밀번호 미설정(복구 계정) 또는 초기 시드 계정('1234')이면 비밀번호/부서 갱신 허용
+    // 이미 동일 이름이 존재하는 경우: 사전 등록 계정(!password) 또는 초기 시드 계정('1234')이면 기존 관리자 설정 권한/직책을 보존하며 비밀번호만 확정
     const existingUser = users.find((u) => u.name.trim() === trimmedName);
     if (existingUser) {
       const isInitialSeedAccount =
@@ -2065,15 +2071,31 @@ export class PlanningStorageService {
 
       if (isInitialSeedAccount) {
         existingUser.password = params.password;
-        existingUser.department = resolvedDepartment;
-        existingUser.role = role;
-        existingUser.position = resolvedPosition;
+        if (!existingUser.kpiRole) {
+          existingUser.kpiRole = resolveKpiAccessRole(existingUser);
+        }
+        if (!existingUser.department) {
+          existingUser.department = defaultProfile.department;
+        }
+        if (!existingUser.position) {
+          existingUser.position = defaultProfile.position;
+        }
         localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
         localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, existingUser.id);
         localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(existingUser));
         localStorage.setItem('ds_planning_is_logged_in_v1', 'true');
         localStorage.setItem('ds_planning_session_recovered_v1', 'true');
         await this.pushUserToRemote(existingUser);
+
+        this.recordAuditLog({
+          entityType: 'auth',
+          entityId: existingUser.id,
+          entityTitle: existingUser.name,
+          action: 'UPDATE',
+          summary: `사전 등록 계정 가입 완료: ${existingUser.name} (${existingUser.department} · ${existingUser.position})`,
+          actorOverride: { id: existingUser.id, name: existingUser.name, role: existingUser.role },
+        });
+
         return { success: true, user: existingUser };
       }
       return { success: false, message: '이미 동일한 이름으로 등록된 사용자가 있습니다. [로그인] 탭을 이용해 주세요.' };
@@ -2090,9 +2112,10 @@ export class PlanningStorageService {
       username: assignedUsername,
       name: trimmedName,
       password: params.password,
-      role,
-      department: resolvedDepartment,
-      position: resolvedPosition,
+      role: defaultProfile.role,
+      kpiRole: defaultProfile.kpiRole,
+      department: defaultProfile.department,
+      position: defaultProfile.position,
       email: `${trimmedName.replace(/\s+/g, '').toLowerCase()}@company.com`,
       avatarColor: randomColor,
     };
@@ -2112,7 +2135,7 @@ export class PlanningStorageService {
       entityId: newUser.id,
       entityTitle: newUser.name,
       action: 'CREATE',
-      summary: `신규 회원가입: ${newUser.name} (${newUser.department}, ${role === 'member' ? '기획팀원' : '유관부서 뷰어'})`,
+      summary: `신규 회원가입: ${newUser.name} (${newUser.department} · ${newUser.position}, ${KPI_ACCESS_ROLE_META[defaultProfile.kpiRole].shortLabel})`,
       actorOverride: { id: newUser.id, name: newUser.name, role: newUser.role },
     });
 
@@ -2257,15 +2280,14 @@ export class PlanningStorageService {
     };
   }
 
-  // [비밀번호 관리 3] 관리자(최범열) 전용: 특정 회원의 비밀번호 강제 초기화 또는 임시 비밀번호 지정
+  // [비밀번호 관리 3] 최고 관리자(최범열) 전용: 특정 회원의 비밀번호 강제 초기화 또는 임시 비밀번호 지정
   public static async adminResetUserPassword(params: {
     targetUserId: string;
     newPassword: string;
   }): Promise<{ success: boolean; message: string }> {
     const currentUser = this.getCurrentUser();
-    const isAdmin = currentUser.role === 'admin' || currentUser.name?.trim() === '최범열';
-    if (!isAdmin) {
-      return { success: false, message: '관리자만 회원의 비밀번호를 초기화할 수 있습니다.' };
+    if (!canManageUserPermissions(currentUser)) {
+      return { success: false, message: '권한 설정 관리자(최범열)만 비밀번호를 재설정할 수 있습니다.' };
     }
 
     const users = this.getUsers();
@@ -2289,8 +2311,8 @@ export class PlanningStorageService {
       entityTitle: target.name,
       action: 'UPDATE',
       summary: params.newPassword
-        ? `[관리자 비밀번호 지정] 관리자(${currentUser.name})가 ${target.name} (${target.department}) 계정의 비밀번호를 재설정함`
-        : `[관리자 비밀번호 초기화] 관리자(${currentUser.name})가 ${target.name} (${target.department}) 계정을 최초 로그인 시 비밀번호 재설정 상태로 초기화함`,
+        ? `[관리자 비밀번호 지정] ${currentUser.name}님이 ${target.name} (${target.department}) 계정의 비밀번호를 재설정함`
+        : `[관리자 비밀번호 초기화] ${currentUser.name}님이 ${target.name} (${target.department}) 계정을 최초 로그인 시 비밀번호 설정 상태로 초기화함`,
     });
 
     return {
@@ -2298,6 +2320,167 @@ export class PlanningStorageService {
       message: params.newPassword
         ? `${target.name}님의 비밀번호가 지정한 비밀번호로 변경되었습니다.`
         : `${target.name}님의 비밀번호가 초기화되었습니다. (다음 로그인 시 입력하는 비밀번호로 자동 설정됩니다)`,
+    };
+  }
+
+  // [권한 및 직책 관리 1] 최고 관리자(최범열) 전용: 회원의 소속 부서 · 직책 · 포털/KPI 권한 등급 설정
+  public static async adminUpdateUserRoleAndPosition(params: {
+    targetUserId: string;
+    department: string;
+    position: string;
+    kpiRole: KpiAccessRole;
+  }): Promise<{ success: boolean; message: string; updatedUser?: User }> {
+    const currentUser = this.getCurrentUser();
+    if (!canManageUserPermissions(currentUser)) {
+      return { success: false, message: '권한 설정 수정은 관리자(최범열)만 수행할 수 있습니다.' };
+    }
+
+    const cleanDept = (params.department || '').trim();
+    const cleanPos = (params.position || '').trim();
+    if (!cleanDept) {
+      return { success: false, message: '소속 부서를 선택해 주세요.' };
+    }
+    if (!cleanPos) {
+      return { success: false, message: '직책(직급)을 입력해 주세요.' };
+    }
+    if (!isValidKpiAccessRole(params.kpiRole)) {
+      return { success: false, message: '유효한 권한 등급을 선택해 주세요.' };
+    }
+
+    const users = this.getUsers();
+    const target = users.find((u) => String(u.id) === String(params.targetUserId));
+    if (!target) {
+      return { success: false, message: '대상 계정 정보를 찾을 수 없습니다.' };
+    }
+
+    // 관리자 본인의 권한 잠김(Self-Lockout) 방지를 위해 최범열 본인은 team_lead(admin) 고정
+    const effectiveKpiRole: KpiAccessRole =
+      canManageUserPermissions(target) ? 'team_lead' : params.kpiRole;
+    const nextPortalRole: UserRole = KPI_ACCESS_ROLE_META[effectiveKpiRole].portalRole;
+
+    const prevDept = target.department;
+    const prevPos = target.position;
+    const prevKpiRole = resolveKpiAccessRole(target);
+
+    target.department = cleanDept;
+    target.position = cleanPos;
+    target.kpiRole = effectiveKpiRole;
+    target.role = nextPortalRole;
+
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    if (target.name.trim() === currentUser.name.trim()) {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_SNAPSHOT, JSON.stringify(target));
+    }
+
+    await this.pushUserToRemote(target);
+
+    const diffParts: string[] = [];
+    if (prevDept !== cleanDept) diffParts.push(`부서(${prevDept} → ${cleanDept})`);
+    if (prevPos !== cleanPos) diffParts.push(`직책(${prevPos || '-'} → ${cleanPos})`);
+    if (prevKpiRole !== effectiveKpiRole) {
+      diffParts.push(
+        `권한(${KPI_ACCESS_ROLE_META[prevKpiRole].shortLabel} → ${KPI_ACCESS_ROLE_META[effectiveKpiRole].shortLabel})`
+      );
+    }
+
+    this.recordAuditLog({
+      entityType: 'auth',
+      entityId: target.id,
+      entityTitle: target.name,
+      action: 'UPDATE',
+      summary:
+        diffParts.length > 0
+          ? `[권한·직책 설정] ${target.name}: ${diffParts.join(', ')}`
+          : `[권한·직책 확인 저장] ${target.name} (${cleanDept} · ${cleanPos} · ${KPI_ACCESS_ROLE_META[effectiveKpiRole].shortLabel})`,
+    });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ds-portal-users-updated'));
+    }
+
+    return {
+      success: true,
+      message: `${target.name}님의 소속·직책 및 권한 설정이 저장되었습니다.`,
+      updatedUser: target,
+    };
+  }
+
+  // [권한 및 직책 관리 2] 최고 관리자(최범열) 전용: 미가입 임원·팀원 사전 계정 및 권한 등록
+  public static async adminPreRegisterUser(params: {
+    name: string;
+    department: string;
+    position: string;
+    kpiRole: KpiAccessRole;
+  }): Promise<{ success: boolean; message: string; createdUser?: User }> {
+    const currentUser = this.getCurrentUser();
+    if (!canManageUserPermissions(currentUser)) {
+      return { success: false, message: '사전 계정 및 권한 등록은 관리자(최범열)만 수행할 수 있습니다.' };
+    }
+
+    const cleanName = (params.name || '').trim();
+    const cleanDept = (params.department || '').trim();
+    const cleanPos = (params.position || '').trim();
+
+    if (!cleanName) {
+      return { success: false, message: '대상자 성명을 입력해 주세요.' };
+    }
+    if (!cleanDept) {
+      return { success: false, message: '소속 부서를 선택해 주세요.' };
+    }
+    if (!cleanPos) {
+      return { success: false, message: '직책(직급)을 입력해 주세요.' };
+    }
+    if (!isValidKpiAccessRole(params.kpiRole)) {
+      return { success: false, message: '유효한 권한 등급을 선택해 주세요.' };
+    }
+
+    await this.syncFromSupabase();
+    const users = this.getUsers();
+    const duplicate = users.find((u) => u.name.trim() === cleanName);
+    if (duplicate) {
+      return {
+        success: false,
+        message: `'${cleanName}'님은 이미 목록에 등록되어 있습니다. 해당 행의 [권한 · 직책 설정] 버튼을 이용해 주세요.`,
+      };
+    }
+
+    const portalRole: UserRole = KPI_ACCESS_ROLE_META[params.kpiRole].portalRole;
+    const colors = ['#2563eb', '#059669', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#4b5563'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+    const newUser: User = {
+      id: generateUniqueId('user'),
+      username: `user_${Date.now().toString(36)}`,
+      name: cleanName,
+      password: '',
+      role: portalRole,
+      kpiRole: params.kpiRole,
+      department: cleanDept,
+      position: cleanPos,
+      email: `${cleanName.replace(/\s+/g, '').toLowerCase()}@company.com`,
+      avatarColor: randomColor,
+    };
+
+    const nextUsers = [...users, newUser];
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(nextUsers));
+    await this.pushUserToRemote(newUser);
+
+    this.recordAuditLog({
+      entityType: 'auth',
+      entityId: newUser.id,
+      entityTitle: newUser.name,
+      action: 'CREATE',
+      summary: `[사전 계정·권한 등록] ${newUser.name} (${cleanDept} · ${cleanPos} · ${KPI_ACCESS_ROLE_META[params.kpiRole].shortLabel}) — 첫 가입/로그인 시 비밀번호 설정`,
+    });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ds-portal-users-updated'));
+    }
+
+    return {
+      success: true,
+      message: `${newUser.name}님 계정이 '${KPI_ACCESS_ROLE_META[params.kpiRole].shortLabel}' 권한으로 사전 등록되었습니다.`,
+      createdUser: newUser,
     };
   }
 
