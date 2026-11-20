@@ -181,7 +181,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   const [selectedYear, setSelectedYear] = useState<number>(
     () => parseKpiRouteFromHash().queryYear || 2026
   );
-  const [selectedQuarter, setSelectedQuarter] = useState<KpiQuarter>(
+  const [selectedQuarter, setSelectedQuarter] = useState<'all' | KpiQuarter>(
     () => parseKpiRouteFromHash().queryQuarter || 'Annual'
   );
   const [scheduleTick, setScheduleTick] = useState<number>(0);
@@ -280,10 +280,13 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     return Array.from(set).sort((a, b) => a - b);
   }, [kpis]);
 
+  const effectiveScheduleQuarter: KpiQuarter =
+    selectedQuarter === 'all' ? 'Annual' : selectedQuarter;
+
   const activeCycleSchedule: KpiCycleSchedule = useMemo(() => {
     void scheduleTick;
-    return PlanningStorageService.getKpiCycleSchedule(selectedYear, selectedQuarter);
-  }, [selectedYear, selectedQuarter, scheduleTick]);
+    return PlanningStorageService.getKpiCycleSchedule(selectedYear, effectiveScheduleQuarter);
+  }, [selectedYear, effectiveScheduleQuarter, scheduleTick]);
 
   const activeCycleTimeline = useMemo(
     () => resolveCycleTimelineSteps(activeCycleSchedule, todayStr),
@@ -295,9 +298,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       kpis.filter(
         (k) =>
           Number(k.year || 2026) === selectedYear &&
-          (k.quarter || 'Annual') === selectedQuarter
+          (k.quarter || 'Annual') === effectiveScheduleQuarter
       ).length,
-    [kpis, selectedYear, selectedQuarter]
+    [kpis, selectedYear, effectiveScheduleQuarter]
   );
 
   const [trackFilter, setTrackFilter] = useState<'all' | KpiTrack>('all');
@@ -475,9 +478,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     const initialTrack =
       defaultTrack ||
       (trackFilter !== 'all' ? trackFilter : resolveMemberDefaultTrack(matchedSelf.name));
+    const createQuarter: KpiQuarter =
+      selectedQuarter === 'all' ? 'Annual' : selectedQuarter;
     const targetSchedule = PlanningStorageService.getKpiCycleSchedule(
       selectedYear,
-      selectedQuarter
+      createQuarter
     );
     const defaultStatus: KpiStatus =
       todayStr < targetSchedule.execStart ? 'planning' : 'in_progress';
@@ -485,7 +490,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     setEditingKpi(null);
     setFormData({
       year: selectedYear,
-      quarter: selectedQuarter,
+      quarter: createQuarter,
       targetScope: 'individual',
       ownerId: matchedSelf.id,
       ownerName: matchedSelf.name,
@@ -875,11 +880,18 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     return kpis.filter((k) => canReadKpiEvaluation(k));
   }, [kpis, canReadKpiEvaluation]);
 
-  // [권한 기반 스코핑 2] 평가 열람 탭 필터 적용 목록
-  const currentKpis = useMemo(() => {
+  // [권한 기반 스코핑 2] 선택된 연도·기수 기준 KPI 풀 및 필터 적용 목록
+  const periodEvalKpis = useMemo(() => {
     return accessibleEvalKpis.filter((k) => {
       const matchesYear = Number(k.year || 2026) === selectedYear;
-      const matchesQuarter = (k.quarter || 'Annual') === selectedQuarter;
+      const matchesQuarter =
+        selectedQuarter === 'all' ? true : (k.quarter || 'Annual') === selectedQuarter;
+      return matchesYear && matchesQuarter;
+    });
+  }, [accessibleEvalKpis, selectedYear, selectedQuarter]);
+
+  const currentKpis = useMemo(() => {
+    return periodEvalKpis.filter((k) => {
       const matchesTrack = trackFilter === 'all' || (k.track || '기획') === trackFilter;
       const matchesOwner = !canViewAllOrgKpis
         ? true
@@ -889,25 +901,32 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             ? k.targetScope === 'team'
             : k.ownerName?.trim() === ownerFilter.trim();
 
-      return matchesYear && matchesQuarter && matchesTrack && matchesOwner;
+      return matchesTrack && matchesOwner;
     });
-  }, [accessibleEvalKpis, selectedYear, selectedQuarter, trackFilter, ownerFilter, canViewAllOrgKpis]);
+  }, [periodEvalKpis, trackFilter, ownerFilter, canViewAllOrgKpis]);
 
   // [권한 기반 스코핑 3] 협업 다면평가(무기명 피드백) 탭 대상 KPI 목록 (본인 제외 개인 KPI)
   const peerBaseKpis = useMemo(() => {
     return kpis.filter((k) => k.targetScope !== 'team' && !isKpiOwner(k));
   }, [kpis, isKpiOwner]);
 
-  const visiblePeerKpis = useMemo(() => {
+  const periodPeerKpis = useMemo(() => {
     return peerBaseKpis.filter((k) => {
       const matchesYear = Number(k.year || 2026) === selectedYear;
-      const matchesQuarter = (k.quarter || 'Annual') === selectedQuarter;
+      const matchesQuarter =
+        selectedQuarter === 'all' ? true : (k.quarter || 'Annual') === selectedQuarter;
+      return matchesYear && matchesQuarter;
+    });
+  }, [peerBaseKpis, selectedYear, selectedQuarter]);
+
+  const visiblePeerKpis = useMemo(() => {
+    return periodPeerKpis.filter((k) => {
       const matchesTrack = trackFilter === 'all' || (k.track || '기획') === trackFilter;
       const matchesPeerOwner =
         peerOwnerFilter === 'all' ? true : k.ownerName?.trim() === peerOwnerFilter.trim();
-      return matchesYear && matchesQuarter && matchesTrack && matchesPeerOwner;
+      return matchesTrack && matchesPeerOwner;
     });
-  }, [peerBaseKpis, selectedYear, selectedQuarter, trackFilter, peerOwnerFilter]);
+  }, [periodPeerKpis, trackFilter, peerOwnerFilter]);
 
   const peerCandidateMembers = useMemo(() => {
     const names = new Set<string>();
@@ -1073,7 +1092,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   const handleResetScheduleOverride = async () => {
     const res = await PlanningStorageService.resetKpiCycleScheduleOverride(
       selectedYear,
-      selectedQuarter
+      effectiveScheduleQuarter
     );
     if (res.success) {
       setScheduleTick((prev) => prev + 1);
@@ -1085,66 +1104,69 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     }
   };
 
-  const renderCycleScheduleCard = () => (
-    <div className="card kpi-cycle-schedule-card">
-      <div className="kpi-cycle-schedule-top">
-        <div className="kpi-cycle-schedule-left">
-          <span className="kpi-cycle-title">
-            <Calendar size={16} className="kpi-framework-icon" />
-            {formatCycleFullLabel(selectedYear, selectedQuarter)} 공식 평가 스케줄
-          </span>
-          <span className="kpi-cycle-phase-pill">
-            {activeCycleTimeline.currentPhaseSummary}
-          </span>
-          {activeCycleSchedule.isCustomized && (
-            <span className="kpi-cycle-custom-pill">기수 일정 조정됨</span>
-          )}
-        </div>
-
-        <div className="kpi-cycle-schedule-right">
-          {activeCycleRegisteredCount > 0 ? (
-            <a href="#/schedule" className="kpi-cycle-calendar-link">
-              <Calendar size={14} /> 팀 통합 일정 연동됨 ({activeCycleRegisteredCount}건)
-            </a>
-          ) : (
-            <span className="kpi-cycle-calendar-note">
-              이 기수에 KPI 등록 시 [팀 통합 일정]에 자동 반영됩니다
+  const renderCycleScheduleCard = () => {
+    if (selectedQuarter === 'all') return null;
+    return (
+      <div className="card kpi-cycle-schedule-card">
+        <div className="kpi-cycle-schedule-top">
+          <div className="kpi-cycle-schedule-left">
+            <span className="kpi-cycle-title">
+              <Calendar size={16} className="kpi-framework-icon" />
+              {formatCycleFullLabel(selectedYear, effectiveScheduleQuarter)} 공식 평가 스케줄
             </span>
-          )}
+            <span className="kpi-cycle-phase-pill">
+              {activeCycleTimeline.currentPhaseSummary}
+            </span>
+            {activeCycleSchedule.isCustomized && (
+              <span className="kpi-cycle-custom-pill">기수 일정 조정됨</span>
+            )}
+          </div>
 
-          {canManageSchedule && (
-            <button
-              type="button"
-              onClick={() => setIsScheduleEditOpen(true)}
-              className="btn btn-secondary tasks-action-btn"
+          <div className="kpi-cycle-schedule-right">
+            {activeCycleRegisteredCount > 0 ? (
+              <a href="#/schedule" className="kpi-cycle-calendar-link">
+                <Calendar size={14} /> 팀 통합 일정 연동됨 ({activeCycleRegisteredCount}건)
+              </a>
+            ) : (
+              <span className="kpi-cycle-calendar-note">
+                이 기수에 KPI 등록 시 [팀 통합 일정]에 자동 반영됩니다
+              </span>
+            )}
+
+            {canManageSchedule && (
+              <button
+                type="button"
+                onClick={() => setIsScheduleEditOpen(true)}
+                className="btn btn-secondary tasks-action-btn"
+              >
+                <SlidersHorizontal size={14} /> 기수 일정 조정
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="kpi-cycle-stepper-grid">
+          {activeCycleTimeline.steps.map((st) => (
+            <div
+              key={st.key}
+              className={`kpi-cycle-step-box state-${st.state}`}
             >
-              <SlidersHorizontal size={14} /> 기수 일정 조정
-            </button>
-          )}
+              <div className="kpi-cycle-step-head">
+                <span className="kpi-cycle-step-tag">{st.stepLabel}</span>
+                {st.dDayBadge && (
+                  <span className="kpi-cycle-step-dday">{st.dDayBadge}</span>
+                )}
+              </div>
+              <div className="kpi-cycle-step-name">{st.title}</div>
+              <div className="kpi-cycle-step-dates">
+                {formatShortDateRange(st.startDate, st.endDate)}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
-
-      <div className="kpi-cycle-stepper-grid">
-        {activeCycleTimeline.steps.map((st) => (
-          <div
-            key={st.key}
-            className={`kpi-cycle-step-box state-${st.state}`}
-          >
-            <div className="kpi-cycle-step-head">
-              <span className="kpi-cycle-step-tag">{st.stepLabel}</span>
-              {st.dDayBadge && (
-                <span className="kpi-cycle-step-dday">{st.dDayBadge}</span>
-              )}
-            </div>
-            <div className="kpi-cycle-step-name">{st.title}</div>
-            <div className="kpi-cycle-step-dates">
-              {formatShortDateRange(st.startDate, st.endDate)}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="kpi-container">
@@ -1206,14 +1228,14 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   className={`tasks-track-tab track-all ${trackFilter === 'all' ? 'active' : ''}`}
                 >
                   <span>전체 파트</span>
-                  <span className="tasks-track-count">{peerBaseKpis.length}</span>
+                  <span className="tasks-track-count">{periodPeerKpis.length}</span>
                 </button>
 
                 {TRACK_LIST.map((trackKey) => {
                   const cfg = TRACK_CONFIG[trackKey];
                   const IconComp = cfg.icon;
                   const isSelected = trackFilter === trackKey;
-                  const count = peerBaseKpis.filter((k) => (k.track || '기획') === trackKey).length;
+                  const count = periodPeerKpis.filter((k) => (k.track || '기획') === trackKey).length;
                   return (
                     <button
                       key={trackKey}
@@ -1245,6 +1267,13 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   </select>
 
                   <div className="kpi-quarter-tabs">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQuarter('all')}
+                      className={`kpi-quarter-btn ${selectedQuarter === 'all' ? 'active' : ''}`}
+                    >
+                      <span>전체</span>
+                    </button>
                     {QUARTERS.map((q) => (
                       <button
                         key={q.key}
@@ -1441,14 +1470,14 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   className={`tasks-track-tab track-all ${trackFilter === 'all' ? 'active' : ''}`}
                 >
                   <span>전체</span>
-                  <span className="tasks-track-count">{accessibleEvalKpis.length}</span>
+                  <span className="tasks-track-count">{periodEvalKpis.length}</span>
                 </button>
 
                 {TRACK_LIST.map((trackKey) => {
                   const cfg = TRACK_CONFIG[trackKey];
                   const IconComp = cfg.icon;
                   const isSelected = trackFilter === trackKey;
-                  const count = accessibleEvalKpis.filter(
+                  const count = periodEvalKpis.filter(
                     (k) => (k.track || '기획') === trackKey
                   ).length;
                   return (
@@ -1482,6 +1511,13 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   </select>
 
                   <div className="kpi-quarter-tabs">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQuarter('all')}
+                      className={`kpi-quarter-btn ${selectedQuarter === 'all' ? 'active' : ''}`}
+                    >
+                      <span>전체</span>
+                    </button>
                     {QUARTERS.map((q) => (
                       <button
                         key={q.key}
@@ -1567,12 +1603,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                 </div>
 
                 <div className="kpi-rubric-bar">
-                  <div className="kpi-rubric-item">
-                    <span className="kpi-score5-chip is-self">1~3단계 점수제 통일</span>
-                    <span className="kpi-rubric-text">
-                      자가 · 협업다면 · 1차 팀장 평가는 동일하게 <strong>1~5점(5.0 만점)</strong> 척도로 입력
-                    </span>
-                  </div>
                   {GRADE_RUBRIC.map((r) => (
                     <div key={r.grade} className={`kpi-rubric-item ${r.classKey}`}>
                       <span className={`kpi-grade-chip ${r.classKey}`}>최종 {r.shortLabel}</span>
@@ -1700,7 +1730,8 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   <thead>
                     <tr>
                       <th className="kpi-col-owner">파트 / 담당</th>
-                      <th className="kpi-col-title">KPI 목표명 및 달성 기준</th>
+                      <th className="kpi-col-cycle">구분</th>
+                      <th className="kpi-col-title">KPI 목표명</th>
                       <th className="kpi-col-weight">가중치</th>
                       <th className="kpi-col-tasks">연결 과제</th>
                       <th className="kpi-col-self">자가평가</th>
@@ -1714,6 +1745,10 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     {currentKpis.map((item) => {
                       const trackCfg = TRACK_CONFIG[item.track || '기획'] || TRACK_CONFIG['기획'];
                       const TrackIcon = trackCfg.icon;
+                      const isAnnual = (item.quarter || 'Annual') === 'Annual';
+                      const cycleBadgeLabel = isAnnual
+                        ? '연간'
+                        : QUARTERS.find((q) => q.key === item.quarter)?.shortLabel || '분기';
                       const isLeaderKpi = isLeaderOwnedKpiItem(item);
                       const selfScore5 = getSelfScore5(item);
                       const peerInfo = getPeerScore5Info(item);
@@ -1739,13 +1774,18 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                             </div>
                           </td>
 
+                          <td className="kpi-col-cycle">
+                            <span
+                              className={`kpi-cycle-type-badge ${
+                                isAnnual ? 'is-annual' : 'is-quarter'
+                              }`}
+                            >
+                              {cycleBadgeLabel}
+                            </span>
+                          </td>
+
                           <td className="kpi-col-title">
-                            <div className="kpi-title-cell">
-                              <span className="kpi-table-title">{item.title}</span>
-                              {item.targetValue && (
-                                <span className="kpi-table-subdesc">{item.targetValue}</span>
-                              )}
-                            </div>
+                            <span className="kpi-table-title">{item.title}</span>
                           </td>
 
                           <td className="kpi-col-weight">
@@ -2988,7 +3028,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       {canManageSchedule && isScheduleEditOpen && (
         <KpiScheduleEditModal
           year={selectedYear}
-          quarter={selectedQuarter}
+          quarter={effectiveScheduleQuarter}
           initialSchedule={activeCycleSchedule}
           onClose={() => setIsScheduleEditOpen(false)}
           onSave={handleSaveScheduleOverride}
