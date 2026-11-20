@@ -686,7 +686,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         selfScore: Number(selfForm.selfScore5),
       });
       onShowToast(
-        `자가평가(${selfForm.selfScore5} / 5점) 및 수행 실적이 저장되었습니다.`,
+        `자가평가(${selfForm.selfScore5}점)가 저장되었습니다.`,
         'success'
       );
       setActionModal({ type: null, kpi: null });
@@ -792,7 +792,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         leaderEvaluatedAt: new Date().toISOString(),
       });
       onShowToast(
-        `팀장 1차 평가(${leaderEvalForm.score5} / 5점)가 저장되었습니다. 디지털마케팅실장 최종 등급 확정 단계로 상신됩니다.`,
+        `1차 팀장 평가(${leaderEvalForm.score5}점)가 저장되었습니다.`,
         'success'
       );
       setActionModal({ type: null, kpi: null });
@@ -1644,13 +1644,13 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
                       <div className="kpi-scorecard-inline-metric">
                         <span className="kpi-scorecard-metric-label">
-                          {sc.isAllFinalized ? '실장 확정 점수' : '1~3단계 가집계 평점'}
+                          {sc.isAllFinalized ? '실장 확정 점수' : '1~3단계 평균'}
                         </span>
                         <strong className="kpi-scorecard-metric-val is-highlight">
                           {sc.isAllFinalized && sc.finalScore100 !== null
                             ? `${sc.finalScore100}점`
                             : sc.interimAvg5 !== null
-                              ? `${sc.interimAvg5.toFixed(1)} / 5.0`
+                              ? `${sc.interimAvg5.toFixed(1)}점`
                               : '미산출'}
                         </strong>
                       </div>
@@ -1768,7 +1768,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                                 selfScore5 !== null ? 'is-done-self' : 'is-wait'
                               }`}
                             >
-                              {selfScore5 !== null ? `${selfScore5.toFixed(1)} / 5.0` : '대기'}
+                              {selfScore5 !== null ? `${selfScore5.toFixed(1)}점` : '대기'}
                             </span>
                           </td>
 
@@ -1779,7 +1779,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                               }`}
                             >
                               {peerInfo.avg !== null
-                                ? `${peerInfo.avg.toFixed(1)} / 5.0 (${peerInfo.count}명)`
+                                ? `${peerInfo.avg.toFixed(1)}점 (${peerInfo.count}명)`
                                 : '대기'}
                             </span>
                           </td>
@@ -1794,7 +1794,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                                 }`}
                               >
                                 {leaderScore5 !== null
-                                  ? `${leaderScore5.toFixed(1)} / 5.0`
+                                  ? `${leaderScore5.toFixed(1)}점`
                                   : '대기'}
                               </span>
                             )}
@@ -2416,7 +2416,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         })()}
 
       {/* =====================================================================
-          모달 3: STEP 1 본인 자가평가 모달 (상단 매핑 과제 요약 + 점수·의견만 간결 입력)
+          모달 3: STEP 1 본인 자가평가 모달
           ===================================================================== */}
       {actionModal.type === 'self_checkin' &&
         actionModal.kpi &&
@@ -2431,7 +2431,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             >
               <div className="modal-box kpi-modal-box" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                  <h3 className="modal-title">STEP 1 — 본인 자가평가 등록 (5점 척도)</h3>
+                  <h3 className="modal-title">STEP 1 — 자가평가 등록</h3>
                   <button
                     type="button"
                     onClick={() => setActionModal({ type: null, kpi: null })}
@@ -2463,7 +2463,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">본인 자가평가 점수 선택 (1~5점) *</label>
+                      <label className="form-label">점수 선택 *</label>
                       <div className="kpi-five-score-grid">
                         {SCORE_5_RUBRIC.map((item5) => {
                           const isSelected = selfForm.selfScore5 === item5.score;
@@ -2485,7 +2485,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">수행 실적 및 자가평가 의견 *</label>
+                      <label className="form-label">수행 실적 및 의견 *</label>
                       <textarea
                         rows={3}
                         required
@@ -2508,7 +2508,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       취소
                     </button>
                     <button type="submit" className="btn btn-primary">
-                      자가평가 저장 ({selfForm.selfScore5} / 5점)
+                      자가평가 저장 ({selfForm.selfScore5}점)
                     </button>
                   </div>
                 </form>
@@ -2533,7 +2533,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             >
               <div className="modal-box kpi-modal-box" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                  <h3 className="modal-title">STEP 2 — 사내 · 유관부서 무기명 협업 다면평가</h3>
+                  <h3 className="modal-title">STEP 2 — 협업 다면평가 (무기명)</h3>
                   <button
                     type="button"
                     onClick={() => setActionModal({ type: null, kpi: null })}
@@ -2550,7 +2550,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                         [{targetKpi.ownerName}] {targetKpi.title}
                       </strong>
                       <span>
-                        익명 보장 안내: 작성자의 성명·소속 부서 등 신원 정보는 일절 저장·노출되지 않으며, 대상자 본인과 상위 평가자에게는 무기명 결과만 전달됩니다.
+                        익명 보장 안내: 작성자의 성명·소속 부서 등 신원 정보는 일절 저장·노출되지 않습니다.
                       </span>
                       {modalLinkedTasks.length > 0 && (
                         <div className="kpi-modal-mapped-tasks-bar">
@@ -2570,7 +2570,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
                     <div className="tasks-form-grid-2">
                       <div className="form-group">
-                        <label className="form-label">산출물 명확성 · 완성도 (1~5점)</label>
+                        <label className="form-label">산출물 명확성 · 완성도</label>
                         <select
                           value={peerForm.scoreQuality}
                           onChange={(e) =>
@@ -2587,7 +2587,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       </div>
 
                       <div className="form-group">
-                        <label className="form-label">일정 공유 및 부서 간 협업 소통 (1~5점)</label>
+                        <label className="form-label">일정 공유 및 협업 소통</label>
                         <select
                           value={peerForm.scoreCollaboration}
                           onChange={(e) =>
@@ -2625,7 +2625,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       <label className="form-label">향후 보완/건의 사항 (선택)</label>
                       <textarea
                         rows={2}
-                        placeholder="다음 프로젝트에서 더 원활한 부서 간 협업을 위해 바라는 점이 있다면 남겨주세요."
+                        placeholder="다음 프로젝트에서 더 원활한 협업을 위해 바라는 점이 있다면 남겨주세요."
                         value={peerForm.commentImprove}
                         onChange={(e) =>
                           setPeerForm({ ...peerForm, commentImprove: e.target.value })
@@ -2654,7 +2654,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         })()}
 
       {/* =====================================================================
-          모달 5: STEP 3 서비스기획팀장(최범열 차장) 1차 평가 모달 (5.0 만점 점수 입력)
+          모달 5: STEP 3 1차 팀장 평가 모달
           ===================================================================== */}
       {actionModal.type === 'leader_eval' &&
         actionModal.kpi &&
@@ -2672,7 +2672,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             >
               <div className="modal-box kpi-modal-box" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                  <h3 className="modal-title">STEP 3 — 서비스기획팀장 1차 평가 (5점 척도)</h3>
+                  <h3 className="modal-title">STEP 3 — 1차 팀장 평가</h3>
                   <button
                     type="button"
                     onClick={() => setActionModal({ type: null, kpi: null })}
@@ -2690,10 +2690,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       </strong>
                       <span>완료 기준(DoD): {targetKpi.targetValue}</span>
                       <span>
-                        STEP 1 자가평가:{' '}
-                        {modalSelf5 !== null ? `${modalSelf5.toFixed(1)} / 5.0점` : '미입력'} · STEP 2 협업다면:{' '}
+                        자가평가: {modalSelf5 !== null ? `${modalSelf5.toFixed(1)}점` : '미입력'} · 협업다면:{' '}
                         {modalPeerInfo.avg !== null
-                          ? `${modalPeerInfo.avg.toFixed(1)} / 5.0점 (${modalPeerInfo.count}명)`
+                          ? `${modalPeerInfo.avg.toFixed(1)}점 (${modalPeerInfo.count}명)`
                           : '미참여'}
                       </span>
                       {modalLinkedTasks.length > 0 && (
@@ -2713,7 +2712,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">팀장 1차 평가 점수 선택 (1~5점) *</label>
+                      <label className="form-label">점수 선택 *</label>
                       <div className="kpi-five-score-grid">
                         {SCORE_5_RUBRIC.map((item5) => {
                           const isSelected = leaderEvalForm.score5 === item5.score;
@@ -2738,11 +2737,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">팀장 1차 평가 의견 (실장 상신용 코멘트) *</label>
+                      <label className="form-label">평가 의견 *</label>
                       <textarea
                         rows={3}
                         required
-                        placeholder="소속 팀원의 일정 준수, 산출물 무결성, 협업 기여도에 대한 1차 평가 의견을 작성해 주세요."
+                        placeholder="일정 준수, 산출물 무결성, 협업 기여도에 대한 1차 평가 의견을 작성해 주세요."
                         value={leaderEvalForm.comment}
                         onChange={(e) =>
                           setLeaderEvalForm({ ...leaderEvalForm, comment: e.target.value })
@@ -2761,7 +2760,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       취소
                     </button>
                     <button type="submit" className="btn btn-primary">
-                      1차 평가 저장 ({leaderEvalForm.score5} / 5점)
+                      1차 평가 저장 ({leaderEvalForm.score5}점)
                     </button>
                   </div>
                 </form>
@@ -2771,7 +2770,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         })()}
 
       {/* =====================================================================
-          모달 6: STEP 4 디지털마케팅실장(유은정 상무) 최종 등급(S~C) 직접 부여 모달
+          모달 6: STEP 4 디지털마케팅실장 최종 등급 확정 모달
           ===================================================================== */}
       {actionModal.type === 'director_eval' &&
         actionModal.kpi &&
@@ -2800,7 +2799,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             >
               <div className="modal-box kpi-modal-box" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                  <h3 className="modal-title">STEP 4 — 디지털마케팅실장 최종 등급 확정</h3>
+                  <h3 className="modal-title">STEP 4 — 최종 등급 확정</h3>
                   <button
                     type="button"
                     onClick={() => setActionModal({ type: null, kpi: null })}
@@ -2818,11 +2817,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       </strong>
                       <span>완료 기준(DoD): {targetKpi.targetValue}</span>
                       {selfCommentText && (
-                        <span>STEP 1 자가평가 의견: {selfCommentText}</span>
+                        <span>자가평가 의견: {selfCommentText}</span>
                       )}
                       {!isLeaderKpi && targetKpi.leaderComment && (
                         <span>
-                          STEP 3 팀장 1차 의견({modalLeader5 !== null ? `${modalLeader5.toFixed(1)}점` : '-'}):{' '}
+                          1차 팀장 의견({modalLeader5 !== null ? `${modalLeader5.toFixed(1)}점` : '-'}):{' '}
                           {targetKpi.leaderComment}
                         </span>
                       )}
@@ -2845,7 +2844,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     <div className="kpi-admin-calc-box">
                       <div className="kpi-admin-calc-header">
                         <span className="kpi-admin-calc-title">
-                          1~3단계 통일 점수(5.0 만점) 종합 확인
+                          1~3단계 평가 점수 집계
                         </span>
                         {directorEvalForm.grade !== recommendedGrade && (
                           <button
@@ -2873,7 +2872,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                         <div className="kpi-admin-calc-item">
                           <span className="kpi-admin-calc-label">STEP 1 자가평가</span>
                           <strong className="kpi-admin-calc-value">
-                            {modalSelf5 !== null ? `${modalSelf5.toFixed(1)} / 5.0점` : '미입력'}
+                            {modalSelf5 !== null ? `${modalSelf5.toFixed(1)}점` : '미입력'}
                           </strong>
                         </div>
 
@@ -2881,7 +2880,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                           <span className="kpi-admin-calc-label">STEP 2 협업다면</span>
                           <strong className="kpi-admin-calc-value">
                             {modalPeerInfo.avg !== null
-                              ? `${modalPeerInfo.avg.toFixed(1)} / 5.0 (${modalPeerInfo.count}명)`
+                              ? `${modalPeerInfo.avg.toFixed(1)}점 (${modalPeerInfo.count}명)`
                               : '미참여'}
                           </strong>
                         </div>
@@ -2892,7 +2891,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                             {isLeaderKpi
                               ? '팀장 본인 과제'
                               : modalLeader5 !== null
-                                ? `${modalLeader5.toFixed(1)} / 5.0점`
+                                ? `${modalLeader5.toFixed(1)}점`
                                 : '미입력'}
                           </strong>
                         </div>
@@ -2900,7 +2899,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                         <div className="kpi-admin-calc-item is-recommend">
                           <span className="kpi-admin-calc-label">종합 평균 · 권장 등급</span>
                           <strong className="kpi-admin-calc-value is-accent">
-                            {modalAvg5 !== null ? `${modalAvg5.toFixed(1)} / 5.0` : '-'} ({recommendedGrade}등급 권장)
+                            {modalAvg5 !== null ? `${modalAvg5.toFixed(1)}점` : '-'} ({recommendedGrade}등급 권장)
                           </strong>
                         </div>
                       </div>
@@ -2914,13 +2913,13 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                           ) 확정 시 가중치 반영 득점:
                         </span>
                         <strong>
-                          {selectedWeightedPoint}점 / {targetKpi.weight}점 만점
+                          {selectedWeightedPoint}점 / {targetKpi.weight}점
                         </strong>
                       </div>
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">실장 최종 확정 등급 선택 (S ~ C등급) *</label>
+                      <label className="form-label">최종 등급 선택 *</label>
                       <div className="kpi-final-grade-grid">
                         {GRADE_RUBRIC.map((r) => {
                           const isSelected = directorEvalForm.grade === r.grade;
@@ -2953,7 +2952,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">실장 최종 평가 총평 *</label>
+                      <label className="form-label">최종 평가 총평 *</label>
                       <textarea
                         rows={3}
                         required
