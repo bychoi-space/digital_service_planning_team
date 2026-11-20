@@ -12370,6 +12370,222 @@ textarea {
   }
 }
 
+/* ============================================================================
+   KPI 상세 화면 5점 만점 통일 척도 · 매핑 과제 팝업 버튼 · 최종 등급 선택기 스타일
+   ============================================================================ */
+
+.kpi-detail-task-title-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.15s ease;
+}
+
+.kpi-detail-task-title-btn:hover {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+button.kpi-peer-task-chip.is-link {
+  cursor: pointer;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+}
+
+button.kpi-peer-task-chip.is-link:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.kpi-score5-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.kpi-score5-chip.is-self {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.kpi-score5-chip.is-peer {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.kpi-score5-chip.is-leader {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.kpi-step4-score-summary-bar {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.kpi-step4-avg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+  font-size: 14px;
+}
+
+.kpi-five-score-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kpi-five-score-btn {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.kpi-five-score-btn:hover {
+  border-color: #93c5fd;
+  background: #f8fafc;
+}
+
+.kpi-five-score-btn.is-active {
+  border: 2px solid #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+.kpi-five-score-num {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.kpi-five-score-btn.is-active .kpi-five-score-num {
+  color: #1d4ed8;
+}
+
+.kpi-five-score-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.kpi-final-grade-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kpi-final-grade-card {
+  padding: 12px 10px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.kpi-final-grade-card:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.kpi-final-grade-card.is-active {
+  border: 2px solid #2563eb;
+  background: #eff6ff;
+}
+
+.kpi-final-grade-card.grade-s.is-active {
+  border-color: #7c3aed;
+  background: #f5f3ff;
+}
+
+.kpi-final-grade-card.grade-a.is-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.kpi-final-grade-card.grade-b.is-active {
+  border-color: #d97706;
+  background: #fffbeb;
+}
+
+.kpi-final-grade-card.grade-c.is-active {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.kpi-final-grade-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.kpi-final-grade-range {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 767px) {
+  .kpi-five-score-btn {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+  }
+
+  .kpi-five-score-desc {
+    text-align: left;
+  }
+
+  .kpi-final-grade-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
 
 
 

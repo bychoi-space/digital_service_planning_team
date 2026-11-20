@@ -6,11 +6,14 @@ import {
   checkHasSelfEval,
   getKpiEvalMetrics,
   getKpiLifecycleBadge,
+  getLeaderScore5,
+  getPeerScore5Info,
+  getSelfScore5,
+  getThreeStageAvgScore5,
   getValidFinalComment,
   getValidFinalGrade,
-  getValidLeaderGrade,
   isLeaderOwnedKpiItem,
-  resolveSelfGrade,
+  resolveUnifiedSelfComment,
 } from './kpiShared';
 import {
   ArrowLeft,
@@ -19,7 +22,6 @@ import {
   ClipboardCheck,
   Clock,
   Edit2,
-  ExternalLink,
   Link as LinkIcon,
   MessageSquare,
   Trash2,
@@ -39,6 +41,7 @@ interface KpiDetailPageProps {
   onOpenEditGoal: (kpi: KpiItem) => void;
   onDeleteGoal: (id: string, title: string) => void;
   onOpenTaskMapping: (kpi: KpiItem) => void;
+  onOpenTaskDetailPopup: (task: TaskItem) => void;
   onOpenSelfEval: (kpi: KpiItem) => void;
   onOpenPeerEval: (kpi: KpiItem) => void;
   onOpenLeaderEval: (kpi: KpiItem) => void;
@@ -58,6 +61,7 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
   onOpenEditGoal,
   onDeleteGoal,
   onOpenTaskMapping,
+  onOpenTaskDetailPopup,
   onOpenSelfEval,
   onOpenPeerEval,
   onOpenLeaderEval,
@@ -68,37 +72,23 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
   const lifecycleBadge = getKpiLifecycleBadge(item);
   const hasSelfEvaluated = checkHasSelfEval(item);
   const isLeaderKpi = isLeaderOwnedKpiItem(item);
-  const leaderGrade = getValidLeaderGrade(item);
+
+  // 1~3단계 통일 5.0점 만점 점수 및 4단계 실장 최종 등급
+  const selfScore5 = getSelfScore5(item);
+  const peerInfo = getPeerScore5Info(item);
+  const leaderScore5 = getLeaderScore5(item);
+  const avgThreeStage5 = getThreeStageAvgScore5(item);
   const finalGrade = getValidFinalGrade(item);
-  const selfGrade = resolveSelfGrade(item.selfScore);
   const evalMetrics = getKpiEvalMetrics(item);
+
+  const unifiedSelfComment = resolveUnifiedSelfComment(item);
   const doneLinkedCount = linkedTasks.filter((t) => t.status === 'done').length;
 
   const peerReviews = item.peerReviews || [];
-  const peerCount = peerReviews.length;
   const myPeerReview = peerReviews.find(
     (p) => String(p.reviewerId) === String(currentUser.id)
   );
-  const avgQuality =
-    peerCount > 0
-      ? (
-          peerReviews.reduce((acc, r) => acc + Number(r.scoreQuality || 5), 0) / peerCount
-        ).toFixed(1)
-      : '0.0';
-  const avgCollab =
-    peerCount > 0
-      ? (
-          peerReviews.reduce((acc, r) => acc + Number(r.scoreCollaboration || 5), 0) /
-          peerCount
-        ).toFixed(1)
-      : '0.0';
-  const avgTotal =
-    peerCount > 0
-      ? item.peerAvgScore ??
-        Number(((Number(avgQuality) + Number(avgCollab)) / 2).toFixed(1))
-      : 0;
   const finalComment = getValidFinalComment(item);
-  const finalStepNum = isLeaderKpi ? 'STEP 3' : 'STEP 4';
 
   return (
     <div className="kpi-detail-view">
@@ -134,7 +124,7 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
         )}
       </div>
 
-      {/* 섹션 1. KPI 목표 타이틀 & 핵심 스코어 요약 & 측정/달성 기준(DoD) 카드 */}
+      {/* 섹션 1. KPI 목표 타이틀 & 1~3단계 5점 통일 스코어 + 4단계 최종 등급 카드 */}
       <div className={`card kpi-detail-hero-card ${trackCfg.classKey}`}>
         <div className="kpi-detail-hero-top">
           <div className="kpi-detail-hero-main">
@@ -157,44 +147,44 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
             <h2 className="kpi-detail-title">{item.title}</h2>
           </div>
 
-          {/* 우측 핵심 평가 스코어 요약 박스 */}
-          <div
-            className={`kpi-detail-score-strip ${isLeaderKpi ? 'is-four-col' : 'is-five-col'}`}
-          >
+          {/* 우측 핵심 평가 요약 박스: 1~3단계 모두 5.0 만점 통일, 4단계만 최종 등급 */}
+          <div className="kpi-detail-score-strip is-five-col">
             <div className="kpi-detail-score-box">
               <span className="kpi-detail-score-label">배점 가중치</span>
               <strong className="kpi-detail-score-val">{item.weight}%</strong>
             </div>
 
             <div className="kpi-detail-score-box">
-              <span className="kpi-detail-score-label">본인 자가진단</span>
+              <span className="kpi-detail-score-label">자가평가 (5점)</span>
               <strong className="kpi-detail-score-val is-self">
-                {hasSelfEvaluated && selfGrade ? `${selfGrade}등급` : '미등록'}
+                {selfScore5 !== null ? `${selfScore5.toFixed(1)} / 5.0` : '미등록'}
               </strong>
             </div>
 
             <div className="kpi-detail-score-box">
-              <span className="kpi-detail-score-label">협업 다면평가</span>
+              <span className="kpi-detail-score-label">협업다면 (5점)</span>
               <strong className="kpi-detail-score-val is-peer">
-                {peerCount > 0 ? `${avgTotal}점 (${peerCount}명)` : '대기 (0명)'}
+                {peerInfo.avg !== null
+                  ? `${peerInfo.avg.toFixed(1)} / 5.0 (${peerInfo.count}명)`
+                  : '대기'}
               </strong>
             </div>
 
-            {!isLeaderKpi && (
-              <div className="kpi-detail-score-box">
-                <span className="kpi-detail-score-label">팀장 1차평가</span>
-                <strong className="kpi-detail-score-val is-leader">
-                  {leaderGrade ? `${leaderGrade}등급` : '미등록'}
-                </strong>
-              </div>
-            )}
+            <div className="kpi-detail-score-box">
+              <span className="kpi-detail-score-label">1차 팀장 (5점)</span>
+              <strong className="kpi-detail-score-val is-leader">
+                {isLeaderKpi
+                  ? '본인 과제'
+                  : leaderScore5 !== null
+                    ? `${leaderScore5.toFixed(1)} / 5.0`
+                    : '미등록'}
+              </strong>
+            </div>
 
             <div className="kpi-detail-score-box is-final-box">
-              <span className="kpi-detail-score-label">실장 최종평가</span>
+              <span className="kpi-detail-score-label">최종 실장 등급</span>
               <strong className="kpi-detail-score-val is-final">
-                {finalGrade
-                  ? `${finalGrade}등급 (${evalMetrics.weightedPoint}/${item.weight}점)`
-                  : '미확정'}
+                {finalGrade ? `${finalGrade}등급` : '미확정'}
               </strong>
             </div>
           </div>
@@ -209,14 +199,14 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
 
           <div className="kpi-detail-criteria-item is-dod">
             <span className="kpi-detail-criteria-label">
-              완료/달성 기준 (DoD · A등급 기준)
+              완료/달성 기준 (DoD)
             </span>
             <p className="kpi-detail-criteria-val is-target">{item.targetValue || '-'}</p>
           </div>
         </div>
       </div>
 
-      {/* 섹션 2. 매핑된 실무 수행 근거 과제 */}
+      {/* 섹션 2. 매핑된 실무 수행 근거 과제 (제목 클릭 시 페이지 이동 없이 현재 화면 위 팝업 오픈 · 불필요 산출물 버튼 제거) */}
       <div className="card kpi-detail-section-card">
         <div className="kpi-detail-section-header">
           <div className="kpi-detail-section-title-wrap">
@@ -252,7 +242,6 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
         ) : (
           <div className="kpi-detail-task-list">
             {linkedTasks.map((t) => {
-              const outUrl = t.links?.[0]?.url || t.artifactUrl;
               const isDone = t.status === 'done';
               return (
                 <div key={t.id} className="kpi-detail-task-row">
@@ -263,12 +252,13 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
                       <CheckCircle2 size={14} />
                       {isDone ? '완료' : `진행중 (${t.progress ?? 0}%)`}
                     </span>
-                    <a
-                      href={`#/tasks/${encodeURIComponent(t.id)}`}
-                      className="kpi-detail-task-title-link"
+                    <button
+                      type="button"
+                      onClick={() => onOpenTaskDetailPopup(t)}
+                      className="kpi-detail-task-title-btn"
                     >
                       {t.title}
-                    </a>
+                    </button>
                     <span className="kpi-evidence-assignee">담당: {t.assigneeName}</span>
                   </div>
 
@@ -279,16 +269,6 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
                         ? `${t.startDate || '미정'} ~ ${t.dueDate || '미정'}`
                         : '일정 미정'}
                     </span>
-                    {outUrl && (
-                      <a
-                        href={outUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="kpi-detail-task-link"
-                      >
-                        산출물 확인 <ExternalLink size={14} />
-                      </a>
-                    )}
                   </div>
                 </div>
               );
@@ -297,9 +277,9 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
         )}
       </div>
 
-      {/* 섹션 3. 단계별 성과 평가 상세 워크플로우 */}
+      {/* 섹션 3. 4단계 성과 평가 워크플로우 ([자가평가] > [협업다면] > [1차 팀장] > [최종 실장]) */}
       <div className="kpi-eval-steps-grid is-detail-page">
-        {/* STEP 1: 본인 수행 실적 및 자가평가 */}
+        {/* STEP 1: 본인 자가평가 (5.0점 만점 점수 + 단일 통합 코멘트) */}
         <div
           className={`card kpi-eval-step-card is-detail ${
             hasSelfEvaluated ? 'is-completed-self' : 'is-pending'
@@ -308,10 +288,10 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
           <div className="kpi-eval-step-header">
             <div className="kpi-step-badge-wrap">
               <span className="kpi-step-num step-1">STEP 1</span>
-              <span className="kpi-step-title">본인 수행 실적 및 자가평가</span>
-              {hasSelfEvaluated && selfGrade ? (
-                <span className={`kpi-grade-chip grade-${selfGrade.toLowerCase()}`}>
-                  자가 {selfGrade}등급
+              <span className="kpi-step-title">자가평가 (본인 수행 실적 및 의견)</span>
+              {selfScore5 !== null ? (
+                <span className="kpi-score5-chip is-self">
+                  {selfScore5.toFixed(1)} / 5.0점
                 </span>
               ) : (
                 <span className="kpi-step-pending-badge">미등록 (필수 선행)</span>
@@ -325,49 +305,44 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
                 className={`btn ${hasSelfEvaluated ? 'btn-secondary' : 'btn-primary'} tasks-action-btn`}
               >
                 <ClipboardCheck size={14} />{' '}
-                {hasSelfEvaluated ? '실적 · 자가평가 수정' : '실적 · 자가평가 등록'}
+                {hasSelfEvaluated ? '자가평가 수정' : '자가평가 점수 등록'}
               </button>
             )}
           </div>
 
           {hasSelfEvaluated ? (
-            <div className="kpi-step-body is-detail is-two-col">
+            <div className="kpi-step-body is-detail">
               <div className="kpi-detail-eval-content-box">
-                <span className="kpi-step-field-label">수행 실적 요약</span>
                 <p className="kpi-step-field-val is-detail">
-                  {item.currentValue?.trim() || '-'}
-                </p>
-              </div>
-              <div className="kpi-detail-eval-content-box">
-                <span className="kpi-step-field-label">본인 자가평가 의견</span>
-                <p className="kpi-step-field-val is-detail">
-                  {item.selfEvaluation?.trim() || '등록된 자가평가 코멘트가 없습니다.'}
+                  {unifiedSelfComment || '점수 등록 완료 (작성된 코멘트 없음)'}
                 </p>
               </div>
             </div>
           ) : (
             <div className="kpi-detail-empty-box">
               {isSelf
-                ? '아직 수행 실적과 자가평가가 등록되지 않았습니다. 우측 상단 [실적 · 자가평가 등록] 버튼을 눌러 먼저 작성해 주세요.'
-                : '담당자 본인의 수행 실적 및 자가평가 등록을 대기 중입니다.'}
+                ? '아직 자가평가가 등록되지 않았습니다. 우측 상단 [자가평가 점수 등록] 버튼을 눌러 점수와 수행 실적을 작성해 주세요.'
+                : '담당자 본인의 자가평가 점수 및 수행 실적 등록을 대기 중입니다.'}
             </div>
           )}
         </div>
 
-        {/* STEP 2: 사내 · 유관부서 무기명 협업 다면평가 */}
+        {/* STEP 2: 협업 다면평가 (5.0점 만점 무기명 평균 점수) */}
         <div
           className={`card kpi-eval-step-card is-detail ${
-            peerCount > 0 ? 'is-completed-peer' : 'is-pending'
+            peerInfo.count > 0 ? 'is-completed-peer' : 'is-pending'
           }`}
         >
           <div className="kpi-eval-step-header">
             <div className="kpi-step-badge-wrap">
               <span className="kpi-step-num step-2">STEP 2</span>
               <span className="kpi-step-title">
-                사내 · 유관부서 무기명 협업 다면평가 ({peerCount}명 참여)
+                협업 다면평가 ({peerInfo.count}명 무기명 참여)
               </span>
-              {peerCount > 0 ? (
-                <span className="kpi-peer-score-chip">평균 {avgTotal} / 5.0점</span>
+              {peerInfo.avg !== null ? (
+                <span className="kpi-score5-chip is-peer">
+                  평균 {peerInfo.avg.toFixed(1)} / 5.0점
+                </span>
               ) : (
                 <span className="kpi-step-pending-badge">참여 대기</span>
               )}
@@ -381,21 +356,21 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
               >
                 <MessageSquare size={14} />{' '}
                 {myPeerReview
-                  ? '내 동료 피드백 수정 (무기명)'
-                  : '동료 피드백 평가하기 (무기명)'}
+                  ? '내 다면평가 점수 수정 (무기명)'
+                  : '협업 다면평가 참여 (무기명)'}
               </button>
             )}
           </div>
 
-          {peerCount === 0 ? (
+          {peerInfo.count === 0 ? (
             <div className="kpi-detail-empty-box">
-              팀 동료 및 유관부서 협업 담당자가 무기명 피드백을 등록하면 평가자 신원 없이 집계 점수와 코멘트만 이곳에 표시됩니다.
+              팀 동료 및 유관부서 협업 담당자가 무기명 점수를 등록하면 평균 점수(5.0 만점)와 코멘트만 이곳에 집계됩니다.
             </div>
           ) : (
             <div className="kpi-step-body is-detail">
               <div className="kpi-peer-anon-scores">
-                산출물 완성도 평균 <strong>{avgQuality}</strong>점 · 일정·소통 협업 평균{' '}
-                <strong>{avgCollab}</strong>점
+                산출물 완성도 평균 <strong>{peerInfo.avgQuality} / 5.0점</strong> · 일정·소통 협업 평균{' '}
+                <strong>{peerInfo.avgCollab} / 5.0점</strong>
               </div>
               <div className="kpi-peer-anon-list">
                 {peerReviews.map((pr, idx) => (
@@ -419,73 +394,81 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
           )}
         </div>
 
-        {/* STEP 3 (팀원 KPI인 경우에만 표시): 서비스기획팀장 1차 평가 */}
-        {!isLeaderKpi && (
-          <div
-            className={`card kpi-eval-step-card is-detail ${
-              leaderGrade
+        {/* STEP 3: 1차 팀장 평가 (5.0점 만점 점수 입력 · 팀장 본인 과제는 자동 패스 안내) */}
+        <div
+          className={`card kpi-eval-step-card is-detail ${
+            isLeaderKpi
+              ? hasSelfEvaluated
+                ? 'is-completed-self'
+                : 'is-pending'
+              : leaderScore5 !== null
                 ? 'is-completed-self'
                 : !hasSelfEvaluated
                   ? 'is-locked'
                   : 'is-pending'
-            }`}
-          >
-            <div className="kpi-eval-step-header">
-              <div className="kpi-step-badge-wrap">
-                <span className="kpi-step-num step-1">STEP 3</span>
-                <span className="kpi-step-title">팀장 1차 평가 (서비스기획팀장)</span>
-                {leaderGrade ? (
-                  <span className={`kpi-grade-chip grade-${leaderGrade.toLowerCase()}`}>
-                    1차 {leaderGrade}등급
-                  </span>
-                ) : !hasSelfEvaluated ? (
-                  <span className="kpi-step-pending-badge is-locked">STEP 1 선행 필요</span>
-                ) : (
-                  <span className="kpi-step-pending-badge">1차 평가 대기</span>
-                )}
-              </div>
-
-              {isTeamLead && (
-                <button
-                  type="button"
-                  onClick={() => onOpenLeaderEval(item)}
-                  disabled={!hasSelfEvaluated}
-                  className={`btn ${hasSelfEvaluated ? 'btn-primary' : 'btn-secondary'} tasks-action-btn`}
-                >
-                  <UserCheck size={14} />{' '}
-                  {!hasSelfEvaluated
-                    ? '1차 평가 (자가평가 선행 필요)'
-                    : leaderGrade
-                      ? '팀장 1차 평가 수정'
-                      : '팀장 1차 평가 등록'}
-                </button>
+          }`}
+        >
+          <div className="kpi-eval-step-header">
+            <div className="kpi-step-badge-wrap">
+              <span className="kpi-step-num step-1">STEP 3</span>
+              <span className="kpi-step-title">1차 팀장 평가 (서비스기획팀장)</span>
+              {isLeaderKpi ? (
+                <span className="kpi-step-pending-badge">팀장 본인 과제 (STEP 4 직행)</span>
+              ) : leaderScore5 !== null ? (
+                <span className="kpi-score5-chip is-leader">
+                  {leaderScore5.toFixed(1)} / 5.0점
+                </span>
+              ) : !hasSelfEvaluated ? (
+                <span className="kpi-step-pending-badge is-locked">STEP 1 선행 필요</span>
+              ) : (
+                <span className="kpi-step-pending-badge">1차 점수 대기</span>
               )}
             </div>
 
-            {leaderGrade ? (
-              <div className="kpi-step-body is-detail">
-                <div className="kpi-detail-eval-content-box">
-                  <span className="kpi-step-field-label">
-                    서비스기획팀장 1차 평가 의견 ({item.leaderEvaluatorName || '최범열'})
-                  </span>
-                  <p className="kpi-step-field-val is-detail">
-                    {item.leaderComment?.trim() || '등록된 1차 평가 코멘트가 없습니다.'}
-                  </p>
-                </div>
-              </div>
-            ) : !hasSelfEvaluated ? (
-              <div className="kpi-detail-empty-box">
-                STEP 1 [본인 수행 실적 및 자가평가]가 먼저 등록되어야 팀장 1차 평가를 진행할 수 있습니다.
-              </div>
-            ) : (
-              <div className="kpi-detail-empty-box">
-                서비스기획팀장(최범열 차장)의 1차 평가를 대기 중입니다.
-              </div>
+            {!isLeaderKpi && isTeamLead && (
+              <button
+                type="button"
+                onClick={() => onOpenLeaderEval(item)}
+                disabled={!hasSelfEvaluated}
+                className={`btn ${hasSelfEvaluated ? 'btn-primary' : 'btn-secondary'} tasks-action-btn`}
+              >
+                <UserCheck size={14} />{' '}
+                {!hasSelfEvaluated
+                  ? '1차 평가 (자가평가 선행 필요)'
+                  : leaderScore5 !== null
+                    ? '1차 평가 점수 수정'
+                    : '1차 평가 점수 등록'}
+              </button>
             )}
           </div>
-        )}
 
-        {/* 최종 단계 (팀원 STEP 4 / 팀장 본인 STEP 3): 디지털마케팅실장(유은정 상무) 최종 평가 */}
+          {isLeaderKpi ? (
+            <div className="kpi-detail-empty-box">
+              팀장 본인(또는 팀 공통) 과제는 별도 1차 팀장 점수 입력 없이 STEP 1 자가평가 및 STEP 2 다면평가 점수를 바탕으로 STEP 4 실장 최종 평가가 진행됩니다.
+            </div>
+          ) : leaderScore5 !== null ? (
+            <div className="kpi-step-body is-detail">
+              <div className="kpi-detail-eval-content-box">
+                <span className="kpi-step-field-label">
+                  서비스기획팀장 1차 평가 의견 ({item.leaderEvaluatorName || '최범열'})
+                </span>
+                <p className="kpi-step-field-val is-detail">
+                  {item.leaderComment?.trim() || '등록된 1차 평가 코멘트가 없습니다.'}
+                </p>
+              </div>
+            </div>
+          ) : !hasSelfEvaluated ? (
+            <div className="kpi-detail-empty-box">
+              STEP 1 [자가평가] 점수가 먼저 등록되어야 팀장 1차 평가를 진행할 수 있습니다.
+            </div>
+          ) : (
+            <div className="kpi-detail-empty-box">
+              서비스기획팀장(최범열 차장)의 1차 평가 점수(5.0 만점) 등록을 대기 중입니다.
+            </div>
+          )}
+        </div>
+
+        {/* STEP 4: 최종 실장 평가 (1~3단계 점수를 종합 확인하여 유은정 상무가 최종 S/A/B/C 등급 직접 부여) */}
         <div
           className={`card kpi-eval-step-card is-detail ${
             finalGrade
@@ -497,18 +480,18 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
         >
           <div className="kpi-eval-step-header">
             <div className="kpi-step-badge-wrap">
-              <span className="kpi-step-num step-3">{finalStepNum}</span>
+              <span className="kpi-step-num step-3">STEP 4</span>
               <span className="kpi-step-title">
-                실장 최종 평가 (디지털마케팅실장 · 유은정 상무)
+                최종 실장 평가 (디지털마케팅실장 · 유은정 상무)
               </span>
               {finalGrade ? (
                 <span className={`kpi-grade-chip grade-${finalGrade.toLowerCase()}`}>
-                  최종 {finalGrade}등급 ({evalMetrics.weightedPoint} / {item.weight}점)
+                  최종 {finalGrade}등급 (가중 {evalMetrics.weightedPoint} / {item.weight}점)
                 </span>
               ) : !hasSelfEvaluated ? (
                 <span className="kpi-step-pending-badge is-locked">STEP 1 선행 필요</span>
               ) : (
-                <span className="kpi-step-pending-badge">실장 최종평가 대기</span>
+                <span className="kpi-step-pending-badge">최종 등급 확정 대기</span>
               )}
             </div>
 
@@ -520,8 +503,8 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
                 className={`btn ${hasSelfEvaluated ? 'btn-primary' : 'btn-secondary'} tasks-action-btn kpi-final-eval-btn`}
                 title={
                   hasSelfEvaluated
-                    ? '디지털마케팅실장 최종 등급 및 총평 확정'
-                    : '담당자 본인의 [실적 · 자가평가]가 먼저 등록되어야 최종 등급을 확정할 수 있습니다.'
+                    ? '1~3단계 점수를 종합 확인하여 최종 등급(S~C) 확정'
+                    : '담당자 본인의 [STEP 1 자가평가]가 먼저 등록되어야 최종 등급을 확정할 수 있습니다.'
                 }
               >
                 <Award size={14} />{' '}
@@ -529,10 +512,35 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
                   ? '최종 등급 확정 (자가평가 선행 필요)'
                   : finalGrade
                     ? '최종 등급 재확정'
-                    : '최종 등급 확정'}
+                    : '최종 등급 부여'}
               </button>
             )}
           </div>
+
+          {/* 1~3단계 점수 한눈 요약 바 (실장님이 등급 산정 시 바로 참고) */}
+          {avgThreeStage5 !== null && (
+            <div className="kpi-step4-score-summary-bar">
+              <span>
+                1~3단계 점수 집계: 자가{' '}
+                <strong>{selfScore5 !== null ? `${selfScore5.toFixed(1)}점` : '미입력'}</strong> · 다면{' '}
+                <strong>
+                  {peerInfo.avg !== null ? `${peerInfo.avg.toFixed(1)}점(${peerInfo.count}명)` : '미참여'}
+                </strong>
+                {!isLeaderKpi && (
+                  <>
+                    {' '}
+                    · 1차 팀장{' '}
+                    <strong>
+                      {leaderScore5 !== null ? `${leaderScore5.toFixed(1)}점` : '미입력'}
+                    </strong>
+                  </>
+                )}
+              </span>
+              <span className="kpi-step4-avg-badge">
+                종합 평균 <strong>{avgThreeStage5.toFixed(1)} / 5.0점</strong>
+              </span>
+            </div>
+          )}
 
           {finalGrade ? (
             <div className="kpi-step-body is-detail">
@@ -547,11 +555,11 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
             </div>
           ) : !hasSelfEvaluated ? (
             <div className="kpi-detail-empty-box">
-              STEP 1 [본인 수행 실적 및 자가평가]가 먼저 등록되어야 실장 최종 등급을 확정할 수 있습니다.
+              STEP 1 [자가평가] 점수가 먼저 등록되어야 실장 최종 등급을 부여할 수 있습니다.
             </div>
           ) : (
             <div className="kpi-detail-empty-box">
-              디지털마케팅실장(유은정 상무)의 최종 등급 및 총평 확정을 대기 중입니다.
+              디지털마케팅실장(유은정 상무)께서 1~3단계 점수를 확인 후 최종 등급(S ~ C)을 확정합니다.
             </div>
           )}
         </div>
