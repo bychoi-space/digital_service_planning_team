@@ -146,8 +146,9 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
                 {item.targetScope === 'team' ? '팀 공통' : item.ownerName}
               </span>
               <span className="kpi-weight-badge">
+                {item.year || 2026}년{' '}
                 {QUARTERS.find((q) => q.key === (item.quarter || 'Annual'))?.label ||
-                  '2026 연간 종합'}
+                  '연간 종합'}
               </span>
               <span className={`kpi-status-badge ${lifecycleBadge.classKey}`}>
                 {lifecycleBadge.label}

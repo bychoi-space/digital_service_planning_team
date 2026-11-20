@@ -8,16 +8,36 @@ export type KpiModeTab = 'evaluation' | 'peer_feedback';
 export interface KpiRouteState {
   mode: KpiModeTab;
   detailId: string | null;
+  queryYear?: number;
+  queryQuarter?: KpiQuarter;
 }
+
+const VALID_QUARTERS = new Set<KpiQuarter>(['Annual', 'Q1', 'Q2', 'Q3', 'Q4']);
 
 export function parseKpiRouteFromHash(
   hash: string = typeof window !== 'undefined' ? window.location.hash : ''
 ): KpiRouteState {
-  const clean = hash.replace(/^#\/?/, '').trim();
+  const raw = hash.replace(/^#\/?/, '').trim();
+  const [pathPart, queryPart] = raw.split('?');
+  const clean = (pathPart || '').trim();
   const lower = clean.toLowerCase();
 
+  let queryYear: number | undefined;
+  let queryQuarter: KpiQuarter | undefined;
+  if (queryPart) {
+    const params = new URLSearchParams(queryPart);
+    const y = Number(params.get('year'));
+    if (Number.isInteger(y) && y >= 2024 && y <= 2035) {
+      queryYear = y;
+    }
+    const q = params.get('quarter') as KpiQuarter | null;
+    if (q && VALID_QUARTERS.has(q)) {
+      queryQuarter = q;
+    }
+  }
+
   if (lower === 'kpi/peer' || lower === 'kpis/peer') {
-    return { mode: 'peer_feedback', detailId: null };
+    return { mode: 'peer_feedback', detailId: null, queryYear, queryQuarter };
   }
 
   const detailPrefixMatch = clean.match(/^kpis?\/detail\/(.+)$/i);
@@ -26,20 +46,26 @@ export function parseKpiRouteFromHash(
       return {
         mode: 'evaluation',
         detailId: decodeURIComponent(detailPrefixMatch[1].trim()),
+        queryYear,
+        queryQuarter,
       };
     } catch {
       return {
         mode: 'evaluation',
         detailId: detailPrefixMatch[1].trim(),
+        queryYear,
+        queryQuarter,
       };
     }
   }
 
-  return { mode: 'evaluation', detailId: null };
+  return { mode: 'evaluation', detailId: null, queryYear, queryQuarter };
 }
 
+export const KPI_YEAR_OPTIONS: number[] = [2026, 2027, 2028];
+
 export const QUARTERS: { key: KpiQuarter; label: string; shortLabel: string }[] = [
-  { key: 'Annual', label: '2026 연간', shortLabel: '연간' },
+  { key: 'Annual', label: '연간 종합', shortLabel: '연간' },
   { key: 'Q1', label: '1분기', shortLabel: '1분기' },
   { key: 'Q2', label: '2분기', shortLabel: '2분기' },
   { key: 'Q3', label: '3분기', shortLabel: '3분기' },

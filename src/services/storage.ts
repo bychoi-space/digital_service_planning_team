@@ -5,6 +5,8 @@ import type {
   TaskStatus,
   VacationItem,
   KpiItem,
+  KpiQuarter,
+  KpiCycleSchedule,
   KpiProcessStage,
   KpiQuarterlyCheckin,
   KpiPeerReview,
@@ -27,12 +29,18 @@ import {
   resolveDefaultOrgProfile,
   resolveKpiAccessRole,
 } from '../constants/departments';
+import {
+  buildKpiCycleKey,
+  computeDefaultKpiCycleSchedule,
+  formatCycleFullLabel,
+} from '../components/kpi/kpiSchedule';
 
 const STORAGE_KEYS = {
   USERS: 'ds_planning_users_v2',
   TASKS: 'ds_planning_tasks_clean_v1',
   VACATIONS: 'ds_planning_vacations_clean_v1',
   KPIS: 'ds_planning_kpis_clean_v1',
+  KPI_SCHEDULES: 'ds_planning_kpi_schedules_v1',
   AUDIT_LOGS: 'ds_planning_audit_logs_clean_v1',
   WORK_INFOS: 'ds_planning_work_infos_v1',
   ONBOARDING_ITEMS: 'ds_planning_onboarding_items_v3',
@@ -43,6 +51,7 @@ const STORAGE_KEYS = {
 
 const WORK_INFO_CLOUD_RECORD_ID = 'sys-work-info-store-v1';
 const KPI_CLOUD_RECORD_ID = 'sys-kpi-extended-store-v1';
+const KPI_SCHEDULE_CLOUD_RECORD_ID = 'sys-kpi-schedule-store-v1';
 const ONBOARDING_CLOUD_RECORD_ID = 'sys-onboarding-store-v3';
 const POLICY_CLOUD_RECORD_ID = 'sys-policy-store-v1';
 
@@ -1411,6 +1420,9 @@ export class PlanningStorageService {
     if (!localStorage.getItem(STORAGE_KEYS.KPIS)) {
       localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify([]));
     }
+    if (!localStorage.getItem(STORAGE_KEYS.KPI_SCHEDULES)) {
+      localStorage.setItem(STORAGE_KEYS.KPI_SCHEDULES, JSON.stringify({}));
+    }
     if (!localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS)) {
       localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify([]));
     }
@@ -1767,6 +1779,7 @@ export class PlanningStorageService {
             ONBOARDING_CLOUD_RECORD_ID,
             POLICY_CLOUD_RECORD_ID,
             KPI_CLOUD_RECORD_ID,
+            KPI_SCHEDULE_CLOUD_RECORD_ID,
           ]),
       ]);
 
@@ -1832,6 +1845,23 @@ export class PlanningStorageService {
               }
             });
             localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(Array.from(mergedMap.values())));
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('ds-portal-kpis-updated'));
+            }
+          }
+        }
+
+        const cloudKpiScheduleRow = findStoreRow(KPI_SCHEDULE_CLOUD_RECORD_ID);
+        if (cloudKpiScheduleRow && typeof cloudKpiScheduleRow.summary === 'string') {
+          const parsedSchedules = safeJsonParse<Record<string, KpiCycleSchedule>>(
+            cloudKpiScheduleRow.summary,
+            {}
+          );
+          if (parsedSchedules && typeof parsedSchedules === 'object') {
+            localStorage.setItem(STORAGE_KEYS.KPI_SCHEDULES, JSON.stringify(parsedSchedules));
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('ds-portal-kpi-schedules-updated'));
+            }
           }
         }
 
@@ -3440,19 +3470,169 @@ export class PlanningStorageService {
     if (filtered.length !== raw.length) {
       localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(filtered));
     }
-    return filtered.map((k) => ({
-      ...k,
-      stage: k.stage || (k.status === 'planning' ? 'draft' : 'aligned'),
-      linkedTaskIds: Array.isArray(k.linkedTaskIds) ? k.linkedTaskIds : [],
-      checkins: Array.isArray(k.checkins) ? k.checkins : [],
-      peerReviews: Array.isArray(k.peerReviews)
-        ? k.peerReviews.map((pr) => ({
-            ...pr,
-            reviewerName: '익명 동료',
-          }))
-        : [],
-      track: k.track || '기획',
-    }));
+    const todayStr = getTodayDateString();
+    const overrides = safeJsonParse<Record<string, KpiCycleSchedule>>(
+      localStorage.getItem(STORAGE_KEYS.KPI_SCHEDULES),
+      {}
+    );
+
+    return filtered.map((k) => {
+      const yr = Number(k.year || 2026);
+      const qt: KpiQuarter = k.quarter || 'Annual';
+      const cycleKey = buildKpiCycleKey(yr, qt);
+      const schedule = overrides[cycleKey]
+        ? { ...computeDefaultKpiCycleSchedule(yr, qt), ...overrides[cycleKey] }
+        : computeDefaultKpiCycleSchedule(yr, qt);
+
+      // 수행 개시일 도래 시 '목표 수립(planning)' 상태 과제를 자동으로 '수행·점검중(in_progress)'으로 전환
+      const resolvedStatus =
+        k.status === 'planning' && todayStr >= schedule.execStart ? 'in_progress' : k.status;
+
+      return {
+        ...k,
+        year: yr,
+        quarter: qt,
+        status: resolvedStatus,
+        stage: k.stage || (resolvedStatus === 'planning' ? 'draft' : 'aligned'),
+        linkedTaskIds: Array.isArray(k.linkedTaskIds) ? k.linkedTaskIds : [],
+        checkins: Array.isArray(k.checkins) ? k.checkins : [],
+        peerReviews: Array.isArray(k.peerReviews)
+          ? k.peerReviews.map((pr) => ({
+              ...pr,
+              reviewerName: '익명 동료',
+            }))
+          : [],
+        track: k.track || '기획',
+      };
+    });
+  }
+
+  // --- KPI 평가 기수별 자동 스케줄 및 관리자(최범열) 미세 조정 스토어 ---
+  public static getKpiScheduleOverrides(): Record<string, KpiCycleSchedule> {
+    this.initialize();
+    return safeJsonParse<Record<string, KpiCycleSchedule>>(
+      localStorage.getItem(STORAGE_KEYS.KPI_SCHEDULES),
+      {}
+    );
+  }
+
+  public static getKpiCycleSchedule(year: number, quarter: KpiQuarter): KpiCycleSchedule {
+    const base = computeDefaultKpiCycleSchedule(year, quarter);
+    const overrides = this.getKpiScheduleOverrides();
+    const saved = overrides[base.cycleKey];
+    if (!saved) return base;
+    return {
+      ...base,
+      ...saved,
+      cycleKey: base.cycleKey,
+      year,
+      quarter,
+      isCustomized: true,
+    };
+  }
+
+  private static async pushKpiSchedulesToRemote(
+    map: Record<string, KpiCycleSchedule>
+  ): Promise<void> {
+    if (!isSupabaseEnabled()) return;
+    const client = getSupabaseClient();
+    if (!client) return;
+    const currentUser = this.getCurrentUser();
+    try {
+      await client.from('audit_logs').upsert({
+        id: KPI_SCHEDULE_CLOUD_RECORD_ID,
+        entity_type: 'kpi',
+        entity_id: 'sys-kpi-schedule',
+        entity_title: 'KPI_SCHEDULE_STORE',
+        action: 'UPDATE',
+        actor_id: currentUser.id,
+        actor_name: 'SYSTEM',
+        actor_role: currentUser.role,
+        timestamp: new Date().toISOString(),
+        summary: JSON.stringify(map),
+      });
+    } catch (e) {
+      console.warn('Supabase kpi schedule sync note:', e);
+    }
+  }
+
+  public static async saveKpiCycleScheduleOverride(
+    schedule: KpiCycleSchedule
+  ): Promise<{ success: boolean; message: string }> {
+    const currentUser = this.getCurrentUser();
+    if (!canManageUserPermissions(currentUser)) {
+      return { success: false, message: 'KPI 공식 일정 조정은 관리자(최범열)만 수행할 수 있습니다.' };
+    }
+
+    const cycleKey = buildKpiCycleKey(schedule.year, schedule.quarter);
+    const overrides = this.getKpiScheduleOverrides();
+    const updatedSchedule: KpiCycleSchedule = {
+      ...schedule,
+      cycleKey,
+      isCustomized: true,
+      updatedBy: currentUser.name,
+      updatedAt: new Date().toISOString(),
+    };
+    const nextMap = {
+      ...overrides,
+      [cycleKey]: updatedSchedule,
+    };
+
+    localStorage.setItem(STORAGE_KEYS.KPI_SCHEDULES, JSON.stringify(nextMap));
+    await this.pushKpiSchedulesToRemote(nextMap);
+
+    const label = formatCycleFullLabel(schedule.year, schedule.quarter);
+    this.recordAuditLog({
+      entityType: 'kpi',
+      entityId: cycleKey,
+      entityTitle: `${label} KPI 공식 일정`,
+      action: 'UPDATE',
+      summary: `[KPI 일정 조정] ${label} 평가 기수 일정 미세 조정 반영 (목표수립 ${schedule.goalSetupStart}~${schedule.goalSetupEnd}, 최종평가 ~${schedule.finalEvalEnd})`,
+    });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ds-portal-kpi-schedules-updated'));
+    }
+
+    return {
+      success: true,
+      message: `${label} KPI 공식 일정이 저장되었으며 [팀 통합 일정]에 즉시 반영되었습니다.`,
+    };
+  }
+
+  public static async resetKpiCycleScheduleOverride(
+    year: number,
+    quarter: KpiQuarter
+  ): Promise<{ success: boolean; message: string }> {
+    const currentUser = this.getCurrentUser();
+    if (!canManageUserPermissions(currentUser)) {
+      return { success: false, message: 'KPI 공식 일정 초기화는 관리자(최범열)만 수행할 수 있습니다.' };
+    }
+
+    const cycleKey = buildKpiCycleKey(year, quarter);
+    const overrides = { ...this.getKpiScheduleOverrides() };
+    delete overrides[cycleKey];
+
+    localStorage.setItem(STORAGE_KEYS.KPI_SCHEDULES, JSON.stringify(overrides));
+    await this.pushKpiSchedulesToRemote(overrides);
+
+    const label = formatCycleFullLabel(year, quarter);
+    this.recordAuditLog({
+      entityType: 'kpi',
+      entityId: cycleKey,
+      entityTitle: `${label} KPI 공식 일정`,
+      action: 'UPDATE',
+      summary: `[KPI 일정 복원] ${label} 평가 기수 일정을 표준 4주 순차 자동 일정으로 초기화함`,
+    });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ds-portal-kpi-schedules-updated'));
+    }
+
+    return {
+      success: true,
+      message: `${label} KPI 공식 일정이 표준 자동 일정으로 복원되었습니다.`,
+    };
   }
 
   private static async pushExtendedKpisToRemote(kpis: KpiItem[]): Promise<void> {
@@ -3474,6 +3654,9 @@ export class PlanningStorageService {
         timestamp: new Date().toISOString(),
         summary: JSON.stringify(kpis),
       });
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ds-portal-kpis-updated'));
+      }
     } catch (e) {
       console.warn('Supabase kpi extended sync note:', e);
     }

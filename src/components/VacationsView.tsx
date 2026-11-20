@@ -9,13 +9,23 @@ import type {
   TaskCategory,
   TaskPriority,
   TaskStatus,
+  KpiItem,
+  KpiCycleSchedule,
 } from '../types';
 import {
   PlanningStorageService,
   computeTaskStatusByDates,
   getTodayDateString,
 } from '../services/storage';
+import { canManageUserPermissions } from '../constants/departments';
 import { AttachmentField } from './common/AttachmentField';
+import { KpiScheduleEditModal } from './kpi/KpiScheduleEditModal';
+import {
+  buildActiveKpiCalendarMilestones,
+  formatShortDateRange,
+  resolveCycleTimelineSteps,
+} from './kpi/kpiSchedule';
+import type { KpiCalendarMilestone } from './kpi/kpiSchedule';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -30,6 +40,9 @@ import {
   ExternalLink,
   Clock,
   CheckCircle2,
+  Target,
+  SlidersHorizontal,
+  ArrowRight,
 } from 'lucide-react';
 
 interface VacationsViewProps {
@@ -161,9 +174,14 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
 
   const [vacations, setVacations] = useState<VacationItem[]>(() => PlanningStorageService.getVacations());
   const [tasks, setTasks] = useState<TaskItem[]>(() => PlanningStorageService.getTasks());
+  const [kpis, setKpis] = useState<KpiItem[]>(() => PlanningStorageService.getKpis());
+  const [kpiScheduleOverrides, setKpiScheduleOverrides] = useState<
+    Record<string, KpiCycleSchedule>
+  >(() => PlanningStorageService.getKpiScheduleOverrides());
   const [teamMembers, setTeamMembers] = useState<User[]>(() =>
     PlanningStorageService.getServicePlanningMembers()
   );
+  const canManageKpiSchedule = canManageUserPermissions(currentUser);
 
   const [currentDate, setCurrentDate] = useState<Date>(() => {
     const now = new Date();
@@ -171,8 +189,8 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
   });
   const [selectedMobileDate, setSelectedMobileDate] = useState<string>(todayStr);
 
-  // 필터 상태: 'all' | 'vacation' | '기획' | '디자인' | '퍼블리싱'
-  const [filterType, setFilterType] = useState<'all' | 'vacation' | TaskTrack>('all');
+  // 필터 상태: 'all' | 'kpi' | 'vacation' | '기획' | '디자인' | '퍼블리싱'
+  const [filterType, setFilterType] = useState<'all' | 'kpi' | 'vacation' | TaskTrack>('all');
   const [onlyActiveTasks, setOnlyActiveTasks] = useState<boolean>(false);
 
   // 휴가 모달 상태
@@ -183,13 +201,29 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
 
+  // KPI 공식 평가 일정 상세 모달 및 관리자 일정 조정 모달 상태
+  const [selectedKpiMilestone, setSelectedKpiMilestone] =
+    useState<KpiCalendarMilestone | null>(null);
+  const [editingKpiScheduleCycle, setEditingKpiScheduleCycle] = useState<{
+    year: number;
+    quarter: KpiCycleSchedule['quarter'];
+    schedule: KpiCycleSchedule;
+  } | null>(null);
+
   // 일자별 전체 일정 더보기 모달 (데스크톱/태블릿용)
   const [selectedDayDetail, setSelectedDayDetail] = useState<{
     dateStr: string;
     dayNum: number;
+    kpiMilestones: KpiCalendarMilestone[];
     vacations: VacationItem[];
     tasks: TaskItem[];
   } | null>(null);
+
+  // 실제로 KPI가 1건 이상 등록된 평가 기수의 자동/조정 마일스톤 산출
+  const activeKpiMilestones = useMemo(
+    () => buildActiveKpiCalendarMilestones(kpis, kpiScheduleOverrides),
+    [kpis, kpiScheduleOverrides]
+  );
 
   const resolveDefaultMember = (members: User[]): User => {
     const matched = members.find(
@@ -477,6 +511,8 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
   const refreshAll = () => {
     setVacations(PlanningStorageService.getVacations());
     setTasks(PlanningStorageService.getTasks());
+    setKpis(PlanningStorageService.getKpis());
+    setKpiScheduleOverrides(PlanningStorageService.getKpiScheduleOverrides());
     setTeamMembers(PlanningStorageService.getServicePlanningMembers());
   };
 
@@ -485,9 +521,13 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       refreshAll();
     };
     window.addEventListener('ds-portal-tasks-updated', handleStorageUpdate);
+    window.addEventListener('ds-portal-kpis-updated', handleStorageUpdate);
+    window.addEventListener('ds-portal-kpi-schedules-updated', handleStorageUpdate);
     PlanningStorageService.syncWithNotion();
     return () => {
       window.removeEventListener('ds-portal-tasks-updated', handleStorageUpdate);
+      window.removeEventListener('ds-portal-kpis-updated', handleStorageUpdate);
+      window.removeEventListener('ds-portal-kpi-schedules-updated', handleStorageUpdate);
     };
   }, []);
 
@@ -634,15 +674,22 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     setSelectedMobileDate(formatLocalDate(now));
   };
 
-  // 특정 일자의 필터링된 휴가/업무 반환 헬퍼
+  // 특정 일자의 필터링된 KPI 마일스톤 / 휴가 / 업무 반환 헬퍼
   const getDaySchedules = (dateStr: string) => {
+    const dayKpiMilestones =
+      filterType === 'all' || filterType === 'kpi'
+        ? activeKpiMilestones.filter(
+            (ms) => dateStr >= ms.startDate && dateStr <= ms.endDate
+          )
+        : [];
+
     const dayVacations =
       filterType === 'all' || filterType === 'vacation'
         ? vacations.filter((v) => dateStr >= v.startDate && dateStr <= v.endDate)
         : [];
 
     let dayTasks =
-      filterType === 'vacation'
+      filterType === 'vacation' || filterType === 'kpi'
         ? []
         : tasks.filter(
             (t) =>
@@ -675,7 +722,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       return (a.title || '').localeCompare(b.title || '');
     });
 
-    return { dayVacations, dayTasks };
+    return { dayKpiMilestones, dayVacations, dayTasks };
   };
 
   // 캘린더 날짜 매트릭스 계산
@@ -727,11 +774,15 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
   }, [currentDate]);
 
   // 모바일 선택 일자 상세 데이터
-  const { dayVacations: mobileSelectedVacations, dayTasks: mobileSelectedTasks } =
-    getDaySchedules(selectedMobileDate);
+  const {
+    dayKpiMilestones: mobileSelectedKpis,
+    dayVacations: mobileSelectedVacations,
+    dayTasks: mobileSelectedTasks,
+  } = getDaySchedules(selectedMobileDate);
   const mobileSelectedData = {
     dateStr: selectedMobileDate,
     weekday: getWeekdayLabel(selectedMobileDate),
+    kpiMilestones: mobileSelectedKpis,
     vacations: mobileSelectedVacations,
     tasks: mobileSelectedTasks,
   };
@@ -811,6 +862,15 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                 className={`schedule-filter-chip chip-all ${filterType === 'all' ? 'active' : ''}`}
               >
                 <span>전체 일정</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFilterType('kpi')}
+                className={`schedule-filter-chip chip-kpi ${filterType === 'kpi' ? 'active' : ''}`}
+              >
+                <Target size={14} />
+                <span>KPI 평가 일정 ({activeKpiMilestones.length})</span>
               </button>
 
               <button
@@ -900,18 +960,27 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                 const isToday = cell.dateStr === todayStr;
                 const isMobileSelected = cell.dateStr === selectedMobileDate;
 
-                const { dayVacations: cellVacations, dayTasks: cellTasks } = getDaySchedules(
-                  cell.dateStr
-                );
-                const totalItemsCount = cellVacations.length + cellTasks.length;
+                const {
+                  dayKpiMilestones: cellKpis,
+                  dayVacations: cellVacations,
+                  dayTasks: cellTasks,
+                } = getDaySchedules(cell.dateStr);
+                const totalItemsCount =
+                  cellKpis.length + cellVacations.length + cellTasks.length;
 
-                // 최대 10개 항목까지 노출하고 초과분은 '+N개 더보기' 버튼으로 처리
+                // 최대 10개 항목까지 노출하고 초과분은 '+N개 더보기' 버튼으로 처리 (KPI 마일스톤 최상단 우선 노출)
                 const MAX_DISPLAY = 10;
-                const displayVacations = cellVacations.slice(0, MAX_DISPLAY);
-                const remainingSlots = Math.max(0, MAX_DISPLAY - displayVacations.length);
+                const displayKpis = cellKpis.slice(0, MAX_DISPLAY);
+                const remainAfterKpi = Math.max(0, MAX_DISPLAY - displayKpis.length);
+                const displayVacations = cellVacations.slice(0, remainAfterKpi);
+                const remainingSlots = Math.max(
+                  0,
+                  remainAfterKpi - displayVacations.length
+                );
                 const displayTasks = cellTasks.slice(0, remainingSlots);
                 const overflowCount =
-                  totalItemsCount - (displayVacations.length + displayTasks.length);
+                  totalItemsCount -
+                  (displayKpis.length + displayVacations.length + displayTasks.length);
 
                 const cellClasses = [
                   'schedule-day-cell',
@@ -954,6 +1023,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             setSelectedDayDetail({
                               dateStr: cell.dateStr,
                               dayNum: cell.dayNum,
+                              kpiMilestones: cellKpis,
                               vacations: cellVacations,
                               tasks: cellTasks,
                             });
@@ -967,6 +1037,24 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
 
                     {/* 데스크톱 & 태블릿용 일정 배지 목록 */}
                     <div className="schedule-day-events">
+                      {/* 0. KPI 공식 평가 마일스톤 배지 (일반 업무와 완전히 구분되는 점선 + KPI 캡슐 배지) */}
+                      {displayKpis.map((ms) => (
+                        <div
+                          key={ms.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedKpiMilestone(ms);
+                          }}
+                          className={`schedule-event-badge is-kpi-milestone tone-${ms.tone}`}
+                          title={`[KPI 공식 일정] ${ms.cycleFullLabel} — ${ms.phaseTitle} (${ms.startDate} ~ ${ms.endDate})`}
+                        >
+                          <span className="schedule-kpi-tag">KPI</span>
+                          <span className="schedule-event-text">
+                            {ms.calendarBadgeText}
+                          </span>
+                        </div>
+                      ))}
+
                       {/* A. 휴가 배지 노출 */}
                       {displayVacations.map((v) => {
                         const typeConfig =
@@ -1017,6 +1105,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             setSelectedDayDetail({
                               dateStr: cell.dateStr,
                               dayNum: cell.dayNum,
+                              kpiMilestones: cellKpis,
                               vacations: cellVacations,
                               tasks: cellTasks,
                             });
@@ -1031,6 +1120,9 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                     {/* 모바일 전용 컬러 인디케이터 도트 */}
                     {totalItemsCount > 0 && (
                       <div className="schedule-mobile-dots" aria-hidden="true">
+                        {cellKpis.slice(0, 2).map((ms) => (
+                          <span key={`mdot-k-${ms.id}`} className="schedule-dot is-kpi" />
+                        ))}
                         {cellVacations.slice(0, 2).map((v) => (
                           <span key={`mdot-v-${v.id}`} className="schedule-dot is-vacation" />
                         ))}
@@ -1060,7 +1152,11 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                   {mobileSelectedData.dateStr} ({mobileSelectedData.weekday}) 일정
                 </h3>
                 <span className="schedule-mobile-day-badge">
-                  총 {mobileSelectedData.vacations.length + mobileSelectedData.tasks.length}건
+                  총{' '}
+                  {mobileSelectedData.kpiMilestones.length +
+                    mobileSelectedData.vacations.length +
+                    mobileSelectedData.tasks.length}
+                  건
                 </span>
               </div>
 
@@ -1075,13 +1171,35 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
               )}
             </div>
 
-            {mobileSelectedData.vacations.length === 0 &&
+            {mobileSelectedData.kpiMilestones.length === 0 &&
+            mobileSelectedData.vacations.length === 0 &&
             mobileSelectedData.tasks.length === 0 ? (
               <div className="schedule-mobile-empty">
-                선택한 일자에 등록된 휴가나 진행 업무가 없습니다.
+                선택한 일자에 등록된 KPI 공식 일정, 휴가 또는 진행 업무가 없습니다.
               </div>
             ) : (
               <div className="schedule-mobile-agenda-list">
+                {/* 선택 일자 KPI 공식 일정 카드 */}
+                {mobileSelectedData.kpiMilestones.map((ms) => (
+                  <div
+                    key={`mob-kpi-${ms.id}`}
+                    onClick={() => setSelectedKpiMilestone(ms)}
+                    className={`schedule-mobile-agenda-item is-kpi-milestone tone-${ms.tone}`}
+                  >
+                    <div className="schedule-mobile-agenda-top">
+                      <span className="schedule-kpi-tag">KPI 공식 일정</span>
+                      <span className="schedule-mobile-agenda-period">
+                        {ms.startDate === ms.endDate
+                          ? ms.startDate
+                          : `${ms.startDate} ~ ${ms.endDate}`}
+                      </span>
+                    </div>
+                    <div className="schedule-mobile-agenda-title">
+                      [{ms.cycleFullLabel}] {ms.phaseTitle}
+                    </div>
+                  </div>
+                ))}
+
                 {/* 선택 일자 휴가 카드 */}
                 {mobileSelectedData.vacations.map((v) => {
                   const typeConfig =
@@ -1353,7 +1471,10 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                 <CalendarIcon size={18} className="schedule-mobile-day-icon" />
                 <h3 className="modal-title">
                   {selectedDayDetail.dateStr} 전체 일정 (총{' '}
-                  {selectedDayDetail.vacations.length + selectedDayDetail.tasks.length}건)
+                  {selectedDayDetail.kpiMilestones.length +
+                    selectedDayDetail.vacations.length +
+                    selectedDayDetail.tasks.length}
+                  건)
                 </h3>
               </div>
               <button
@@ -1367,6 +1488,41 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
             </div>
 
             <div className="modal-body schedule-modal-stack">
+              {/* KPI 공식 평가 일정 목록 */}
+              {selectedDayDetail.kpiMilestones.length > 0 && (
+                <div>
+                  <h4 className="schedule-day-modal-section-title">
+                    KPI 공식 평가 일정 ({selectedDayDetail.kpiMilestones.length}건)
+                  </h4>
+                  <div className="schedule-mobile-agenda-list">
+                    {selectedDayDetail.kpiMilestones.map((ms) => (
+                      <div
+                        key={ms.id}
+                        onClick={() => {
+                          setSelectedDayDetail(null);
+                          setSelectedKpiMilestone(ms);
+                        }}
+                        className={`schedule-mobile-agenda-item is-kpi-milestone tone-${ms.tone}`}
+                      >
+                        <div className="schedule-mobile-agenda-top">
+                          <div className="tasks-card-badges">
+                            <span className="schedule-kpi-tag">KPI</span>
+                            <strong className="schedule-mobile-user-name">
+                              [{ms.cycleFullLabel}] {ms.phaseTitle}
+                            </strong>
+                          </div>
+                          <span className="schedule-mobile-agenda-period">
+                            {ms.startDate === ms.endDate
+                              ? ms.startDate
+                              : `${ms.startDate} ~ ${ms.endDate}`}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* 휴가 일정 목록 */}
               <div>
                 <h4 className="schedule-day-modal-section-title">
@@ -1913,6 +2069,180 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* 7. KPI 공식 평가 일정 상세 및 진행 현황 모달 */}
+      {selectedKpiMilestone &&
+        (() => {
+          const ms = selectedKpiMilestone;
+          const timelineInfo = resolveCycleTimelineSteps(ms.schedule, todayStr);
+          return (
+            <div
+              className="modal-overlay"
+              onClick={() => setSelectedKpiMilestone(null)}
+            >
+              <div
+                className="modal-box schedule-kpi-detail-modal-box"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="modal-header">
+                  <div className="tasks-modal-header-left">
+                    <span className="schedule-kpi-tag">KPI 공식 일정</span>
+                    <h3 className="modal-title">
+                      {ms.cycleFullLabel} — {ms.phaseTitle}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedKpiMilestone(null)}
+                    className="tasks-modal-close-btn"
+                    aria-label="모달 닫기"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="modal-body">
+                  <div className="kpi-modal-target-summary">
+                    <strong>
+                      해당 단계 기간:{' '}
+                      {ms.startDate === ms.endDate
+                        ? ms.startDate
+                        : `${ms.startDate} ~ ${ms.endDate}`}
+                    </strong>
+                    <span>{ms.actionGuide}</span>
+                  </div>
+
+                  <div className="schedule-kpi-stats-grid">
+                    <div className="schedule-kpi-stat-box">
+                      <span className="schedule-kpi-stat-label">등록된 KPI 목표</span>
+                      <strong className="schedule-kpi-stat-val">{ms.stats.kpiCount}건</strong>
+                    </div>
+                    <div className="schedule-kpi-stat-box">
+                      <span className="schedule-kpi-stat-label">본인 자가평가</span>
+                      <strong className="schedule-kpi-stat-val">
+                        {ms.stats.selfDoneCount} / {ms.stats.kpiCount}건
+                      </strong>
+                    </div>
+                    <div className="schedule-kpi-stat-box">
+                      <span className="schedule-kpi-stat-label">다면평가 참여 과제</span>
+                      <strong className="schedule-kpi-stat-val">
+                        {ms.stats.peerParticipatedKpiCount} / {ms.stats.kpiCount}건
+                      </strong>
+                    </div>
+                    <div className="schedule-kpi-stat-box">
+                      <span className="schedule-kpi-stat-label">실장 최종확정</span>
+                      <strong className="schedule-kpi-stat-val">
+                        {ms.stats.finalDoneCount} / {ms.stats.kpiCount}건
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="schedule-kpi-phase-table">
+                    {timelineInfo.steps.map((st) => {
+                      const isCurrentClicked =
+                        st.key === ms.phaseKey ||
+                        (st.key === 'execution' &&
+                          (ms.phaseKey === 'exec_start' || ms.phaseKey === 'exec_end'));
+                      return (
+                        <div
+                          key={st.key}
+                          className={`schedule-kpi-phase-row ${
+                            isCurrentClicked ? 'is-current-clicked' : ''
+                          }`}
+                        >
+                          <div>
+                            <strong>
+                              [{st.stepLabel}] {st.title}
+                            </strong>
+                          </div>
+                          <span>
+                            {formatShortDateRange(st.startDate, st.endDate)}
+                            {st.dDayBadge ? ` (${st.dDayBadge})` : ''}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="modal-footer">
+                  {canManageKpiSchedule && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetCycle = {
+                          year: ms.year,
+                          quarter: ms.quarter,
+                          schedule: ms.schedule,
+                        };
+                        setSelectedKpiMilestone(null);
+                        setEditingKpiScheduleCycle(targetCycle);
+                      }}
+                      className="btn btn-secondary tasks-modal-delete-btn"
+                    >
+                      <SlidersHorizontal size={14} /> 기수 일정 조정
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedKpiMilestone(null)}
+                    className="btn btn-secondary"
+                  >
+                    닫기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const hash = ms.targetRouteHash;
+                      setSelectedKpiMilestone(null);
+                      window.location.assign(hash);
+                    }}
+                    className="btn btn-primary"
+                  >
+                    {ms.phaseKey === 'peer_eval'
+                      ? '협업 다면평가 바로가기'
+                      : 'KPI 목표 및 평가 바로가기'}{' '}
+                    <ArrowRight size={15} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+      {/* 8. 최범열 전용: [팀 통합 일정] 내에서 바로 여는 기수별 KPI 공식 일정 미세 조정 모달 */}
+      {canManageKpiSchedule && editingKpiScheduleCycle && (
+        <KpiScheduleEditModal
+          year={editingKpiScheduleCycle.year}
+          quarter={editingKpiScheduleCycle.quarter}
+          initialSchedule={editingKpiScheduleCycle.schedule}
+          onClose={() => setEditingKpiScheduleCycle(null)}
+          onSave={async (nextSch) => {
+            const res = await PlanningStorageService.saveKpiCycleScheduleOverride(nextSch);
+            if (res.success) {
+              refreshAll();
+              setEditingKpiScheduleCycle(null);
+              onShowToast(res.message, 'success');
+            } else {
+              onShowToast(res.message, 'error');
+            }
+          }}
+          onResetToDefault={async () => {
+            const res = await PlanningStorageService.resetKpiCycleScheduleOverride(
+              editingKpiScheduleCycle.year,
+              editingKpiScheduleCycle.quarter
+            );
+            if (res.success) {
+              refreshAll();
+              setEditingKpiScheduleCycle(null);
+              onShowToast(res.message, 'info');
+            } else {
+              onShowToast(res.message, 'error');
+            }
+          }}
+          onShowToast={onShowToast}
+        />
       )}
     </div>
   );

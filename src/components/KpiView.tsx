@@ -6,13 +6,26 @@ import type {
   KpiTargetScope,
   KpiGrade,
   KpiTrack,
+  KpiCycleSchedule,
   TaskItem,
   User,
 } from '../types';
-import { PlanningStorageService } from '../services/storage';
-import { resolveKpiAccessRole, isTeamLeadName } from '../constants/departments';
-import { KpiDetailPage } from './kpi/KpiDetailPage';
+import { PlanningStorageService, getTodayDateString } from '../services/storage';
 import {
+  canManageUserPermissions,
+  resolveKpiAccessRole,
+  isTeamLeadName,
+} from '../constants/departments';
+import { KpiDetailPage } from './kpi/KpiDetailPage';
+import { KpiScheduleEditModal } from './kpi/KpiScheduleEditModal';
+import {
+  computeDefaultKpiCycleSchedule,
+  formatCycleFullLabel,
+  formatShortDateRange,
+  resolveCycleTimelineSteps,
+} from './kpi/kpiSchedule';
+import {
+  KPI_YEAR_OPTIONS,
   QUARTERS,
   TRACK_CONFIG,
   TRACK_LIST,
@@ -48,6 +61,8 @@ import {
   Lock,
   Eye,
   UserCheck,
+  Calendar,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 interface KpiViewProps {
@@ -150,32 +165,74 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
 
   const canViewAllOrgKpis = isTeamLead || isDivisionHead || isExecutiveViewer;
   const canCreateGoal = isTeamLead || isTeamMember;
+  const canManageSchedule = canManageUserPermissions(currentUser);
+  const [todayStr] = useState<string>(() => getTodayDateString());
 
-  // URL 해시 기반 페이지 라우팅 상태 (#/kpi, #/kpi/peer, #/kpi/detail/{id})
+  // URL 해시 기반 페이지 라우팅 상태 (#/kpi, #/kpi/peer, #/kpi/detail/{id}, ?year=2027&quarter=Q1)
   const [routeState, setRouteState] = useState(() => parseKpiRouteFromHash());
   const cameFromListRef = useRef<boolean>(false);
+
+  const [selectedYear, setSelectedYear] = useState<number>(
+    () => parseKpiRouteFromHash().queryYear || 2026
+  );
+  const [selectedQuarter, setSelectedQuarter] = useState<KpiQuarter>(
+    () => parseKpiRouteFromHash().queryQuarter || 'Annual'
+  );
+  const [scheduleTick, setScheduleTick] = useState<number>(0);
+  const [isScheduleEditOpen, setIsScheduleEditOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const syncKpiRoute = () => {
       const parsed = parseKpiRouteFromHash(window.location.hash);
+      if (parsed.queryYear) {
+        setSelectedYear(parsed.queryYear);
+      }
+      if (parsed.queryQuarter) {
+        setSelectedQuarter(parsed.queryQuarter);
+      }
       if (isCrossDept) {
-        if (window.location.hash !== '#/kpi/peer') {
-          window.history.replaceState(null, '', '#/kpi/peer');
+        if (!window.location.hash.toLowerCase().startsWith('#/kpi/peer')) {
+          const qs = window.location.hash.includes('?')
+            ? `?${window.location.hash.split('?')[1]}`
+            : '';
+          window.history.replaceState(null, '', `#/kpi/peer${qs}`);
         }
-        setRouteState({ mode: 'peer_feedback', detailId: null });
+        setRouteState({
+          mode: 'peer_feedback',
+          detailId: null,
+          queryYear: parsed.queryYear,
+          queryQuarter: parsed.queryQuarter,
+        });
         return;
       }
       if ((isDivisionHead || isExecutiveViewer) && parsed.mode === 'peer_feedback') {
-        window.history.replaceState(null, '', '#/kpi');
-        setRouteState({ mode: 'evaluation', detailId: null });
+        const qs = window.location.hash.includes('?')
+          ? `?${window.location.hash.split('?')[1]}`
+          : '';
+        window.history.replaceState(null, '', `#/kpi${qs}`);
+        setRouteState({
+          mode: 'evaluation',
+          detailId: null,
+          queryYear: parsed.queryYear,
+          queryQuarter: parsed.queryQuarter,
+        });
         return;
       }
       setRouteState(parsed);
     };
 
+    const handleScheduleStoreSync = () => {
+      setScheduleTick((prev) => prev + 1);
+      setKpis(PlanningStorageService.getKpis());
+    };
+
     syncKpiRoute();
     window.addEventListener('hashchange', syncKpiRoute);
-    return () => window.removeEventListener('hashchange', syncKpiRoute);
+    window.addEventListener('ds-portal-kpi-schedules-updated', handleScheduleStoreSync);
+    return () => {
+      window.removeEventListener('hashchange', syncKpiRoute);
+      window.removeEventListener('ds-portal-kpi-schedules-updated', handleScheduleStoreSync);
+    };
   }, [isCrossDept, isDivisionHead, isExecutiveViewer]);
 
   const effectiveModeTab: KpiModeTab = isCrossDept ? 'peer_feedback' : routeState.mode;
@@ -209,7 +266,34 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
     }
   };
 
-  const [selectedQuarter, setSelectedQuarter] = useState<KpiQuarter>('Annual');
+  const availableYears = useMemo(() => {
+    const set = new Set<number>(KPI_YEAR_OPTIONS);
+    kpis.forEach((k) => {
+      if (k.year) set.add(Number(k.year));
+    });
+    return Array.from(set).sort((a, b) => a - b);
+  }, [kpis]);
+
+  const activeCycleSchedule: KpiCycleSchedule = useMemo(() => {
+    void scheduleTick;
+    return PlanningStorageService.getKpiCycleSchedule(selectedYear, selectedQuarter);
+  }, [selectedYear, selectedQuarter, scheduleTick]);
+
+  const activeCycleTimeline = useMemo(
+    () => resolveCycleTimelineSteps(activeCycleSchedule, todayStr),
+    [activeCycleSchedule, todayStr]
+  );
+
+  const activeCycleRegisteredCount = useMemo(
+    () =>
+      kpis.filter(
+        (k) =>
+          Number(k.year || 2026) === selectedYear &&
+          (k.quarter || 'Annual') === selectedQuarter
+      ).length,
+    [kpis, selectedYear, selectedQuarter]
+  );
+
   const [trackFilter, setTrackFilter] = useState<'all' | KpiTrack>('all');
   const [ownerFilter, setOwnerFilter] = useState<string>('all');
   const [peerOwnerFilter, setPeerOwnerFilter] = useState<string>('all');
@@ -386,10 +470,16 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
     const initialTrack =
       defaultTrack ||
       (trackFilter !== 'all' ? trackFilter : resolveMemberDefaultTrack(matchedSelf.name));
+    const targetSchedule = PlanningStorageService.getKpiCycleSchedule(
+      selectedYear,
+      selectedQuarter
+    );
+    const defaultStatus: KpiStatus =
+      todayStr < targetSchedule.execStart ? 'planning' : 'in_progress';
 
     setEditingKpi(null);
     setFormData({
-      year: 2026,
+      year: selectedYear,
       quarter: selectedQuarter,
       targetScope: 'individual',
       ownerId: matchedSelf.id,
@@ -400,7 +490,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
       targetValue: '',
       currentValue: '',
       weight: 35,
-      status: 'in_progress',
+      status: defaultStatus,
       linkedTaskIds: [],
     });
     setIsModalOpen(true);
@@ -783,10 +873,8 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
   // [권한 기반 스코핑 2] 평가 열람 탭 필터 적용 목록
   const currentKpis = useMemo(() => {
     return accessibleEvalKpis.filter((k) => {
-      const matchesQuarter =
-        selectedQuarter === 'Annual'
-          ? true
-          : k.quarter === selectedQuarter || k.quarter === 'Annual';
+      const matchesYear = Number(k.year || 2026) === selectedYear;
+      const matchesQuarter = (k.quarter || 'Annual') === selectedQuarter;
       const matchesTrack = trackFilter === 'all' || (k.track || '기획') === trackFilter;
       const matchesOwner = !canViewAllOrgKpis
         ? true
@@ -796,9 +884,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
             ? k.targetScope === 'team'
             : k.ownerName?.trim() === ownerFilter.trim();
 
-      return matchesQuarter && matchesTrack && matchesOwner;
+      return matchesYear && matchesQuarter && matchesTrack && matchesOwner;
     });
-  }, [accessibleEvalKpis, selectedQuarter, trackFilter, ownerFilter, canViewAllOrgKpis]);
+  }, [accessibleEvalKpis, selectedYear, selectedQuarter, trackFilter, ownerFilter, canViewAllOrgKpis]);
 
   // [권한 기반 스코핑 3] 협업 다면평가(무기명 피드백) 탭 대상 KPI 목록 (본인 제외 개인 KPI)
   const peerBaseKpis = useMemo(() => {
@@ -807,16 +895,14 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
 
   const visiblePeerKpis = useMemo(() => {
     return peerBaseKpis.filter((k) => {
-      const matchesQuarter =
-        selectedQuarter === 'Annual'
-          ? true
-          : k.quarter === selectedQuarter || k.quarter === 'Annual';
+      const matchesYear = Number(k.year || 2026) === selectedYear;
+      const matchesQuarter = (k.quarter || 'Annual') === selectedQuarter;
       const matchesTrack = trackFilter === 'all' || (k.track || '기획') === trackFilter;
       const matchesPeerOwner =
         peerOwnerFilter === 'all' ? true : k.ownerName?.trim() === peerOwnerFilter.trim();
-      return matchesQuarter && matchesTrack && matchesPeerOwner;
+      return matchesYear && matchesQuarter && matchesTrack && matchesPeerOwner;
     });
-  }, [peerBaseKpis, selectedQuarter, trackFilter, peerOwnerFilter]);
+  }, [peerBaseKpis, selectedYear, selectedQuarter, trackFilter, peerOwnerFilter]);
 
   const peerCandidateMembers = useMemo(() => {
     const names = new Set<string>();
@@ -959,6 +1045,94 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
 
   const BannerIcon = roleContextBanner.icon;
 
+  const handleSaveScheduleOverride = async (nextSchedule: KpiCycleSchedule) => {
+    const res = await PlanningStorageService.saveKpiCycleScheduleOverride(nextSchedule);
+    if (res.success) {
+      setScheduleTick((prev) => prev + 1);
+      refreshKpis();
+      setIsScheduleEditOpen(false);
+      onShowToast(res.message, 'success');
+    } else {
+      onShowToast(res.message, 'error');
+    }
+  };
+
+  const handleResetScheduleOverride = async () => {
+    const res = await PlanningStorageService.resetKpiCycleScheduleOverride(
+      selectedYear,
+      selectedQuarter
+    );
+    if (res.success) {
+      setScheduleTick((prev) => prev + 1);
+      refreshKpis();
+      setIsScheduleEditOpen(false);
+      onShowToast(res.message, 'info');
+    } else {
+      onShowToast(res.message, 'error');
+    }
+  };
+
+  const renderCycleScheduleCard = () => (
+    <div className="card kpi-cycle-schedule-card">
+      <div className="kpi-cycle-schedule-top">
+        <div className="kpi-cycle-schedule-left">
+          <span className="kpi-cycle-title">
+            <Calendar size={16} className="kpi-framework-icon" />
+            {formatCycleFullLabel(selectedYear, selectedQuarter)} 공식 평가 스케줄
+          </span>
+          <span className="kpi-cycle-phase-pill">
+            {activeCycleTimeline.currentPhaseSummary}
+          </span>
+          {activeCycleSchedule.isCustomized && (
+            <span className="kpi-cycle-custom-pill">기수 일정 조정됨</span>
+          )}
+        </div>
+
+        <div className="kpi-cycle-schedule-right">
+          {activeCycleRegisteredCount > 0 ? (
+            <a href="#/schedule" className="kpi-cycle-calendar-link">
+              <Calendar size={14} /> 팀 통합 일정 연동됨 ({activeCycleRegisteredCount}건)
+            </a>
+          ) : (
+            <span className="kpi-cycle-calendar-note">
+              이 기수에 KPI 등록 시 [팀 통합 일정]에 자동 반영됩니다
+            </span>
+          )}
+
+          {canManageSchedule && (
+            <button
+              type="button"
+              onClick={() => setIsScheduleEditOpen(true)}
+              className="btn btn-secondary tasks-action-btn"
+            >
+              <SlidersHorizontal size={14} /> 기수 일정 조정
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="kpi-cycle-stepper-grid">
+        {activeCycleTimeline.steps.map((st) => (
+          <div
+            key={st.key}
+            className={`kpi-cycle-step-box state-${st.state}`}
+          >
+            <div className="kpi-cycle-step-head">
+              <span className="kpi-cycle-step-tag">{st.stepLabel}</span>
+              {st.dDayBadge && (
+                <span className="kpi-cycle-step-dday">{st.dDayBadge}</span>
+              )}
+            </div>
+            <div className="kpi-cycle-step-name">{st.title}</div>
+            <div className="kpi-cycle-step-dates">
+              {formatShortDateRange(st.startDate, st.endDate)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="kpi-container">
       {/* 상단 권한·기밀 안내 및 뷰 전환 바 (독립 상세 페이지 진입 중이 아닐 때 표시) */}
@@ -1043,18 +1217,33 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
               </div>
 
               <div className="kpi-toolbar-right">
-                <div className="kpi-quarter-tabs">
-                  {QUARTERS.map((q) => (
-                    <button
-                      key={q.key}
-                      type="button"
-                      onClick={() => setSelectedQuarter(q.key)}
-                      className={`kpi-quarter-btn ${selectedQuarter === q.key ? 'active' : ''}`}
-                    >
-                      <span className="quarter-label-full">{q.label}</span>
-                      <span className="quarter-label-short">{q.shortLabel}</span>
-                    </button>
-                  ))}
+                <div className="kpi-period-selector-group">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="form-select kpi-year-select"
+                    aria-label="평가 연도 선택"
+                  >
+                    {availableYears.map((yr) => (
+                      <option key={yr} value={yr}>
+                        {yr}년
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="kpi-quarter-tabs">
+                    {QUARTERS.map((q) => (
+                      <button
+                        key={q.key}
+                        type="button"
+                        onClick={() => setSelectedQuarter(q.key)}
+                        className={`kpi-quarter-btn ${selectedQuarter === q.key ? 'active' : ''}`}
+                      >
+                        <span className="quarter-label-full">{q.label}</span>
+                        <span className="quarter-label-short">{q.shortLabel}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <select
@@ -1073,6 +1262,8 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
               </div>
             </div>
           </div>
+
+          {renderCycleScheduleCard()}
 
           {visiblePeerKpis.length === 0 ? (
             <div className="card kpi-empty-card">
@@ -1271,18 +1462,33 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
               </div>
 
               <div className="kpi-toolbar-right">
-                <div className="kpi-quarter-tabs">
-                  {QUARTERS.map((q) => (
-                    <button
-                      key={q.key}
-                      type="button"
-                      onClick={() => setSelectedQuarter(q.key)}
-                      className={`kpi-quarter-btn ${selectedQuarter === q.key ? 'active' : ''}`}
-                    >
-                      <span className="quarter-label-full">{q.label}</span>
-                      <span className="quarter-label-short">{q.shortLabel}</span>
-                    </button>
-                  ))}
+                <div className="kpi-period-selector-group">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="form-select kpi-year-select"
+                    aria-label="평가 연도 선택"
+                  >
+                    {availableYears.map((yr) => (
+                      <option key={yr} value={yr}>
+                        {yr}년
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="kpi-quarter-tabs">
+                    {QUARTERS.map((q) => (
+                      <button
+                        key={q.key}
+                        type="button"
+                        onClick={() => setSelectedQuarter(q.key)}
+                        className={`kpi-quarter-btn ${selectedQuarter === q.key ? 'active' : ''}`}
+                      >
+                        <span className="quarter-label-full">{q.label}</span>
+                        <span className="quarter-label-short">{q.shortLabel}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {canViewAllOrgKpis && (
@@ -1366,6 +1572,8 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
               </div>
             )}
           </div>
+
+          {renderCycleScheduleCard()}
 
           {/* 대상자별 종합 산출 요약 바 */}
           {ownerScorecards.length > 0 && (
@@ -1762,14 +1970,59 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
                   </div>
                 </div>
 
-                <div className="tasks-form-grid-3">
+                <div className="tasks-form-grid-2">
                   <div className="form-group">
-                    <label className="form-label">평가 기간 *</label>
+                    <label className="form-label">평가 연도 *</label>
+                    <select
+                      value={formData.year}
+                      onChange={(e) => {
+                        const nextYear = Number(e.target.value);
+                        const sch = PlanningStorageService.getKpiCycleSchedule(
+                          nextYear,
+                          formData.quarter
+                        );
+                        setFormData({
+                          ...formData,
+                          year: nextYear,
+                          status:
+                            !editingKpi && todayStr < sch.execStart
+                              ? 'planning'
+                              : !editingKpi
+                                ? 'in_progress'
+                                : formData.status,
+                        });
+                      }}
+                      className="form-select"
+                    >
+                      {availableYears.map((yr) => (
+                        <option key={yr} value={yr}>
+                          {yr}년
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">평가 기수 *</label>
                     <select
                       value={formData.quarter}
-                      onChange={(e) =>
-                        setFormData({ ...formData, quarter: e.target.value as KpiQuarter })
-                      }
+                      onChange={(e) => {
+                        const nextQuarter = e.target.value as KpiQuarter;
+                        const sch = PlanningStorageService.getKpiCycleSchedule(
+                          formData.year,
+                          nextQuarter
+                        );
+                        setFormData({
+                          ...formData,
+                          quarter: nextQuarter,
+                          status:
+                            !editingKpi && todayStr < sch.execStart
+                              ? 'planning'
+                              : !editingKpi
+                                ? 'in_progress'
+                                : formData.status,
+                        });
+                      }}
                       className="form-select"
                     >
                       {QUARTERS.map((q) => (
@@ -1779,7 +2032,44 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
                       ))}
                     </select>
                   </div>
+                </div>
 
+                {(() => {
+                  const previewSch =
+                    PlanningStorageService.getKpiCycleSchedule(
+                      Number(formData.year || 2026),
+                      formData.quarter
+                    ) || computeDefaultKpiCycleSchedule(Number(formData.year || 2026), formData.quarter);
+                  return (
+                    <div className="kpi-modal-schedule-preview">
+                      <span className="kpi-modal-schedule-preview-title">
+                        {formatCycleFullLabel(Number(formData.year || 2026), formData.quarter)} 자동 연계 스케줄 ([팀 통합 일정] 반영)
+                      </span>
+                      <div className="kpi-modal-schedule-preview-grid">
+                        <span>
+                          목표 수립: <strong>{formatShortDateRange(previewSch.goalSetupStart, previewSch.goalSetupEnd)}</strong>
+                        </span>
+                        <span>
+                          수행 기간: <strong>{formatShortDateRange(previewSch.execStart, previewSch.execEnd)}</strong>
+                        </span>
+                        <span>
+                          1주 본인평가: <strong>{formatShortDateRange(previewSch.selfEvalStart, previewSch.selfEvalEnd)}</strong>
+                        </span>
+                        <span>
+                          2주 다면평가: <strong>{formatShortDateRange(previewSch.peerEvalStart, previewSch.peerEvalEnd)}</strong>
+                        </span>
+                        <span>
+                          3주 팀장1차: <strong>{formatShortDateRange(previewSch.leaderEvalStart, previewSch.leaderEvalEnd)}</strong>
+                        </span>
+                        <span>
+                          4주 실장최종: <strong>{formatShortDateRange(previewSch.finalEvalStart, previewSch.finalEvalEnd)}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="tasks-form-grid-2">
                   <div className="form-group">
                     <label className="form-label">가중치 (%) *</label>
                     <input
@@ -2778,6 +3068,19 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
             </div>
           );
         })()}
+
+      {/* 모달 7: 최범열 전용 기수별 KPI 공식 일정 미세 조정 모달 */}
+      {canManageSchedule && isScheduleEditOpen && (
+        <KpiScheduleEditModal
+          year={selectedYear}
+          quarter={selectedQuarter}
+          initialSchedule={activeCycleSchedule}
+          onClose={() => setIsScheduleEditOpen(false)}
+          onSave={handleSaveScheduleOverride}
+          onResetToDefault={handleResetScheduleOverride}
+          onShowToast={onShowToast}
+        />
+      )}
     </div>
   );
 };

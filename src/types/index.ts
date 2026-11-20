@@ -107,6 +107,36 @@ export type KpiStatus = 'planning' | 'in_progress' | 'achieved' | 'partially_ach
 export type KpiTargetScope = 'team' | 'individual';
 export type KpiTrack = '기획' | '디자인' | '퍼블리싱';
 
+export type KpiCyclePhaseKey =
+  | 'goal_setup'
+  | 'exec_start'
+  | 'exec_end'
+  | 'self_eval'
+  | 'peer_eval'
+  | 'leader_eval'
+  | 'final_eval';
+
+export interface KpiCycleSchedule {
+  cycleKey: string;        // 예: '2027-Q1', '2026-Annual'
+  year: number;
+  quarter: KpiQuarter;
+  goalSetupStart: string;  // 목표 수립 주간 시작 (YYYY-MM-DD)
+  goalSetupEnd: string;    // 목표 수립 기한 (YYYY-MM-DD)
+  execStart: string;       // 목표 수행 개시일 (YYYY-MM-DD)
+  execEnd: string;         // 목표 수행 완료 마감일 (YYYY-MM-DD)
+  selfEvalStart: string;   // 익월 1주차 본인 자가평가 시작
+  selfEvalEnd: string;     // 익월 1주차 본인 자가평가 기한
+  peerEvalStart: string;   // 익월 2주차 협업 다면평가 시작
+  peerEvalEnd: string;     // 익월 2주차 협업 다면평가 기한
+  leaderEvalStart: string; // 익월 3주차 팀장 1차평가 시작
+  leaderEvalEnd: string;   // 익월 3주차 팀장 1차평가 기한
+  finalEvalStart: string;  // 익월 4주차 실장 최종평가 시작
+  finalEvalEnd: string;    // 익월 4주차 실장 최종평가 완료 기한
+  isCustomized?: boolean;
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
 // 4단계 라이프사이클 프로세스 단계
 export type KpiProcessStage =
   | 'draft'               // 작성 중 (팀원)

@@ -58,10 +58,10 @@ function parseAuthModeFromHash(hash: string = typeof window !== 'undefined' ? wi
   return 'login';
 }
 
-// URL 해시로부터 현재 탭 파싱 (새로고침 및 딥링크 지원)
+// URL 해시로부터 현재 탭 파싱 (새로고침, 서브라우트 및 쿼리 파라미터 지원)
 function parseTabFromHash(hash: string = typeof window !== 'undefined' ? window.location.hash : ''): NavTab {
   if (typeof window === 'undefined') return 'overview';
-  const cleanHash = hash.replace(/^#\/?/, '').toLowerCase().trim();
+  const cleanHash = hash.replace(/^#\/?/, '').split('?')[0].toLowerCase().trim();
   if (cleanHash === 'tasks' || cleanHash.startsWith('tasks/')) return 'tasks';
   if (cleanHash === 'schedule' || cleanHash === 'vacations' || cleanHash.startsWith('schedule/')) return 'vacations';
   if (cleanHash === 'kpi' || cleanHash === 'kpis' || cleanHash.startsWith('kpi/')) return 'kpi';

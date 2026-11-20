@@ -11913,6 +11913,464 @@ textarea {
   text-underline-offset: 3px;
 }
 
+/* ============================================================================
+   KPI 기수별 자동 스케줄 타임라인 & [팀 통합 일정] KPI 마일스톤 연동 스타일
+   ============================================================================ */
+
+.kpi-period-selector-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kpi-year-select {
+  width: 112px;
+  padding: 7px 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.kpi-cycle-schedule-card {
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kpi-cycle-schedule-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kpi-cycle-schedule-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kpi-cycle-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.kpi-cycle-phase-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.kpi-cycle-custom-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.kpi-cycle-schedule-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.kpi-cycle-calendar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.kpi-cycle-calendar-link:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.kpi-cycle-calendar-note {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.kpi-cycle-stepper-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.kpi-cycle-step-box {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.kpi-cycle-step-box.state-done {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  opacity: 0.78;
+}
+
+.kpi-cycle-step-box.state-active {
+  background: #fff1f2;
+  border: 2px solid #e11d48;
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.1);
+}
+
+.kpi-cycle-step-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.kpi-cycle-step-tag {
+  font-size: 14px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.kpi-cycle-step-box.state-active .kpi-cycle-step-tag {
+  color: #be123c;
+}
+
+.kpi-cycle-step-dday {
+  font-size: 14px;
+  font-weight: 800;
+  color: #be123c;
+  white-space: nowrap;
+}
+
+.kpi-cycle-step-box.state-done .kpi-cycle-step-dday {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.kpi-cycle-step-box.state-upcoming .kpi-cycle-step-dday {
+  color: #2563eb;
+  font-weight: 700;
+}
+
+.kpi-cycle-step-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kpi-cycle-step-dates {
+  font-size: 14px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.kpi-modal-schedule-preview {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px dashed #94a3b8;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.kpi-modal-schedule-preview-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.kpi-modal-schedule-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 12px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.kpi-schedule-modal-box {
+  max-width: 660px;
+}
+
+.kpi-schedule-edit-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kpi-schedule-edit-row {
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.kpi-schedule-edit-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #0f172a;
+  min-width: 210px;
+}
+
+.kpi-schedule-step-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.kpi-schedule-step-pill.is-prep {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.kpi-schedule-step-pill.is-exec {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.kpi-schedule-step-pill.is-eval {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+.kpi-schedule-date-pair {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.kpi-schedule-tilde {
+  font-size: 14px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+/* [팀 통합 일정] 캘린더 KPI 평가 일정 필터 칩 & 일반 업무와 완전히 차별화된 배지 */
+.schedule-filter-chip.chip-kpi {
+  border: 1px dashed #fb7185;
+  background: #fff1f2;
+  color: #be123c;
+}
+
+.schedule-filter-chip.chip-kpi.active {
+  border-style: solid;
+  border-color: #be123c;
+  background: #be123c;
+  color: #ffffff;
+}
+
+.schedule-event-badge.is-kpi-milestone {
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 700;
+  gap: 5px;
+}
+
+.schedule-event-badge.is-kpi-milestone.tone-prep {
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px dashed #64748b;
+}
+
+.schedule-event-badge.is-kpi-milestone.tone-marker {
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px dashed #14b8a6;
+}
+
+.schedule-event-badge.is-kpi-milestone.tone-eval {
+  background: #fff1f2;
+  color: #be123c;
+  border: 1px dashed #fb7185;
+}
+
+.schedule-kpi-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.schedule-event-badge.is-kpi-milestone.tone-marker .schedule-kpi-tag {
+  background: #0f766e;
+}
+
+.schedule-event-badge.is-kpi-milestone.tone-eval .schedule-kpi-tag {
+  background: #be123c;
+}
+
+.schedule-dot.is-kpi {
+  background: #e11d48;
+}
+
+.schedule-mobile-agenda-item.is-kpi-milestone {
+  border-left: 4px solid #be123c;
+  background: #fff1f2;
+  cursor: pointer;
+}
+
+.schedule-mobile-agenda-item.is-kpi-milestone.tone-prep {
+  border-left-color: #0f172a;
+  background: #f8fafc;
+}
+
+.schedule-mobile-agenda-item.is-kpi-milestone.tone-marker {
+  border-left-color: #0f766e;
+  background: #f0fdfa;
+}
+
+.schedule-kpi-detail-modal-box {
+  max-width: 640px;
+}
+
+.schedule-kpi-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.schedule-kpi-stat-box {
+  padding: 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.schedule-kpi-stat-label {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.schedule-kpi-stat-val {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.schedule-kpi-phase-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.schedule-kpi-phase-row {
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.schedule-kpi-phase-row.is-current-clicked {
+  border: 2px solid #be123c;
+  background: #fff1f2;
+}
+
+@media (max-width: 1279px) {
+  .kpi-cycle-stepper-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .kpi-cycle-schedule-card {
+    padding: 14px;
+  }
+
+  .kpi-cycle-stepper-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kpi-modal-schedule-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-schedule-date-pair {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .schedule-kpi-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .schedule-kpi-phase-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+
 
 
 
