@@ -41,6 +41,16 @@ type AuditSubTab = 'permissions' | 'logs';
 
 const LOGS_PER_PAGE = 15;
 
+function parseAuditSubTabFromHash(
+  hash: string = typeof window !== 'undefined' ? window.location.hash : ''
+): AuditSubTab {
+  const clean = hash.replace(/^#\/?/, '').toLowerCase().trim();
+  if (clean === 'audit/logs' || clean === 'logs') {
+    return 'logs';
+  }
+  return 'permissions';
+}
+
 const POSITION_PRESETS_BY_ROLE: Record<KpiAccessRole, string[]> = {
   executive_viewer: ['경영관리본부장 (사장)', '경영기획 총괄 (전무)', '본부장 / 임원'],
   division_head: ['디지털마케팅실장 (상무)', '실장 / 상무'],
@@ -54,9 +64,27 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
   onShowToast,
   onUserUpdated,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<AuditSubTab>('permissions');
+  const [activeSubTab, setActiveSubTab] = useState<AuditSubTab>(() =>
+    parseAuditSubTabFromHash()
+  );
   const [logs, setLogs] = useState<AuditLog[]>(() => PlanningStorageService.getAuditLogs());
   const [users, setUsers] = useState<User[]>(() => PlanningStorageService.getUsers());
+
+  useEffect(() => {
+    const handleHashSync = () => {
+      setActiveSubTab(parseAuditSubTabFromHash(window.location.hash));
+    };
+    window.addEventListener('hashchange', handleHashSync);
+    return () => window.removeEventListener('hashchange', handleHashSync);
+  }, []);
+
+  const handleSelectSubTab = (tab: AuditSubTab) => {
+    setActiveSubTab(tab);
+    const targetHash = tab === 'logs' ? '#/audit/logs' : '#/audit/permissions';
+    if (window.location.hash !== targetHash) {
+      window.location.assign(targetHash);
+    }
+  };
 
   // 감사 로그 필터 · 검색 · 페이지네이션 상태
   const [filterType, setFilterType] = useState<string>('all');
@@ -398,7 +426,7 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
             type="button"
             role="tab"
             aria-selected={activeSubTab === 'permissions'}
-            onClick={() => setActiveSubTab('permissions')}
+            onClick={() => handleSelectSubTab('permissions')}
             className={`audit-subtab-btn ${activeSubTab === 'permissions' ? 'is-active' : ''}`}
           >
             <Users size={16} />
@@ -410,7 +438,7 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
             type="button"
             role="tab"
             aria-selected={activeSubTab === 'logs'}
-            onClick={() => setActiveSubTab('logs')}
+            onClick={() => handleSelectSubTab('logs')}
             className={`audit-subtab-btn ${activeSubTab === 'logs' ? 'is-active' : ''}`}
           >
             <ShieldCheck size={16} />

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { User } from './types';
 import { PlanningStorageService } from './services/storage';
 import { isSupabaseEnabled } from './services/supabase';
@@ -134,6 +134,7 @@ export function App() {
   const [activeTab, setActiveTabState] = useState<NavTab>(() => parseTabFromHash());
   const [authMode, setAuthMode] = useState<AuthMode>(() => parseAuthModeFromHash());
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const pendingDeepHashRef = useRef<string | null>(null);
 
   const isViewer = currentUser.role === 'viewer';
 
@@ -169,8 +170,9 @@ export function App() {
           setAuthMode(mode);
           document.title = AUTH_TITLES[mode];
         } else {
-          // 비로그인 상태에서 대시보드 URL(#/overview, #/tasks 등) 접근 시 원래 목적지 저장 후 #/login으로 분리
+          // 비로그인 상태에서 딥링크(#/kpi/detail/..., #/tasks/..., #/policy/... 등) 접근 시 전체 해시 보존 후 #/login으로 이동
           if (currentHash && currentHash !== '#' && currentHash !== '#/') {
+            pendingDeepHashRef.current = currentHash;
             setActiveTabState(parseTabFromHash(currentHash));
           }
           window.history.replaceState(null, '', '#/login');
@@ -269,11 +271,20 @@ export function App() {
     }
   };
 
-  // 로그인 성공 콜백
+  // 로그인 성공 콜백 (비로그인 중 진입했던 딥링크가 있으면 그대로 복원)
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
     setIsAuthenticated(true);
-    navigateTo(activeTab);
+    const savedDeepHash = pendingDeepHashRef.current;
+    pendingDeepHashRef.current = null;
+    if (savedDeepHash && !isAuthHash(savedDeepHash)) {
+      const targetTab = parseTabFromHash(savedDeepHash);
+      window.location.hash = savedDeepHash;
+      setActiveTabState(targetTab);
+      document.title = TAB_TITLES[targetTab] || '서비스기획팀 업무포털';
+    } else {
+      navigateTo(activeTab);
+    }
     showToast(`${user.name}님 환영합니다! (${user.department})`, 'success');
   };
 

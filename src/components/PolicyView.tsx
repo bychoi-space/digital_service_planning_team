@@ -121,6 +121,27 @@ function renderDomainIcon(domain: PolicyDomain, size = 16) {
   }
 }
 
+const VALID_POLICY_DOMAINS = new Set<PolicyDomain>([
+  'product',
+  'member',
+  'order',
+  'display',
+  'claim',
+  'search',
+  'common',
+]);
+
+function parsePolicyDomainFromHash(
+  hash: string = typeof window !== 'undefined' ? window.location.hash : ''
+): PolicyDomain {
+  const clean = hash.replace(/^#\/?/, '').toLowerCase().trim();
+  const match = clean.match(/^polic(?:y|ies)\/([a-z]+)$/);
+  if (match && VALID_POLICY_DOMAINS.has(match[1] as PolicyDomain)) {
+    return match[1] as PolicyDomain;
+  }
+  return 'product';
+}
+
 export const PolicyView: React.FC<PolicyViewProps> = ({
   currentUser,
   isViewer,
@@ -129,11 +150,27 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
   const [items, setItems] = useState<SisunPolicyItem[]>(() =>
     PlanningStorageService.getPolicies()
   );
-  // 도메인 단위 전용 TAB 상태 (기본값: 'product' 상품 도메인)
-  const [activeDomain, setActiveDomain] = useState<PolicyDomain>('product');
+  // 도메인 단위 전용 TAB 상태 (URL 해시 #/policy/{domain} 양방향 동기화)
+  const [activeDomain, setActiveDomain] = useState<PolicyDomain>(() =>
+    parsePolicyDomainFromHash()
+  );
   // 도메인 내 세부 중분류 퀵 필터 ('all' 또는 subCategory)
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const handleHashSync = () => {
+      const nextDomain = parsePolicyDomainFromHash(window.location.hash);
+      setActiveDomain((prev) => {
+        if (prev !== nextDomain) {
+          setSelectedSubCategory('all');
+        }
+        return nextDomain;
+      });
+    };
+    window.addEventListener('hashchange', handleHashSync);
+    return () => window.removeEventListener('hashchange', handleHashSync);
+  }, []);
 
   // 등록/수정 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -250,10 +287,14 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
     });
   }, [currentDomainItems, selectedSubCategory, searchQuery]);
 
-  // 도메인 탭 전환 핸들러
+  // 도메인 탭 전환 핸들러 (URL 해시 동기화 및 브라우저 뒤로가기 지원)
   const handleSelectDomainTab = (domain: PolicyDomain) => {
     setActiveDomain(domain);
     setSelectedSubCategory('all');
+    const targetHash = `#/policy/${domain}`;
+    if (window.location.hash !== targetHash) {
+      window.location.assign(targetHash);
+    }
   };
 
   // 신규 정책 모달 열기
@@ -426,6 +467,10 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
 
       setItems(PlanningStorageService.getPolicies());
       setActiveDomain(formDomain);
+      const targetHash = `#/policy/${formDomain}`;
+      if (window.location.hash !== targetHash) {
+        window.location.assign(targetHash);
+      }
       setIsModalOpen(false);
     } catch (err) {
       notify(

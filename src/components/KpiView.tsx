@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import type {
   KpiItem,
   KpiQuarter,
@@ -11,20 +11,33 @@ import type {
 } from '../types';
 import { PlanningStorageService } from '../services/storage';
 import { resolveKpiAccessRole, isTeamLeadName } from '../constants/departments';
+import { KpiDetailPage } from './kpi/KpiDetailPage';
+import {
+  QUARTERS,
+  TRACK_CONFIG,
+  TRACK_LIST,
+  STATUS_MAP,
+  GRADE_RUBRIC,
+  parseKpiRouteFromHash,
+  resolveMemberDefaultTrack,
+  resolveSelfGrade,
+  getScoreFromGrade,
+  checkHasSelfEval,
+  isLeaderOwnedKpiItem,
+  getValidLeaderGrade,
+  getValidFinalGrade,
+  getValidFinalComment,
+  getKpiEvalMetrics,
+} from './kpi/kpiShared';
+import type { KpiModeTab } from './kpi/kpiShared';
 import {
   Plus,
   Award,
-  Edit2,
   Trash2,
   X,
-  Clock,
   ShieldCheck,
   CheckCircle2,
-  FileText,
-  Palette,
-  Code,
   ExternalLink,
-  ClipboardCheck,
   MessageSquare,
   Link as LinkIcon,
   ChevronDown,
@@ -42,98 +55,6 @@ interface KpiViewProps {
   isViewer: boolean;
   onShowToast: (msg: string, type: 'success' | 'error' | 'info') => void;
 }
-
-type KpiModeTab = 'evaluation' | 'peer_feedback';
-
-const QUARTERS: { key: KpiQuarter; label: string; shortLabel: string }[] = [
-  { key: 'Annual', label: '2026 연간', shortLabel: '연간' },
-  { key: 'Q1', label: '1분기', shortLabel: '1분기' },
-  { key: 'Q2', label: '2분기', shortLabel: '2분기' },
-  { key: 'Q3', label: '3분기', shortLabel: '3분기' },
-  { key: 'Q4', label: '4분기', shortLabel: '4분기' },
-];
-
-// 직무 파트 설정 (기획=파란색, 디자인=녹색, 퍼블리싱=보라색 통일)
-const TRACK_CONFIG: Record<
-  KpiTrack,
-  {
-    label: string;
-    enLabel: string;
-    classKey: string;
-    icon: React.FC<{ size?: number; className?: string }>;
-  }
-> = {
-  기획: {
-    label: '기획',
-    enLabel: 'Planning',
-    classKey: 'track-planning',
-    icon: FileText,
-  },
-  디자인: {
-    label: '디자인',
-    enLabel: 'Design',
-    classKey: 'track-design',
-    icon: Palette,
-  },
-  퍼블리싱: {
-    label: '퍼블리싱',
-    enLabel: 'Publishing',
-    classKey: 'track-publishing',
-    icon: Code,
-  },
-};
-
-const TRACK_LIST: KpiTrack[] = ['기획', '디자인', '퍼블리싱'];
-
-const STATUS_MAP: Record<KpiStatus, { label: string; classKey: string }> = {
-  planning: { label: '목표 수립', classKey: 'kpi-status-planning' },
-  in_progress: { label: '수행 · 점검중', classKey: 'kpi-status-progress' },
-  achieved: { label: '목표 달성', classKey: 'kpi-status-achieved' },
-  partially_achieved: { label: '부분 달성', classKey: 'kpi-status-partial' },
-  missed: { label: '미달성 · 보완', classKey: 'kpi-status-missed' },
-};
-
-const GRADE_RUBRIC: {
-  grade: KpiGrade;
-  score: number;
-  label: string;
-  shortLabel: string;
-  desc: string;
-  classKey: string;
-}[] = [
-  {
-    grade: 'S',
-    score: 100,
-    label: 'S등급 (탁월)',
-    shortLabel: 'S등급 (탁월)',
-    desc: '일정·품질 완수 및 표준 모듈 자산화',
-    classKey: 'grade-s',
-  },
-  {
-    grade: 'A',
-    score: 90,
-    label: 'A등급 (우수 · 기준)',
-    shortLabel: 'A등급 (기준)',
-    desc: '합의 일정 내 목표 스펙 무결점 오픈',
-    classKey: 'grade-a',
-  },
-  {
-    grade: 'B',
-    score: 80,
-    label: 'B등급 (보통)',
-    shortLabel: 'B등급 (보통)',
-    desc: '일정 일부 지연 또는 오픈 후 보완 발생',
-    classKey: 'grade-b',
-  },
-  {
-    grade: 'C',
-    score: 70,
-    label: 'C등급 (미흡)',
-    shortLabel: 'C등급 (미흡)',
-    desc: '주요 일정 차질 또는 핵심 요구사항 누락',
-    classKey: 'grade-c',
-  },
-];
 
 interface KpiPreset {
   track: KpiTrack;
@@ -212,13 +133,6 @@ const KPI_PRESETS: KpiPreset[] = [
   },
 ];
 
-function resolveMemberDefaultTrack(name?: string | null): KpiTrack {
-  const trimmed = (name || '').trim();
-  if (trimmed === '박수민') return '디자인';
-  if (trimmed === '김리아') return '퍼블리싱';
-  return '기획';
-}
-
 export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) => {
   const [kpis, setKpis] = useState<KpiItem[]>(() => PlanningStorageService.getKpis());
   const [tasks] = useState<TaskItem[]>(() => PlanningStorageService.getTasks());
@@ -237,11 +151,63 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
   const canViewAllOrgKpis = isTeamLead || isDivisionHead || isExecutiveViewer;
   const canCreateGoal = isTeamLead || isTeamMember;
 
-  // 상단 뷰 모드: 유관부서(cross_dept)는 'peer_feedback' 고정, 그 외는 'evaluation' 기본 시작
-  const [modeTab, setModeTab] = useState<KpiModeTab>(() =>
-    isCrossDept ? 'peer_feedback' : 'evaluation'
-  );
-  const effectiveModeTab: KpiModeTab = isCrossDept ? 'peer_feedback' : modeTab;
+  // URL 해시 기반 페이지 라우팅 상태 (#/kpi, #/kpi/peer, #/kpi/detail/{id})
+  const [routeState, setRouteState] = useState(() => parseKpiRouteFromHash());
+  const cameFromListRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    const syncKpiRoute = () => {
+      const parsed = parseKpiRouteFromHash(window.location.hash);
+      if (isCrossDept) {
+        if (window.location.hash !== '#/kpi/peer') {
+          window.history.replaceState(null, '', '#/kpi/peer');
+        }
+        setRouteState({ mode: 'peer_feedback', detailId: null });
+        return;
+      }
+      if ((isDivisionHead || isExecutiveViewer) && parsed.mode === 'peer_feedback') {
+        window.history.replaceState(null, '', '#/kpi');
+        setRouteState({ mode: 'evaluation', detailId: null });
+        return;
+      }
+      setRouteState(parsed);
+    };
+
+    syncKpiRoute();
+    window.addEventListener('hashchange', syncKpiRoute);
+    return () => window.removeEventListener('hashchange', syncKpiRoute);
+  }, [isCrossDept, isDivisionHead, isExecutiveViewer]);
+
+  const effectiveModeTab: KpiModeTab = isCrossDept ? 'peer_feedback' : routeState.mode;
+  const selectedKpiId = routeState.detailId;
+
+  const navigateToKpiMode = (nextMode: KpiModeTab) => {
+    cameFromListRef.current = false;
+    const targetHash = nextMode === 'peer_feedback' ? '#/kpi/peer' : '#/kpi';
+    if (window.location.hash !== targetHash) {
+      window.location.assign(targetHash);
+    } else {
+      setRouteState({ mode: nextMode, detailId: null });
+    }
+  };
+
+  const navigateToKpiDetail = (kpiId: string) => {
+    cameFromListRef.current = true;
+    const targetHash = `#/kpi/detail/${encodeURIComponent(kpiId)}`;
+    if (window.location.hash !== targetHash) {
+      window.location.assign(targetHash);
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateBackToKpiList = () => {
+    if (cameFromListRef.current) {
+      cameFromListRef.current = false;
+      window.history.back();
+    } else {
+      window.location.assign('#/kpi');
+    }
+  };
 
   const [selectedQuarter, setSelectedQuarter] = useState<KpiQuarter>('Annual');
   const [trackFilter, setTrackFilter] = useState<'all' | KpiTrack>('all');
@@ -252,9 +218,8 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingKpi, setEditingKpi] = useState<KpiItem | null>(null);
 
-  // 상단 평가 기준표(3대 축 & 루브릭) 접기/펼치기 상태 및 상세 페이지 선택 KPI ID
+  // 상단 평가 기준표(3대 축 & 루브릭) 접기/펼치기 상태
   const [isFrameworkOpen, setIsFrameworkOpen] = useState<boolean>(true);
-  const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null);
 
   // 현재 로그인한 사용자가 해당 KPI의 본인(담당자)인지 여부 판별
   const isKpiOwner = useCallback(
@@ -287,18 +252,18 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
     return false;
   };
 
-  // 해당 KPI가 팀장 본인 또는 팀 공통 과제인지 여부 (팀장 1차 평가 생략 후 실장 최종 평가 직행 대상)
-  const isLeaderOwnedKpi = (kpi: KpiItem): boolean => {
-    return kpi.targetScope === 'team' || isTeamLeadName(kpi.ownerName);
-  };
-
   // 상세 페이지에 표시할 현재 선택된 KPI 항목 (열람 권한이 없으면 자동 차단)
-  const selectedKpi = useMemo(() => {
+  const rawDetailTarget = useMemo(() => {
     if (!selectedKpiId || effectiveModeTab !== 'evaluation') return null;
-    const found = kpis.find((k) => k.id === selectedKpiId) || null;
-    if (!found || !canReadKpiEvaluation(found)) return null;
-    return found;
-  }, [kpis, selectedKpiId, effectiveModeTab, canReadKpiEvaluation]);
+    return kpis.find((k) => k.id === selectedKpiId) || null;
+  }, [kpis, selectedKpiId, effectiveModeTab]);
+
+  const selectedKpi = useMemo(() => {
+    if (!rawDetailTarget || !canReadKpiEvaluation(rawDetailTarget)) return null;
+    return rawDetailTarget;
+  }, [rawDetailTarget, canReadKpiEvaluation]);
+
+  const isDetailRouteActive = Boolean(selectedKpiId && effectiveModeTab === 'evaluation');
 
   // 평가/점검 모달: 'self_checkin' | 'peer_review' | 'leader_eval' (팀장 1차) | 'director_eval' (실장 최종) | 'task_mapping'
   const [actionModal, setActionModal] = useState<{
@@ -315,138 +280,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
   const [mappingTaskIds, setMappingTaskIds] = useState<string[]>([]);
   const [mappingSearch, setMappingSearch] = useState<string>('');
   const [mappingShowAllTasks, setMappingShowAllTasks] = useState<boolean>(false);
-
-  const resolveSelfGrade = (selfScore?: number | null): KpiGrade | null => {
-    if (typeof selfScore !== 'number' || Number.isNaN(selfScore)) return null;
-    if (selfScore >= 95) return 'S';
-    if (selfScore >= 85) return 'A';
-    if (selfScore >= 75) return 'B';
-    return 'C';
-  };
-
-  const getScoreFromGrade = (grade?: KpiGrade | null): number | null => {
-    if (!grade) return null;
-    const found = GRADE_RUBRIC.find((r) => r.grade === grade);
-    return found ? found.score : null;
-  };
-
-  // 담당자 본인이 [실적 · 자가평가]를 등록했는지 여부 판별
-  const checkHasSelfEval = (kpi: KpiItem): boolean => {
-    return Boolean(
-      (typeof kpi.selfScore === 'number' && !Number.isNaN(kpi.selfScore)) ||
-        kpi.selfEvaluation?.trim() ||
-        kpi.currentValue?.trim()
-    );
-  };
-
-  // 팀원 KPI에 대해 팀장(최범열) 1차 평가가 유효하게 등록되었는지 판별
-  const getValidLeaderGrade = (kpi: KpiItem): KpiGrade | null => {
-    if (isLeaderOwnedKpi(kpi)) return null;
-    if (!checkHasSelfEval(kpi)) return null;
-    return kpi.leaderGrade || null;
-  };
-
-  // 실장(유은정 상무) 최종 평가가 유효하게 확정되었는지 판별
-  // (과거 테스트 중 팀장 계정으로 기록된 directorEvaluatorName === '최범열' 레거시 데이터는 미확정으로 분리)
-  const getValidFinalGrade = (kpi: KpiItem): KpiGrade | null => {
-    if (!checkHasSelfEval(kpi)) return null;
-    if (!kpi.directorGrade) return null;
-    if (kpi.directorEvaluatorName && isTeamLeadName(kpi.directorEvaluatorName)) {
-      return null;
-    }
-    return kpi.directorGrade;
-  };
-
-  const getValidFinalComment = (kpi: KpiItem): string => {
-    if (!getValidFinalGrade(kpi)) return '';
-    return kpi.directorComment || kpi.finalEvaluation || '';
-  };
-
-  // 평가 진행 단계에 따른 상태 배지 자동 결정
-  const getKpiLifecycleBadge = (kpi: KpiItem): { label: string; classKey: string } => {
-    const hasSelf = checkHasSelfEval(kpi);
-    const leaderGrade = getValidLeaderGrade(kpi);
-    const finalGrade = getValidFinalGrade(kpi);
-
-    if (finalGrade) {
-      if (finalGrade === 'S' || finalGrade === 'A') {
-        return { label: '실장 최종평가 완료 (목표 달성)', classKey: 'kpi-status-achieved' };
-      }
-      if (finalGrade === 'B') {
-        return { label: '실장 최종평가 완료 (부분 달성)', classKey: 'kpi-status-partial' };
-      }
-      return { label: '실장 최종평가 완료 (보완 필요)', classKey: 'kpi-status-missed' };
-    }
-
-    if (leaderGrade) {
-      return { label: '팀장 1차평가 완료 · 실장 최종평가 대기', classKey: 'kpi-status-progress' };
-    }
-
-    if (hasSelf) {
-      return {
-        label: isLeaderOwnedKpi(kpi)
-          ? '자가평가 완료 · 실장 최종평가 대기'
-          : '자가평가 완료 · 팀장 1차평가 대기',
-        classKey: 'kpi-status-progress',
-      };
-    }
-
-    return { label: '목표 수행중 · 자가평가 대기', classKey: 'kpi-status-planning' };
-  };
-
-  // 개별 KPI 항목의 평가 점수 및 가중치 반영 득점(Weighted Point) 산출
-  // 우선순위: 실장 최종평가(final) > 팀장 1차평가(leader) > 본인 자가평가(self)
-  const getKpiEvalMetrics = (kpi: KpiItem) => {
-    const hasSelf = checkHasSelfEval(kpi);
-    const finalGrade = getValidFinalGrade(kpi);
-    const leaderGrade = getValidLeaderGrade(kpi);
-    const selfGrade = resolveSelfGrade(kpi.selfScore);
-    const weight = Number(kpi.weight || 0);
-
-    if (finalGrade) {
-      const score = kpi.directorScore ?? getScoreFromGrade(finalGrade) ?? 90;
-      const weightedPoint = Math.round(((score * weight) / 100) * 10) / 10;
-      return {
-        source: 'final' as const,
-        grade: finalGrade,
-        score,
-        weight,
-        weightedPoint,
-      };
-    }
-
-    if (leaderGrade) {
-      const score = kpi.leaderScore ?? getScoreFromGrade(leaderGrade) ?? 90;
-      const weightedPoint = Math.round(((score * weight) / 100) * 10) / 10;
-      return {
-        source: 'leader' as const,
-        grade: leaderGrade,
-        score,
-        weight,
-        weightedPoint,
-      };
-    }
-
-    if (hasSelf && typeof kpi.selfScore === 'number' && !Number.isNaN(kpi.selfScore)) {
-      const score = kpi.selfScore;
-      const weightedPoint = Math.round(((score * weight) / 100) * 10) / 10;
-      return {
-        source: 'self' as const,
-        grade: selfGrade,
-        score,
-        weight,
-        weightedPoint,
-      };
-    }
-
-    return {
-      source: 'none' as const,
-      grade: null,
-      score: null,
-      weight,
-      weightedPoint: null,
-    };
-  };
 
   // 입력 폼 상태들
   const [selfForm, setSelfForm] = useState({
@@ -692,7 +525,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
         onShowToast('KPI 항목이 삭제되었습니다.', 'info');
         setIsModalOpen(false);
         if (selectedKpiId === id) {
-          setSelectedKpiId(null);
+          cameFromListRef.current = false;
+          window.history.replaceState(null, '', '#/kpi');
+          setRouteState({ mode: 'evaluation', detailId: null });
         }
         refreshKpis();
       } catch (err) {
@@ -825,7 +660,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
 
   // 3) 팀장(최범열 차장) 1차 평가 모달 (팀원 KPI 전용)
   const handleOpenLeaderEvalModal = (kpi: KpiItem) => {
-    if (!isTeamLead || isLeaderOwnedKpi(kpi)) return;
+    if (!isTeamLead || isLeaderOwnedKpiItem(kpi)) return;
     if (!checkHasSelfEval(kpi)) {
       onShowToast(
         '담당자의 [실적 · 자가평가]가 먼저 등록되어야 팀장 1차 평가를 진행할 수 있습니다.',
@@ -844,7 +679,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
 
   const handleSaveLeaderEval = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!actionModal.kpi || !isTeamLead || isLeaderOwnedKpi(actionModal.kpi)) return;
+    if (!actionModal.kpi || !isTeamLead || isLeaderOwnedKpiItem(actionModal.kpi)) return;
     if (!checkHasSelfEval(actionModal.kpi)) {
       onShowToast('담당자의 [실적 · 자가평가]가 먼저 등록되어야 합니다.', 'error');
       return;
@@ -1126,8 +961,8 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
 
   return (
     <div className="kpi-container">
-      {/* 상단 권한·기밀 안내 및 뷰 전환 바 (상세 페이지 진입 중이 아닐 때 표시) */}
-      {!selectedKpi && (
+      {/* 상단 권한·기밀 안내 및 뷰 전환 바 (독립 상세 페이지 진입 중이 아닐 때 표시) */}
+      {!isDetailRouteActive && (
         <div className={`card kpi-access-banner ${roleContextBanner.classKey}`}>
           <div className="kpi-access-banner-left">
             <span className="kpi-access-role-pill">
@@ -1143,7 +978,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
                 type="button"
                 role="tab"
                 aria-selected={effectiveModeTab === 'evaluation'}
-                onClick={() => setModeTab('evaluation')}
+                onClick={() => navigateToKpiMode('evaluation')}
                 className={`kpi-mode-switch-btn ${
                   effectiveModeTab === 'evaluation' ? 'active' : ''
                 }`}
@@ -1156,7 +991,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
                 type="button"
                 role="tab"
                 aria-selected={effectiveModeTab === 'peer_feedback'}
-                onClick={() => setModeTab('peer_feedback')}
+                onClick={() => navigateToKpiMode('peer_feedback')}
                 className={`kpi-mode-switch-btn ${
                   effectiveModeTab === 'peer_feedback' ? 'active' : ''
                 }`}
@@ -1351,504 +1186,51 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
             </div>
           )}
         </>
-      ) : selectedKpi ? (
+      ) : isDetailRouteActive ? (
         /* =====================================================================
-           모드 A-상세: 권한 검증된 KPI 상세 평가 워크플로우 페이지
+           모드 A-상세 독립 페이지 (#/kpi/detail/{id})
            ===================================================================== */
-        (() => {
-          const item = selectedKpi;
-          const trackCfg = TRACK_CONFIG[item.track || '기획'] || TRACK_CONFIG['기획'];
-          const TrackIcon = trackCfg.icon;
-          const lifecycleBadge = getKpiLifecycleBadge(item);
-          const hasSelfEvaluated = checkHasSelfEval(item);
-          const isLeaderKpi = isLeaderOwnedKpi(item);
-          const leaderGrade = getValidLeaderGrade(item);
-          const finalGrade = getValidFinalGrade(item);
-          const selfGrade = resolveSelfGrade(item.selfScore);
-          const evalMetrics = getKpiEvalMetrics(item);
-          const linkedTasks = getLinkedTasksForKpi(item);
-          const doneLinkedCount = linkedTasks.filter((t) => t.status === 'done').length;
-          const isSelf = isKpiOwner(item);
-          const canEditThisGoal = canEditKpiGoal(item);
-          const peerReviews = item.peerReviews || [];
-          const peerCount = peerReviews.length;
-          const myPeerReview = peerReviews.find(
-            (p) => String(p.reviewerId) === String(currentUser.id)
-          );
-          const avgQuality =
-            peerCount > 0
-              ? (
-                  peerReviews.reduce((acc, r) => acc + Number(r.scoreQuality || 5), 0) / peerCount
-                ).toFixed(1)
-              : '0.0';
-          const avgCollab =
-            peerCount > 0
-              ? (
-                  peerReviews.reduce((acc, r) => acc + Number(r.scoreCollaboration || 5), 0) /
-                  peerCount
-                ).toFixed(1)
-              : '0.0';
-          const avgTotal =
-            peerCount > 0
-              ? item.peerAvgScore ??
-                Number(((Number(avgQuality) + Number(avgCollab)) / 2).toFixed(1))
-              : 0;
-          const finalComment = getValidFinalComment(item);
-          const finalStepNum = isLeaderKpi ? 'STEP 3' : 'STEP 4';
-
-          return (
-            <div className="kpi-detail-view">
-              {/* 상세 화면 상단 네비게이션 바 */}
-              <div className="kpi-detail-topbar">
-                <button
-                  type="button"
-                  onClick={() => setSelectedKpiId(null)}
-                  className="btn btn-secondary kpi-back-btn"
-                >
-                  <ArrowLeft size={16} /> KPI 목록으로 돌아가기
-                </button>
-
-                {canEditThisGoal && (
-                  <div className="tasks-row-actions">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditModal(item)}
-                      className="btn btn-secondary tasks-action-btn"
-                      title="목표 수정"
-                    >
-                      <Edit2 size={14} /> 목표 수정
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteKpi(item.id, item.title)}
-                      className="btn btn-secondary tasks-delete-icon-btn"
-                      title="목표 삭제"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* 섹션 1. KPI 목표 타이틀 & 핵심 스코어 요약 & 측정/달성 기준(DoD) 카드 */}
-              <div className={`card kpi-detail-hero-card ${trackCfg.classKey}`}>
-                <div className="kpi-detail-hero-top">
-                  <div className="kpi-detail-hero-main">
-                    <div className="tasks-card-badges">
-                      <span className={`tasks-badge-track ${trackCfg.classKey}`}>
-                        <TrackIcon size={13} /> {trackCfg.label}
-                      </span>
-                      <span className="tasks-badge-category">
-                        {item.targetScope === 'team' ? '팀 공통' : item.ownerName}
-                      </span>
-                      <span className="kpi-weight-badge">
-                        {QUARTERS.find((q) => q.key === (item.quarter || 'Annual'))?.label ||
-                          '2026 연간 종합'}
-                      </span>
-                      <span className={`kpi-status-badge ${lifecycleBadge.classKey}`}>
-                        {lifecycleBadge.label}
-                      </span>
-                    </div>
-                    <h2 className="kpi-detail-title">{item.title}</h2>
-                  </div>
-
-                  {/* 우측 핵심 평가 스코어 요약 박스 */}
-                  <div
-                    className={`kpi-detail-score-strip ${isLeaderKpi ? 'is-four-col' : 'is-five-col'}`}
-                  >
-                    <div className="kpi-detail-score-box">
-                      <span className="kpi-detail-score-label">배점 가중치</span>
-                      <strong className="kpi-detail-score-val">{item.weight}%</strong>
-                    </div>
-
-                    <div className="kpi-detail-score-box">
-                      <span className="kpi-detail-score-label">본인 자가진단</span>
-                      <strong className="kpi-detail-score-val is-self">
-                        {hasSelfEvaluated && selfGrade ? `${selfGrade}등급` : '미등록'}
-                      </strong>
-                    </div>
-
-                    <div className="kpi-detail-score-box">
-                      <span className="kpi-detail-score-label">협업 다면평가</span>
-                      <strong className="kpi-detail-score-val is-peer">
-                        {peerCount > 0 ? `${avgTotal}점 (${peerCount}명)` : '대기 (0명)'}
-                      </strong>
-                    </div>
-
-                    {!isLeaderKpi && (
-                      <div className="kpi-detail-score-box">
-                        <span className="kpi-detail-score-label">팀장 1차평가</span>
-                        <strong className="kpi-detail-score-val is-leader">
-                          {leaderGrade ? `${leaderGrade}등급` : '미등록'}
-                        </strong>
-                      </div>
-                    )}
-
-                    <div className="kpi-detail-score-box is-final-box">
-                      <span className="kpi-detail-score-label">실장 최종평가</span>
-                      <strong className="kpi-detail-score-val is-final">
-                        {finalGrade
-                          ? `${finalGrade}등급 (${evalMetrics.weightedPoint}/${item.weight}점)`
-                          : '미확정'}
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 하단 측정 기준(Metric) & 완료/달성 기준(DoD) */}
-                <div className="kpi-detail-criteria-grid">
-                  <div className="kpi-detail-criteria-item">
-                    <span className="kpi-detail-criteria-label">측정 기준 (Metric)</span>
-                    <p className="kpi-detail-criteria-val">{item.targetMetric || '-'}</p>
-                  </div>
-
-                  <div className="kpi-detail-criteria-item is-dod">
-                    <span className="kpi-detail-criteria-label">
-                      완료/달성 기준 (DoD · A등급 기준)
-                    </span>
-                    <p className="kpi-detail-criteria-val is-target">{item.targetValue || '-'}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 섹션 2. 매핑된 실무 수행 근거 과제 */}
-              <div className="card kpi-detail-section-card">
-                <div className="kpi-detail-section-header">
-                  <div className="kpi-detail-section-title-wrap">
-                    <LinkIcon size={17} className="kpi-framework-icon" />
-                    <h3 className="kpi-detail-section-title">
-                      매핑된 실무 수행 근거 과제 ({linkedTasks.length}건)
-                    </h3>
-                    {linkedTasks.length > 0 && (
-                      <span className="kpi-evidence-summary-badge">
-                        완료 {doneLinkedCount} / 매핑 {linkedTasks.length}건
-                      </span>
-                    )}
-                  </div>
-
-                  {canEditThisGoal && (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenTaskMappingModal(item)}
-                      className="btn btn-secondary tasks-action-btn kpi-evidence-map-btn-lg"
-                    >
-                      <LinkIcon size={14} />{' '}
-                      {linkedTasks.length > 0 ? '실무 과제 매핑 편집' : '+ 실무 과제 매핑하기'}
-                    </button>
-                  )}
-                </div>
-
-                {linkedTasks.length === 0 ? (
-                  <div className="kpi-detail-empty-box">
-                    {canEditThisGoal
-                      ? '아직 이 KPI 목표에 매핑된 실무 수행 근거 과제가 없습니다. 우측 상단 [+ 실무 과제 매핑하기] 버튼을 눌러 업무를 연결해 주세요.'
-                      : '아직 담당자가 이 KPI 목표에 매핑한 실무 수행 근거 과제가 없습니다.'}
-                  </div>
-                ) : (
-                  <div className="kpi-detail-task-list">
-                    {linkedTasks.map((t) => {
-                      const outUrl = t.links?.[0]?.url || t.artifactUrl;
-                      const isDone = t.status === 'done';
-                      return (
-                        <div key={t.id} className="kpi-detail-task-row">
-                          <div className="kpi-detail-task-main">
-                            <span
-                              className={`kpi-detail-task-status ${isDone ? 'is-done' : 'is-progress'}`}
-                            >
-                              <CheckCircle2 size={14} />
-                              {isDone ? '완료' : `진행중 (${t.progress ?? 0}%)`}
-                            </span>
-                            <span className="kpi-detail-task-title">{t.title}</span>
-                            <span className="kpi-evidence-assignee">담당: {t.assigneeName}</span>
-                          </div>
-
-                          <div className="kpi-detail-task-meta">
-                            <span className="kpi-evidence-date">
-                              <Clock size={14} />{' '}
-                              {t.startDate || t.dueDate
-                                ? `${t.startDate || '미정'} ~ ${t.dueDate || '미정'}`
-                                : '일정 미정'}
-                            </span>
-                            {outUrl && (
-                              <a
-                                href={outUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="kpi-detail-task-link"
-                              >
-                                산출물 확인 <ExternalLink size={14} />
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* 섹션 3. 단계별 성과 평가 상세 워크플로우 */}
-              <div className="kpi-eval-steps-grid is-detail-page">
-                {/* STEP 1: 본인 수행 실적 및 자가평가 */}
-                <div
-                  className={`card kpi-eval-step-card is-detail ${
-                    hasSelfEvaluated ? 'is-completed-self' : 'is-pending'
-                  }`}
-                >
-                  <div className="kpi-eval-step-header">
-                    <div className="kpi-step-badge-wrap">
-                      <span className="kpi-step-num step-1">STEP 1</span>
-                      <span className="kpi-step-title">본인 수행 실적 및 자가평가</span>
-                      {hasSelfEvaluated && selfGrade ? (
-                        <span className={`kpi-grade-chip grade-${selfGrade.toLowerCase()}`}>
-                          자가 {selfGrade}등급
-                        </span>
-                      ) : (
-                        <span className="kpi-step-pending-badge">미등록 (필수 선행)</span>
-                      )}
-                    </div>
-
-                    {isSelf && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenSelfModal(item)}
-                        className={`btn ${hasSelfEvaluated ? 'btn-secondary' : 'btn-primary'} tasks-action-btn`}
-                      >
-                        <ClipboardCheck size={14} />{' '}
-                        {hasSelfEvaluated ? '실적 · 자가평가 수정' : '실적 · 자가평가 등록'}
-                      </button>
-                    )}
-                  </div>
-
-                  {hasSelfEvaluated ? (
-                    <div className="kpi-step-body is-detail is-two-col">
-                      <div className="kpi-detail-eval-content-box">
-                        <span className="kpi-step-field-label">수행 실적 요약</span>
-                        <p className="kpi-step-field-val is-detail">
-                          {item.currentValue?.trim() || '-'}
-                        </p>
-                      </div>
-                      <div className="kpi-detail-eval-content-box">
-                        <span className="kpi-step-field-label">본인 자가평가 의견</span>
-                        <p className="kpi-step-field-val is-detail">
-                          {item.selfEvaluation?.trim() || '등록된 자가평가 코멘트가 없습니다.'}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="kpi-detail-empty-box">
-                      {isSelf
-                        ? '아직 수행 실적과 자가평가가 등록되지 않았습니다. 우측 상단 [실적 · 자가평가 등록] 버튼을 눌러 먼저 작성해 주세요.'
-                        : '담당자 본인의 수행 실적 및 자가평가 등록을 대기 중입니다.'}
-                    </div>
-                  )}
-                </div>
-
-                {/* STEP 2: 사내 · 유관부서 무기명 협업 다면평가 */}
-                <div
-                  className={`card kpi-eval-step-card is-detail ${
-                    peerCount > 0 ? 'is-completed-peer' : 'is-pending'
-                  }`}
-                >
-                  <div className="kpi-eval-step-header">
-                    <div className="kpi-step-badge-wrap">
-                      <span className="kpi-step-num step-2">STEP 2</span>
-                      <span className="kpi-step-title">
-                        사내 · 유관부서 무기명 협업 다면평가 ({peerCount}명 참여)
-                      </span>
-                      {peerCount > 0 ? (
-                        <span className="kpi-peer-score-chip">평균 {avgTotal} / 5.0점</span>
-                      ) : (
-                        <span className="kpi-step-pending-badge">참여 대기</span>
-                      )}
-                    </div>
-
-                    {!isSelf && !isDivisionHead && !isExecutiveViewer && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPeerModal(item)}
-                        className="btn btn-secondary tasks-action-btn kpi-peer-eval-btn"
-                      >
-                        <MessageSquare size={14} />{' '}
-                        {myPeerReview
-                          ? '내 동료 피드백 수정 (무기명)'
-                          : '동료 피드백 평가하기 (무기명)'}
-                      </button>
-                    )}
-                  </div>
-
-                  {peerCount === 0 ? (
-                    <div className="kpi-detail-empty-box">
-                      팀 동료 및 유관부서 협업 담당자가 무기명 피드백을 등록하면 평가자 신원 없이 집계 점수와 코멘트만 이곳에 표시됩니다.
-                    </div>
-                  ) : (
-                    <div className="kpi-step-body is-detail">
-                      <div className="kpi-peer-anon-scores">
-                        산출물 완성도 평균 <strong>{avgQuality}</strong>점 · 일정·소통 협업 평균{' '}
-                        <strong>{avgCollab}</strong>점
-                      </div>
-                      <div className="kpi-peer-anon-list">
-                        {peerReviews.map((pr, idx) => (
-                          <div key={pr.id || idx} className="kpi-peer-anon-item">
-                            <div className="kpi-peer-anon-item-head">
-                              <span className="kpi-peer-anon-tag">익명 협업 피드백 #{idx + 1}</span>
-                              <span className="kpi-peer-anon-subscore">
-                                완성도 {pr.scoreQuality}점 · 소통 {pr.scoreCollaboration}점
-                              </span>
-                            </div>
-                            <p className="kpi-peer-anon-comment">{pr.commentGood}</p>
-                            {pr.commentImprove && (
-                              <p className="kpi-peer-anon-improve">
-                                보완/건의: {pr.commentImprove}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* STEP 3 (팀원 KPI인 경우에만 표시): 서비스기획팀장 1차 평가 */}
-                {!isLeaderKpi && (
-                  <div
-                    className={`card kpi-eval-step-card is-detail ${
-                      leaderGrade
-                        ? 'is-completed-self'
-                        : !hasSelfEvaluated
-                          ? 'is-locked'
-                          : 'is-pending'
-                    }`}
-                  >
-                    <div className="kpi-eval-step-header">
-                      <div className="kpi-step-badge-wrap">
-                        <span className="kpi-step-num step-1">STEP 3</span>
-                        <span className="kpi-step-title">팀장 1차 평가 (서비스기획팀장)</span>
-                        {leaderGrade ? (
-                          <span className={`kpi-grade-chip grade-${leaderGrade.toLowerCase()}`}>
-                            1차 {leaderGrade}등급
-                          </span>
-                        ) : !hasSelfEvaluated ? (
-                          <span className="kpi-step-pending-badge is-locked">STEP 1 선행 필요</span>
-                        ) : (
-                          <span className="kpi-step-pending-badge">1차 평가 대기</span>
-                        )}
-                      </div>
-
-                      {isTeamLead && (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenLeaderEvalModal(item)}
-                          disabled={!hasSelfEvaluated}
-                          className={`btn ${hasSelfEvaluated ? 'btn-primary' : 'btn-secondary'} tasks-action-btn`}
-                        >
-                          <UserCheck size={14} />{' '}
-                          {!hasSelfEvaluated
-                            ? '1차 평가 (자가평가 선행 필요)'
-                            : leaderGrade
-                              ? '팀장 1차 평가 수정'
-                              : '팀장 1차 평가 등록'}
-                        </button>
-                      )}
-                    </div>
-
-                    {leaderGrade ? (
-                      <div className="kpi-step-body is-detail">
-                        <div className="kpi-detail-eval-content-box">
-                          <span className="kpi-step-field-label">
-                            서비스기획팀장 1차 평가 의견 ({item.leaderEvaluatorName || '최범열'})
-                          </span>
-                          <p className="kpi-step-field-val is-detail">
-                            {item.leaderComment?.trim() || '등록된 1차 평가 코멘트가 없습니다.'}
-                          </p>
-                        </div>
-                      </div>
-                    ) : !hasSelfEvaluated ? (
-                      <div className="kpi-detail-empty-box">
-                        STEP 1 [본인 수행 실적 및 자가평가]가 먼저 등록되어야 팀장 1차 평가를 진행할 수 있습니다.
-                      </div>
-                    ) : (
-                      <div className="kpi-detail-empty-box">
-                        서비스기획팀장(최범열 차장)의 1차 평가를 대기 중입니다.
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* 최종 단계 (팀원 STEP 4 / 팀장 본인 STEP 3): 디지털마케팅실장(유은정 상무) 최종 평가 */}
-                <div
-                  className={`card kpi-eval-step-card is-detail ${
-                    finalGrade
-                      ? 'is-completed-admin'
-                      : !hasSelfEvaluated
-                        ? 'is-locked'
-                        : 'is-pending'
-                  }`}
-                >
-                  <div className="kpi-eval-step-header">
-                    <div className="kpi-step-badge-wrap">
-                      <span className="kpi-step-num step-3">{finalStepNum}</span>
-                      <span className="kpi-step-title">
-                        실장 최종 평가 (디지털마케팅실장 · 유은정 상무)
-                      </span>
-                      {finalGrade ? (
-                        <span className={`kpi-grade-chip grade-${finalGrade.toLowerCase()}`}>
-                          최종 {finalGrade}등급 ({evalMetrics.weightedPoint} / {item.weight}점)
-                        </span>
-                      ) : !hasSelfEvaluated ? (
-                        <span className="kpi-step-pending-badge is-locked">STEP 1 선행 필요</span>
-                      ) : (
-                        <span className="kpi-step-pending-badge">실장 최종평가 대기</span>
-                      )}
-                    </div>
-
-                    {isDivisionHead && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDirectorEvalModal(item)}
-                        disabled={!hasSelfEvaluated}
-                        className={`btn ${hasSelfEvaluated ? 'btn-primary' : 'btn-secondary'} tasks-action-btn kpi-final-eval-btn`}
-                        title={
-                          hasSelfEvaluated
-                            ? '디지털마케팅실장 최종 등급 및 총평 확정'
-                            : '담당자 본인의 [실적 · 자가평가]가 먼저 등록되어야 최종 등급을 확정할 수 있습니다.'
-                        }
-                      >
-                        <Award size={14} />{' '}
-                        {!hasSelfEvaluated
-                          ? '최종 등급 확정 (자가평가 선행 필요)'
-                          : finalGrade
-                            ? '최종 등급 재확정'
-                            : '최종 등급 확정'}
-                      </button>
-                    )}
-                  </div>
-
-                  {finalGrade ? (
-                    <div className="kpi-step-body is-detail">
-                      <div className="kpi-detail-eval-content-box">
-                        <span className="kpi-step-field-label">
-                          디지털마케팅실장 최종 평가 총평 ({item.directorEvaluatorName || '유은정'} 상무)
-                        </span>
-                        <p className="kpi-step-field-val is-detail">
-                          {finalComment || '등록된 최종 평가 코멘트가 없습니다.'}
-                        </p>
-                      </div>
-                    </div>
-                  ) : !hasSelfEvaluated ? (
-                    <div className="kpi-detail-empty-box">
-                      STEP 1 [본인 수행 실적 및 자가평가]가 먼저 등록되어야 실장 최종 등급을 확정할 수 있습니다.
-                    </div>
-                  ) : (
-                    <div className="kpi-detail-empty-box">
-                      디지털마케팅실장(유은정 상무)의 최종 등급 및 총평 확정을 대기 중입니다.
-                    </div>
-                  )}
-                </div>
-              </div>
+        selectedKpi ? (
+          <KpiDetailPage
+            item={selectedKpi}
+            currentUser={currentUser}
+            linkedTasks={getLinkedTasksForKpi(selectedKpi)}
+            isSelf={isKpiOwner(selectedKpi)}
+            canEditGoal={canEditKpiGoal(selectedKpi)}
+            isTeamLead={isTeamLead}
+            isDivisionHead={isDivisionHead}
+            isExecutiveViewer={isExecutiveViewer}
+            onBackToList={navigateBackToKpiList}
+            onOpenEditGoal={handleOpenEditModal}
+            onDeleteGoal={handleDeleteKpi}
+            onOpenTaskMapping={handleOpenTaskMappingModal}
+            onOpenSelfEval={handleOpenSelfModal}
+            onOpenPeerEval={handleOpenPeerModal}
+            onOpenLeaderEval={handleOpenLeaderEvalModal}
+            onOpenDirectorEval={handleOpenDirectorEvalModal}
+          />
+        ) : (
+          <div className="card kpi-empty-card">
+            <Lock size={34} className="kpi-empty-icon" />
+            <div className="kpi-empty-title">
+              {rawDetailTarget
+                ? '해당 KPI 평가 상세 페이지 열람 권한이 없습니다.'
+                : '요청하신 KPI 항목을 찾을 수 없습니다.'}
             </div>
-          );
-        })()
+            <p className="kpi-empty-desc">
+              {rawDetailTarget
+                ? '개인 KPI 평가 내역은 담당자 본인과 상위 평가권자(팀장·실장·최상위 임원)만 열람할 수 있습니다.'
+                : '삭제되었거나 잘못된 KPI 상세 주소입니다.'}
+            </p>
+            <button
+              type="button"
+              onClick={navigateBackToKpiList}
+              className="btn btn-secondary"
+            >
+              <ArrowLeft size={16} /> KPI 목록으로 돌아가기
+            </button>
+          </div>
+        )
       ) : (
         /* =====================================================================
            모드 A-목록: 내 KPI 평가 관리(팀원) / 소속 구성원 KPI 종합 평가(팀장·실장·임원)
@@ -2108,7 +1490,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
                       const trackCfg = TRACK_CONFIG[item.track || '기획'] || TRACK_CONFIG['기획'];
                       const TrackIcon = trackCfg.icon;
                       const hasSelfEvaluated = checkHasSelfEval(item);
-                      const isLeaderKpi = isLeaderOwnedKpi(item);
+                      const isLeaderKpi = isLeaderOwnedKpiItem(item);
                       const leaderGrade = getValidLeaderGrade(item);
                       const finalGrade = getValidFinalGrade(item);
                       const selfGrade = resolveSelfGrade(item.selfScore);
@@ -2136,10 +1518,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
                       return (
                         <tr
                           key={item.id}
-                          onClick={() => {
-                            setSelectedKpiId(item.id);
-                            window.scrollTo({ top: 0, behavior: 'smooth' });
-                          }}
+                          onClick={() => navigateToKpiDetail(item.id)}
                           className="kpi-table-row"
                         >
                           <td className="kpi-col-owner">
@@ -3160,7 +2539,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, onShowToast }) =>
         isDivisionHead &&
         (() => {
           const targetKpi = actionModal.kpi;
-          const isLeaderKpi = isLeaderOwnedKpi(targetKpi);
+          const isLeaderKpi = isLeaderOwnedKpiItem(targetKpi);
           const modalLinkedTasks = getLinkedTasksForKpi(targetKpi);
           const modalDoneTasks = modalLinkedTasks.filter((t) => t.status === 'done').length;
           const modalSelfScore =

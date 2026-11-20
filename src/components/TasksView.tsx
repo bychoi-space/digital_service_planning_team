@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type {
   TaskItem,
   TaskAttachment,
@@ -260,6 +260,20 @@ function formatYearMonthLabel(ym: string): string {
   return `${y}년 ${Number(m)}월`;
 }
 
+// URL 해시(#/tasks/{taskId})로부터 선택된 업무 ID 추출
+function parseTaskIdFromHash(
+  hash: string = typeof window !== 'undefined' ? window.location.hash : ''
+): string | null {
+  const clean = hash.replace(/^#\/?/, '').trim();
+  const match = clean.match(/^tasks\/(.+)$/i);
+  if (!match || !match[1]) return null;
+  try {
+    return decodeURIComponent(match[1].trim());
+  } catch {
+    return match[1].trim();
+  }
+}
+
 export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onShowToast }) => {
   const [tasks, setTasks] = useState<TaskItem[]>(() => PlanningStorageService.getTasks());
   const [teamMembers, setTeamMembers] = useState<User[]>(() => PlanningStorageService.getServicePlanningMembers());
@@ -274,10 +288,11 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
   const [expandedDoneTracks, setExpandedDoneTracks] = useState<Record<string, boolean>>({});
   const [doneTrackMonthFilter, setDoneTrackMonthFilter] = useState<Record<string, string>>({});
 
-  // 모달 상태
+  // 모달 상태 및 URL 히스토리 연동 추적
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [isSyncingNotion, setIsSyncingNotion] = useState(true);
+  const openedViaPushRef = useRef<boolean>(false);
 
   // 로그인된 회원을 기본 담당자로 반환하는 헬퍼 (파트 지정 시 해당 파트 전담자 우선 매칭)
   const resolveDefaultAssignee = (members: User[], targetTrack?: TaskTrack): User => {
@@ -395,6 +410,10 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
     const defaultDue = getDatePlusDaysString(14);
 
     setEditingTask(null);
+    openedViaPushRef.current = false;
+    if (parseTaskIdFromHash(window.location.hash)) {
+      window.history.replaceState(null, '', '#/tasks');
+    }
     setFormData({
       title: '',
       category: resolvedTrack === '퍼블리싱' ? '기획전' : '신규기획',
@@ -419,12 +438,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
     });
   };
 
-  // 모달 열기 (수정 or 상세 조회)
-  const handleOpenEditModal = (task: TaskItem) => {
+  // 대상 업무 데이터를 모달 폼 상태에 세팅하는 공통 함수
+  const applyTaskToModal = useCallback((task: TaskItem) => {
     const latestMembers = PlanningStorageService.getServicePlanningMembers();
     setTeamMembers(latestMembers);
     const matchedAssignee = latestMembers.find(
-      (m) => String(m.id) === String(task.assigneeId) || m.name.trim() === task.assigneeName?.trim()
+      (m) =>
+        String(m.id) === String(task.assigneeId) ||
+        m.name.trim() === task.assigneeName?.trim()
     );
     const isAlreadyNotionLinked =
       String(task.id).startsWith('notion-') || Boolean(task.notionUrl);
@@ -452,7 +473,65 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       syncToNotion: isAlreadyNotionLinked,
     });
     setIsModalOpen(true);
+  }, []);
+
+  // 모달 열기 (수정 or 상세 조회 — 고유 URL #/tasks/{id} 동기화)
+  const handleOpenEditModal = (task: TaskItem) => {
+    applyTaskToModal(task);
+    const targetHash = `#/tasks/${encodeURIComponent(task.id)}`;
+    if (window.location.hash !== targetHash) {
+      openedViaPushRef.current = true;
+      window.location.assign(targetHash);
+    }
   };
+
+  // 모달 닫기 (브라우저 뒤로가기 스택 및 딥링크 안전 복귀)
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+    setEditingTask(null);
+    if (parseTaskIdFromHash(window.location.hash)) {
+      if (openedViaPushRef.current) {
+        openedViaPushRef.current = false;
+        window.history.back();
+      } else {
+        window.history.replaceState(null, '', '#/tasks');
+      }
+    } else {
+      openedViaPushRef.current = false;
+    }
+  }, []);
+
+  // URL 해시(#/tasks/{id}) 및 브라우저 뒤로가기/앞으로가기/딥링크 동기화
+  useEffect(() => {
+    const syncModalWithHash = () => {
+      const targetId = parseTaskIdFromHash(window.location.hash);
+      if (!targetId) {
+        openedViaPushRef.current = false;
+        setIsModalOpen((prevOpen) => {
+          if (prevOpen && editingTask) {
+            setEditingTask(null);
+            return false;
+          }
+          return prevOpen;
+        });
+        return;
+      }
+
+      if (editingTask && String(editingTask.id) === targetId && isModalOpen) {
+        return;
+      }
+
+      const latestTasks = PlanningStorageService.getTasks();
+      const matched = latestTasks.find((t) => String(t.id) === targetId);
+      if (matched) {
+        applyTaskToModal(matched);
+      }
+    };
+
+    syncModalWithHash();
+    window.addEventListener('hashchange', syncModalWithHash);
+    return () => window.removeEventListener('hashchange', syncModalWithHash);
+  }, [tasks, editingTask, isModalOpen, applyTaskToModal]);
 
   // 첨부파일 업로드/삭제 시 상태 갱신 및 기존 업무 수정 중에는 즉시 DB 자동 반영
   const handleAttachmentsChange = (nextAttachments: TaskAttachment[]) => {
@@ -573,7 +652,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
           'success'
         );
       }
-      setIsModalOpen(false);
+      handleCloseModal();
       refreshTasks();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : '작업 중 오류가 발생했습니다.';
@@ -602,7 +681,14 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
           : '업무가 삭제되었습니다.',
         'info'
       );
-      if (isModalOpen) setIsModalOpen(false);
+      if (isModalOpen) {
+        openedViaPushRef.current = false;
+        if (parseTaskIdFromHash(window.location.hash)) {
+          window.history.replaceState(null, '', '#/tasks');
+        }
+        setIsModalOpen(false);
+        setEditingTask(null);
+      }
       refreshTasks();
     }
   };
@@ -1509,7 +1595,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
 
       {/* 3. 업무 등록 / 수정 / 조회 모달 다이얼로그 */}
       {isModalOpen && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
+        <div className="modal-overlay" onClick={handleCloseModal}>
           <div
             className="modal-box tasks-detail-modal-box"
             onClick={(e) => e.stopPropagation()}
@@ -1527,7 +1613,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
               </div>
               <button
                 type="button"
-                onClick={() => setIsModalOpen(false)}
+                onClick={handleCloseModal}
                 className="tasks-modal-close-btn"
                 aria-label="모달 닫기"
               >
@@ -1928,7 +2014,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
                 )}
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={handleCloseModal}
                   className="btn btn-secondary"
                 >
                   {isViewer ? '닫기' : '취소'}
