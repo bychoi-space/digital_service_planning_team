@@ -170,7 +170,7 @@ function resolveFigmaMetaLabel(figmaUrl: string): string {
 }
 
 const TRACK_OWNER_NAME: Record<TaskTrack, string> = {
-  기획: '최범열',
+  기획: '최범열 · 고범곤',
   디자인: '박수민',
   퍼블리싱: '김리아',
 };
@@ -296,14 +296,24 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
 
   // 로그인된 회원을 기본 담당자로 반환하는 헬퍼 (파트 지정 시 해당 파트 전담자 우선 매칭)
   const resolveDefaultAssignee = (members: User[], targetTrack?: TaskTrack): User => {
-    if (targetTrack) {
-      const trackDefaultName =
-        targetTrack === '디자인' ? '박수민' : targetTrack === '퍼블리싱' ? '김리아' : '최범열';
+    const currentTrimmed = currentUser.name.trim();
+    if (targetTrack === '디자인' || targetTrack === '퍼블리싱') {
+      const trackDefaultName = targetTrack === '디자인' ? '박수민' : '김리아';
       const matchedByTrack = members.find((m) => m.name.trim() === trackDefaultName);
       if (matchedByTrack) return matchedByTrack;
+    } else if (targetTrack === '기획') {
+      const matchedCurrentPlanner = members.find(
+        (m) =>
+          (String(m.id) === String(currentUser.id) || m.name.trim() === currentTrimmed) &&
+          m.name.trim() !== '박수민' &&
+          m.name.trim() !== '김리아'
+      );
+      if (matchedCurrentPlanner) return matchedCurrentPlanner;
+      const matchedChoi = members.find((m) => m.name.trim() === '최범열');
+      if (matchedChoi) return matchedChoi;
     }
     const matchedCurrent = members.find(
-      (m) => String(m.id) === String(currentUser.id) || m.name.trim() === currentUser.name.trim()
+      (m) => String(m.id) === String(currentUser.id) || m.name.trim() === currentTrimmed
     );
     if (matchedCurrent) return matchedCurrent;
     if (currentUser.role !== 'viewer') return currentUser;

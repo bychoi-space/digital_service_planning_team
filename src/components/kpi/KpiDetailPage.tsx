@@ -137,8 +137,7 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
               </span>
               <span className="kpi-weight-badge">
                 {item.year || 2026}년{' '}
-                {QUARTERS.find((q) => q.key === (item.quarter || 'Annual'))?.label ||
-                  '연간 종합'}
+                {QUARTERS.find((q) => q.key === item.quarter)?.label || item.quarter}
               </span>
               <span className={`kpi-status-badge ${lifecycleBadge.classKey}`}>
                 {lifecycleBadge.label}
@@ -190,7 +189,7 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
           </div>
         </div>
 
-        {/* 하단 측정 기준(Metric) & 완료/달성 기준(DoD) */}
+        {/* 하단 측정 기준(Metric) & 달성 기준(DoD) */}
         <div className="kpi-detail-criteria-grid">
           <div className="kpi-detail-criteria-item">
             <span className="kpi-detail-criteria-label">측정 기준 (Metric)</span>
@@ -199,24 +198,24 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
 
           <div className="kpi-detail-criteria-item is-dod">
             <span className="kpi-detail-criteria-label">
-              완료/달성 기준 (DoD)
+              달성 기준 (DoD)
             </span>
             <p className="kpi-detail-criteria-val is-target">{item.targetValue || '-'}</p>
           </div>
         </div>
       </div>
 
-      {/* 섹션 2. 매핑된 실무 수행 근거 과제 (제목 클릭 시 페이지 이동 없이 현재 화면 위 팝업 오픈 · 불필요 산출물 버튼 제거) */}
+      {/* 섹션 2. 매핑된 실무 수행 근거 과제 */}
       <div className="card kpi-detail-section-card">
         <div className="kpi-detail-section-header">
           <div className="kpi-detail-section-title-wrap">
             <LinkIcon size={17} className="kpi-framework-icon" />
             <h3 className="kpi-detail-section-title">
-              매핑된 실무 수행 근거 과제 ({linkedTasks.length}건)
+              연결된 실무 과제 ({linkedTasks.length}건)
             </h3>
             {linkedTasks.length > 0 && (
               <span className="kpi-evidence-summary-badge">
-                완료 {doneLinkedCount} / 매핑 {linkedTasks.length}건
+                완료 {doneLinkedCount} / 전체 {linkedTasks.length}건
               </span>
             )}
           </div>
@@ -228,7 +227,7 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
               className="btn btn-secondary tasks-action-btn kpi-evidence-map-btn-lg"
             >
               <LinkIcon size={14} />{' '}
-              {linkedTasks.length > 0 ? '실무 과제 매핑 편집' : '+ 실무 과제 매핑하기'}
+              {linkedTasks.length > 0 ? '과제 매핑 편집' : '+ 실무 과제 매핑'}
             </button>
           )}
         </div>
@@ -236,21 +235,26 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
         {linkedTasks.length === 0 ? (
           <div className="kpi-detail-empty-box">
             {canEditGoal
-              ? '아직 이 KPI 목표에 매핑된 실무 수행 근거 과제가 없습니다. 우측 상단 [+ 실무 과제 매핑하기] 버튼을 눌러 업무를 연결해 주세요.'
-              : '아직 담당자가 이 KPI 목표에 매핑한 실무 수행 근거 과제가 없습니다.'}
+              ? '연결된 실무 수행 과제가 없습니다. 우측 상단 [+ 실무 과제 매핑] 버튼으로 관련 업무를 연결해 주세요.'
+              : '연결된 실무 수행 과제가 없습니다.'}
           </div>
         ) : (
           <div className="kpi-detail-task-list">
             {linkedTasks.map((t) => {
               const isDone = t.status === 'done';
+              const isBacklog = t.status === 'backlog';
+              const taskStatusLabel = isDone ? '완료' : isBacklog ? '대기' : '진행중';
+              const taskStatusClass = isDone
+                ? 'is-done'
+                : isBacklog
+                  ? 'is-backlog'
+                  : 'is-progress';
               return (
                 <div key={t.id} className="kpi-detail-task-row">
                   <div className="kpi-detail-task-main">
-                    <span
-                      className={`kpi-detail-task-status ${isDone ? 'is-done' : 'is-progress'}`}
-                    >
+                    <span className={`kpi-detail-task-status ${taskStatusClass}`}>
                       <CheckCircle2 size={14} />
-                      {isDone ? '완료' : `진행중 (${t.progress ?? 0}%)`}
+                      {taskStatusLabel}
                     </span>
                     <button
                       type="button"
@@ -395,10 +399,10 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
           className={`card kpi-eval-step-card is-detail ${
             isLeaderKpi
               ? hasSelfEvaluated
-                ? 'is-completed-self'
+                ? 'is-completed-leader'
                 : 'is-pending'
               : leaderScore5 !== null
-                ? 'is-completed-self'
+                ? 'is-completed-leader'
                 : !hasSelfEvaluated
                   ? 'is-locked'
                   : 'is-pending'
@@ -406,7 +410,7 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
         >
           <div className="kpi-eval-step-header">
             <div className="kpi-step-badge-wrap">
-              <span className="kpi-step-num step-1">STEP 3</span>
+              <span className="kpi-step-num step-leader">STEP 3</span>
               <span className="kpi-step-title">1차 팀장 평가 (서비스기획팀장)</span>
               {isLeaderKpi ? (
                 <span className="kpi-step-pending-badge">팀장 본인 과제 (STEP 4 직행)</span>

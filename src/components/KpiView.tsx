@@ -30,10 +30,10 @@ import {
   QUARTERS,
   TRACK_CONFIG,
   TRACK_LIST,
-  STATUS_MAP,
   SCORE_5_RUBRIC,
   GRADE_RUBRIC,
   parseKpiRouteFromHash,
+  resolveCurrentQuarterFromDate,
   resolveMemberDefaultTrack,
   resolveGradeFromHundredScore,
   recommendGradeFromFiveScore,
@@ -88,68 +88,68 @@ const KPI_PRESETS: KpiPreset[] = [
   // 기획 (파란색)
   {
     track: '기획',
-    pillar: '일정 · 딜리버리',
-    title: '시선닷컴 Front UI Renewal 및 제휴 프로모션 화면설계(SB) 적기 완수',
-    metric: '연간 핵심 과제 및 시즌/제휴 프로모션 화면설계서(SB) 마일스톤 일정 준수 여부',
-    targetValue: '합의된 착수·마감 일정 내 기획서 확정 및 유관부서 리뷰 완료',
+    pillar: '일정 준수',
+    title: '핵심 과제 및 프로모션 화면설계 적기 완수',
+    metric: '합의 일정 내 화면설계서(SB) 확정 및 리뷰 완료 여부',
+    targetValue: '착수·마감 일정 준수 및 유관부서 사전 리뷰 완료',
   },
   {
     track: '기획',
-    pillar: '품질 · 무결성',
-    title: '이커머스 주문·결제·혜택 정책 명세 무결성 확보 및 스펙 재작업 방지',
-    metric: '개발·QA 단계에서 기획 정책 누락으로 인한 스펙 변경 및 오픈 후 크리티컬 장애 건수',
-    targetValue: '예외 케이스 사전 정의를 통한 오픈 후 정책 결함 최소화 및 표준 가이드 정립',
+    pillar: '정책 품질',
+    title: '서비스 정책 명세 무결성 확보',
+    metric: '개발·QA 단계 정책 누락 및 오픈 후 주요 결함 발생 여부',
+    targetValue: '예외 케이스 사전 정의로 스펙 재작업 및 오픈 결함 방지',
   },
   {
     track: '기획',
-    pillar: '서비스 · 협업 기여',
-    title: '어드민(백오피스) 운영 프로세스 효율화 및 유관부서 협업 리드',
-    metric: '온라인MD·마케팅·정보실 요구사항 조율 및 반복 수기 업무 개선 기여도',
-    targetValue: '운영 현장 애로사항 반영 및 부서 간 R&R·업무 프로세스 표준화 완수',
+    pillar: '운영 · 협업',
+    title: '어드민 운영 효율화 및 유관부서 협업',
+    metric: '유관부서 요구사항 조율 및 반복 수기 업무 개선 기여도',
+    targetValue: '현장 운영 이슈 개선 및 부서 간 협업 프로세스 정립',
   },
   // 디자인 (녹색)
   {
     track: '디자인',
-    pillar: '일정 · 딜리버리',
-    title: '시선닷컴 개편 화면 및 시즌 프로모션 UI/UX 시안 납기 준수',
-    metric: '기획 인계 후 주요 화면 UI 시안 및 프로모션 그래픽 산출물 리드타임 준수 여부',
-    targetValue: '목표 일정 내 고해상도 시안 확정 및 퍼블리싱 인계 완료',
+    pillar: '일정 준수',
+    title: '개편 및 프로모션 UI/UX 시안 납기 준수',
+    metric: '기획 확정 후 목표 일정 내 디자인 시안 전달 여부',
+    targetValue: '마감 기한 내 시안 확정 및 퍼블리싱 인계 완료',
   },
   {
     track: '디자인',
-    pillar: '품질 · 표준화',
-    title: '브랜드 아이덴티티 기반 UI 디자인 시스템 및 공통 컴포넌트 규격 표준화',
-    metric: '타이포그래피·컬러·공통 UI 요소의 페이지 간 일관성 및 디자인 QA 통과 여부',
-    targetValue: '전 화면 시각적 위계 통일 및 재사용 가능한 UI 디자인 가이드 자산화',
+    pillar: '디자인 품질',
+    title: 'UI 디자인 시스템 및 공통 컴포넌트 표준화',
+    metric: '화면 간 시각 일관성 유지 및 디자인 QA 통과 여부',
+    targetValue: '타이포·컬러·컴포넌트 규격 통일 및 가이드 자산화',
   },
   {
     track: '디자인',
-    pillar: '서비스 · 협업 기여',
-    title: 'PC·모바일 디바이스별 쇼핑 탐색 가독성 및 시인성 개선',
-    metric: '모바일·태블릿·데스크톱 환경에서의 상품 탐색 몰입도 및 디자인 핸드오프 명확성',
-    targetValue: '전 해상도 최적화된 시각 경험 구현 및 기획·퍼블리싱 협업 만족도 확보',
+    pillar: '사용성 · 협업',
+    title: '디바이스별 쇼핑 탐색 가독성 개선',
+    metric: 'PC·모바일 탐색 사용성 개선 및 핸드오프 명확성',
+    targetValue: '해상도별 최적 시안 구현 및 기획·퍼블리싱 협업 원활화',
   },
   // 퍼블리싱 (보라색)
   {
     track: '퍼블리싱',
-    pillar: '일정 · 딜리버리',
-    title: '시선닷컴 개편 및 프로모션 반응형 웹 마크업·인터랙션 적기 구현',
-    metric: '디자인 인계 후 목표 마감일 내 마크업 및 UI 스크립트 구현 완료 여부',
-    targetValue: '합의된 오픈 일정 내 퍼블리싱 산출물 인계 및 프론트엔드 반영 지원 완료',
+    pillar: '일정 준수',
+    title: '개편 및 프로모션 웹 마크업 적기 구현',
+    metric: '디자인 인계 후 목표 일정 내 마크업·인터랙션 완료 여부',
+    targetValue: '오픈 일정 내 마크업 전달 및 프론트 반영 지원 완료',
   },
   {
     track: '퍼블리싱',
-    pillar: '품질 · 무결성',
-    title: 'PC·태블릿·모바일 전 해상도 반응형 레이아웃 및 크로스브라우징 무결성 확보',
-    metric: '디바이스·브라우저별 레이아웃 깨짐 및 UI 인터랙션 QA 결함 발생 여부',
-    targetValue: '주요 기기·브라우저 검수 통과 및 웹 표준·접근성 준수 마크업 구현',
+    pillar: '마크업 품질',
+    title: '반응형 레이아웃 및 크로스브라우징 무결성 확보',
+    metric: '기기·브라우저별 레이아웃 깨짐 및 QA 결함 발생 여부',
+    targetValue: '전 해상도·주요 브라우저 검수 통과 및 웹 표준 준수',
   },
   {
     track: '퍼블리싱',
-    pillar: '서비스 · 협업 기여',
-    title: '재사용 가능한 공통 UI 마크업 모듈화 및 유지보수 효율 강화',
-    metric: '공통 컴포넌트 스타일시트(CSS)·마크업 구조화 및 신규 페이지 제작 대응력',
-    targetValue: '반복 활용 가능한 표준 마크업 모듈 구축으로 프로모션·개편 제작 효율 개선',
+    pillar: '모듈화 · 협업',
+    title: '공통 UI 마크업 모듈화 및 유지보수 효율화',
+    metric: '공통 컴포넌트 CSS·마크업 구조화 및 제작 대응력',
+    targetValue: '재사용 가능한 마크업 모듈 구축 및 협업 대응력 강화',
   },
 ];
 
@@ -178,11 +178,16 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   const [routeState, setRouteState] = useState(() => parseKpiRouteFromHash());
   const cameFromListRef = useRef<boolean>(false);
 
+  const defaultQuarter = useMemo(
+    () => resolveCurrentQuarterFromDate(todayStr),
+    [todayStr]
+  );
+
   const [selectedYear, setSelectedYear] = useState<number>(
-    () => parseKpiRouteFromHash().queryYear || 2026
+    () => parseKpiRouteFromHash().queryYear || Number(todayStr.slice(0, 4)) || 2026
   );
   const [selectedQuarter, setSelectedQuarter] = useState<'all' | KpiQuarter>(
-    () => parseKpiRouteFromHash().queryQuarter || 'Annual'
+    () => parseKpiRouteFromHash().queryQuarter || resolveCurrentQuarterFromDate(todayStr)
   );
   const [scheduleTick, setScheduleTick] = useState<number>(0);
   const [isScheduleEditOpen, setIsScheduleEditOpen] = useState<boolean>(false);
@@ -232,12 +237,22 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       setKpis(PlanningStorageService.getKpis());
     };
 
+    const handleKpiOrTaskSync = () => {
+      setKpis(PlanningStorageService.getKpis());
+      setTasks(PlanningStorageService.getTasks());
+      setTeamMembers(PlanningStorageService.getServicePlanningMembers());
+    };
+
     syncKpiRoute();
     window.addEventListener('hashchange', syncKpiRoute);
     window.addEventListener('ds-portal-kpi-schedules-updated', handleScheduleStoreSync);
+    window.addEventListener('ds-portal-kpis-updated', handleKpiOrTaskSync);
+    window.addEventListener('ds-portal-tasks-updated', handleKpiOrTaskSync);
     return () => {
       window.removeEventListener('hashchange', syncKpiRoute);
       window.removeEventListener('ds-portal-kpi-schedules-updated', handleScheduleStoreSync);
+      window.removeEventListener('ds-portal-kpis-updated', handleKpiOrTaskSync);
+      window.removeEventListener('ds-portal-tasks-updated', handleKpiOrTaskSync);
     };
   }, [isCrossDept, isDivisionHead, isExecutiveViewer]);
 
@@ -281,7 +296,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   }, [kpis]);
 
   const effectiveScheduleQuarter: KpiQuarter =
-    selectedQuarter === 'all' ? 'Annual' : selectedQuarter;
+    selectedQuarter === 'all' ? defaultQuarter : selectedQuarter;
 
   const activeCycleSchedule: KpiCycleSchedule = useMemo(() => {
     void scheduleTick;
@@ -298,7 +313,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       kpis.filter(
         (k) =>
           Number(k.year || 2026) === selectedYear &&
-          (k.quarter || 'Annual') === effectiveScheduleQuarter
+          k.quarter === effectiveScheduleQuarter
       ).length,
     [kpis, selectedYear, effectiveScheduleQuarter]
   );
@@ -311,8 +326,8 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingKpi, setEditingKpi] = useState<KpiItem | null>(null);
 
-  // 상단 평가 기준표(3대 축 & 루브릭) 접기/펼치기 상태
-  const [isFrameworkOpen, setIsFrameworkOpen] = useState<boolean>(true);
+  // 상단 평가 기준표(3대 축 & 루브릭) 접기/펼치기 상태 (기본 접힘으로 주요 일정·목록 집중도 확보)
+  const [isFrameworkOpen, setIsFrameworkOpen] = useState<boolean>(false);
 
   // 현재 로그인한 사용자가 해당 KPI의 본인(담당자)인지 여부 판별
   const isKpiOwner = useCallback(
@@ -400,8 +415,8 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   });
 
   const [formData, setFormData] = useState({
-    year: 2026,
-    quarter: 'Annual' as KpiQuarter,
+    year: Number(todayStr.slice(0, 4)) || 2026,
+    quarter: resolveCurrentQuarterFromDate(todayStr),
     targetScope: 'individual' as KpiTargetScope,
     ownerId: currentUser.id,
     ownerName: currentUser.name || '최범열',
@@ -462,6 +477,40 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     onShowToast(`[${preset.track} · ${preset.pillar}] 표준 KPI 템플릿이 적용되었습니다.`, 'info');
   };
 
+  // 특정 담당자(또는 팀 공통)의 동일 연도·기수 내 기존 등록된 가중치 합계 계산
+  const computeExistingCycleWeightSum = useCallback(
+    (params: {
+      year: number;
+      quarter: KpiQuarter;
+      targetScope: KpiTargetScope;
+      ownerName: string;
+      excludeKpiId?: string | null;
+    }): number => {
+      return kpis.reduce((sum, item) => {
+        if (params.excludeKpiId && String(item.id) === String(params.excludeKpiId)) {
+          return sum;
+        }
+        if (Number(item.year || 2026) !== Number(params.year)) return sum;
+        if (item.quarter !== params.quarter) return sum;
+        if (params.targetScope === 'team') {
+          return item.targetScope === 'team' ? sum + Number(item.weight || 0) : sum;
+        }
+        if (item.targetScope === 'team') return sum;
+        return item.ownerName?.trim() === params.ownerName?.trim()
+          ? sum + Number(item.weight || 0)
+          : sum;
+      }, 0);
+    },
+    [kpis]
+  );
+
+  const resolveSmartDefaultWeight = (existingSum: number): number => {
+    if (existingSum > 0 && existingSum < 100) {
+      return Math.max(5, 100 - existingSum);
+    }
+    return 35;
+  };
+
   // 신규 KPI 목표 수립 모달 열기
   const handleOpenCreateModal = (defaultTrack?: KpiTrack) => {
     if (!canCreateGoal) {
@@ -479,13 +528,19 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       defaultTrack ||
       (trackFilter !== 'all' ? trackFilter : resolveMemberDefaultTrack(matchedSelf.name));
     const createQuarter: KpiQuarter =
-      selectedQuarter === 'all' ? 'Annual' : selectedQuarter;
+      selectedQuarter === 'all' ? defaultQuarter : selectedQuarter;
     const targetSchedule = PlanningStorageService.getKpiCycleSchedule(
       selectedYear,
       createQuarter
     );
     const defaultStatus: KpiStatus =
       todayStr < targetSchedule.execStart ? 'planning' : 'in_progress';
+    const existingSum = computeExistingCycleWeightSum({
+      year: selectedYear,
+      quarter: createQuarter,
+      targetScope: 'individual',
+      ownerName: matchedSelf.name,
+    });
 
     setEditingKpi(null);
     setFormData({
@@ -499,7 +554,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       targetMetric: '',
       targetValue: '',
       currentValue: '',
-      weight: 35,
+      weight: resolveSmartDefaultWeight(existingSum),
       status: defaultStatus,
       linkedTaskIds: [],
     });
@@ -565,6 +620,26 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         : isTeamMember
           ? currentUser.name
           : formData.ownerName;
+
+    const existingWeightSum = computeExistingCycleWeightSum({
+      year: Number(formData.year),
+      quarter: formData.quarter,
+      targetScope: effectiveScope,
+      ownerName: ownerNameFinal,
+      excludeKpiId: editingKpi?.id,
+    });
+    const nextWeightNum = Number(formData.weight || 0);
+    if (nextWeightNum < 5 || nextWeightNum > 100) {
+      onShowToast('가중치는 5% ~ 100% 사이로 입력해 주세요.', 'error');
+      return;
+    }
+    if (existingWeightSum + nextWeightNum > 100) {
+      onShowToast(
+        `동일 평가 기수 내 가중치 합계는 100%를 초과할 수 없습니다. (현재 예상 합계: ${existingWeightSum + nextWeightNum}%)`,
+        'error'
+      );
+      return;
+    }
 
     try {
       if (editingKpi) {
@@ -880,12 +955,12 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     return kpis.filter((k) => canReadKpiEvaluation(k));
   }, [kpis, canReadKpiEvaluation]);
 
-  // [권한 기반 스코핑 2] 선택된 연도·기수 기준 KPI 풀 및 필터 적용 목록
+  // [권한 기반 스코핑 2] 선택된 연도·분기 기준 KPI 풀 및 필터 적용 목록
   const periodEvalKpis = useMemo(() => {
     return accessibleEvalKpis.filter((k) => {
       const matchesYear = Number(k.year || 2026) === selectedYear;
       const matchesQuarter =
-        selectedQuarter === 'all' ? true : (k.quarter || 'Annual') === selectedQuarter;
+        selectedQuarter === 'all' ? true : k.quarter === selectedQuarter;
       return matchesYear && matchesQuarter;
     });
   }, [accessibleEvalKpis, selectedYear, selectedQuarter]);
@@ -914,7 +989,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     return peerBaseKpis.filter((k) => {
       const matchesYear = Number(k.year || 2026) === selectedYear;
       const matchesQuarter =
-        selectedQuarter === 'all' ? true : (k.quarter || 'Annual') === selectedQuarter;
+        selectedQuarter === 'all' ? true : k.quarter === selectedQuarter;
       return matchesYear && matchesQuarter;
     });
   }, [peerBaseKpis, selectedYear, selectedQuarter]);
@@ -1014,29 +1089,45 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       map.set(ownerKey, existing);
     });
 
-    return Array.from(map.values()).map((entry) => {
-      const isAllFinalized = entry.kpiCount > 0 && entry.finalizedCount === entry.kpiCount;
-      const hasSingleCycle =
-        new Set(entry.items.map((it) => it.quarter || 'Annual')).size <= 1;
-      const interimAvg5 =
-        entry.interimWeightSum > 0
-          ? Math.round((entry.interimFiveWeightedSum / entry.interimWeightSum) * 10) / 10
-          : null;
-      const finalScore100 =
-        isAllFinalized && entry.finalWeightSum > 0
-          ? Math.round(((entry.finalHundredWeightedSum / entry.finalWeightSum) * 100) * 10) / 10
-          : null;
-      const overallGrade = isAllFinalized ? resolveGradeFromHundredScore(finalScore100) : null;
+    const trackSortOrder: Record<KpiTrack, number> = {
+      기획: 0,
+      디자인: 1,
+      퍼블리싱: 2,
+    };
 
-      return {
-        ...entry,
-        hasSingleCycle,
-        interimAvg5,
-        finalScore100,
-        overallGrade,
-        isAllFinalized,
-      };
-    });
+    return Array.from(map.values())
+      .map((entry) => {
+        const isAllFinalized = entry.kpiCount > 0 && entry.finalizedCount === entry.kpiCount;
+        const hasSingleCycle =
+          new Set(entry.items.map((it) => it.quarter)).size <= 1;
+        const interimAvg5 =
+          entry.interimWeightSum > 0
+            ? Math.round((entry.interimFiveWeightedSum / entry.interimWeightSum) * 10) / 10
+            : null;
+        const finalScore100 =
+          isAllFinalized && entry.finalWeightSum > 0
+            ? Math.round(((entry.finalHundredWeightedSum / entry.finalWeightSum) * 100) * 10) / 10
+            : null;
+        const overallGrade = isAllFinalized ? resolveGradeFromHundredScore(finalScore100) : null;
+
+        return {
+          ...entry,
+          hasSingleCycle,
+          interimAvg5,
+          finalScore100,
+          overallGrade,
+          isAllFinalized,
+        };
+      })
+      .sort((a, b) => {
+        if (a.isTeam !== b.isTeam) return a.isTeam ? -1 : 1;
+        const trackDiff = (trackSortOrder[a.track] ?? 0) - (trackSortOrder[b.track] ?? 0);
+        if (trackDiff !== 0) return trackDiff;
+        const aLead = isTeamLeadName(a.ownerKey) ? 0 : 1;
+        const bLead = isTeamLeadName(b.ownerKey) ? 0 : 1;
+        if (aLead !== bLead) return aLead - bLead;
+        return a.ownerLabel.localeCompare(b.ownerLabel, 'ko-KR');
+      });
   }, [currentKpis]);
 
   // 현재 접속자의 권한 안내 배너 문구
@@ -1045,7 +1136,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       return {
         icon: Eye,
         badge: `${currentUser.department} · 상위 임원 열람 권한`,
-        desc: '산하 소속(서비스기획팀 전원)의 KPI 목표, 수행 근거 과제, 무기명 협업 다면평가 및 1차·최종 평가 현황 전체를 열람합니다.',
+        desc: '서비스기획팀 전원의 KPI 목표, 수행 근거 과제 및 단계별 평가 현황을 열람합니다.',
         classKey: 'is-executive',
       };
     }
@@ -1053,7 +1144,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       return {
         icon: Award,
         badge: '디지털마케팅실장 · 최종 평가 권한',
-        desc: '소속 서비스기획팀 전원의 KPI 수행 실적·다면평가·팀장 1차 평가를 종합 검토하고 최종 평가 등급을 확정합니다.',
+        desc: '1~3단계 평가 결과를 종합 검토하고 최종 평가 등급(S~C)을 확정합니다.',
         classKey: 'is-director',
       };
     }
@@ -1061,7 +1152,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       return {
         icon: UserCheck,
         badge: '서비스기획팀장 · 팀 전체 열람 및 1차 평가 권한',
-        desc: '서비스기획팀 구성원 전원의 KPI를 관리·1차 평가하며, 최종 평가는 디지털마케팅실장(유은정 상무)이 확정합니다.',
+        desc: '소속 구성원 KPI 관리 및 1차 평가를 진행하며, 최종 등급은 디지털마케팅실장이 확정합니다.',
         classKey: 'is-leader',
       };
     }
@@ -1069,14 +1160,14 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       return {
         icon: Lock,
         badge: '개인 평가 기밀 보호 적용 중',
-        desc: '내 KPI 평가 내역은 본인과 직속 상위 평가자(팀장 · 실장 · 총괄 · 본부장)에게만 공개되며, 동료 간에는 노출되지 않습니다.',
+        desc: '내 KPI 평가 내역은 본인과 상위 평가자에게만 공개되며 동료 간에는 비공개됩니다.',
         classKey: 'is-member',
       };
     }
     return {
       icon: Users,
       badge: `${currentUser.department} · 협업 다면평가 참여 모드`,
-      desc: '서비스기획팀 담당자들과 협업하며 느낀 산출물 명확성·소통 만족도를 무기명으로 평가합니다. (평가자 성명·부서는 철저히 비공개 처리됩니다)',
+      desc: '협업 산출물 완성도와 소통 만족도를 무기명으로 평가합니다. (작성자 신원 완전 비공개)',
       classKey: 'is-cross',
     };
   }, [isExecutiveViewer, isDivisionHead, isTeamLead, isTeamMember, currentUser.department]);
@@ -1200,7 +1291,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
               >
                 <Award size={15} />
                 <span>{isTeamMember ? '내 KPI 목표 · 평가' : '소속 구성원 KPI 평가'}</span>
-                <span className="kpi-mode-switch-count">{accessibleEvalKpis.length}</span>
+                <span className="kpi-mode-switch-count">{periodEvalKpis.length}</span>
               </button>
               <button
                 type="button"
@@ -1213,7 +1304,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
               >
                 <MessageSquare size={15} />
                 <span>협업 다면평가 (무기명)</span>
-                <span className="kpi-mode-switch-count">{peerBaseKpis.length}</span>
+                <span className="kpi-mode-switch-count">{periodPeerKpis.length}</span>
               </button>
             </div>
           )}
@@ -1344,8 +1435,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                           </span>
                           <span className="kpi-peer-owner-pill">{item.ownerName}</span>
                           <span className="kpi-weight-badge">
-                            {QUARTERS.find((q) => q.key === (item.quarter || 'Annual'))?.label ||
-                              '2026 연간'}
+                            {item.year || 2026}년{' '}
+                            {QUARTERS.find((q) => q.key === item.quarter)?.shortLabel ||
+                              item.quarter}
                           </span>
                           {myPeerReview && (
                             <span className="kpi-stage-pill is-done-peer">
@@ -1388,7 +1480,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                               type="button"
                               onClick={() => setPopupTask(t)}
                               className="kpi-peer-task-chip is-link"
-                              title="클릭하여 업무 상세 팝업 확인"
                             >
                               <span>{t.title}</span>
                             </button>
@@ -1582,28 +1673,34 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                 <div className="kpi-pillars-grid">
                   <div className="kpi-pillar-box">
                     <div className="kpi-pillar-top">
-                      <span className="kpi-pillar-name">① 일정 및 딜리버리 준수</span>
+                      <span className="kpi-pillar-name">
+                        <span className="kpi-pillar-num">01</span> 일정 준수
+                      </span>
                     </div>
                     <p className="kpi-pillar-desc">
-                      연간/분기 로드맵 과제 및 제휴 프로모션의 합의된 마일스톤(착수~마감일) 적기 완수 여부
+                      핵심 과제 및 프로모션의 합의된 마일스톤(착수~마감일) 적기 완수 여부
                     </p>
                   </div>
 
                   <div className="kpi-pillar-box">
                     <div className="kpi-pillar-top">
-                      <span className="kpi-pillar-name">② 산출물 무결성 및 표준화</span>
+                      <span className="kpi-pillar-name">
+                        <span className="kpi-pillar-num">02</span> 산출물 품질 · 표준화
+                      </span>
                     </div>
                     <p className="kpi-pillar-desc">
-                      기획 정책 누락 방지, UI 디자인 일관성, 전 해상도 반응형 마크업 무결성 및 표준 모듈 자산화
+                      정책 누락 방지, UI 디자인 일관성, 반응형 마크업 무결성 및 공통 모듈 자산화
                     </p>
                   </div>
 
                   <div className="kpi-pillar-box">
                     <div className="kpi-pillar-top">
-                      <span className="kpi-pillar-name">③ 서비스·운영 개선 및 협업 기여</span>
+                      <span className="kpi-pillar-name">
+                        <span className="kpi-pillar-num">03</span> 서비스 개선 · 협업 기여
+                      </span>
                     </div>
                     <p className="kpi-pillar-desc">
-                      시선닷컴 탐색·주문 사용성 강화, 어드민 수기 공수 절감 및 사내·유관부서 협업 만족도
+                      시선닷컴 탐색·주문 사용성 강화, 어드민 운영 효율화 및 유관부서 협업 만족도
                     </p>
                   </div>
                 </div>
@@ -1753,11 +1850,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                           </tr>
 
                           {group.items.map((item) => {
-                            const isAnnual = (item.quarter || 'Annual') === 'Annual';
-                            const cycleBadgeLabel = isAnnual
-                              ? '연간'
-                              : QUARTERS.find((q) => q.key === item.quarter)?.shortLabel ||
-                                '분기';
+                            const cycleBadgeLabel =
+                              QUARTERS.find((q) => q.key === item.quarter)?.shortLabel ||
+                              item.quarter;
                             const isLeaderKpi = isLeaderOwnedKpiItem(item);
                             const selfScore5 = getSelfScore5(item);
                             const peerInfo = getPeerScore5Info(item);
@@ -1773,11 +1868,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                                 className="kpi-table-row"
                               >
                                 <td className="kpi-col-cycle">
-                                  <span
-                                    className={`kpi-cycle-type-badge ${
-                                      isAnnual ? 'is-annual' : 'is-quarter'
-                                    }`}
-                                  >
+                                  <span className="kpi-cycle-type-badge is-quarter">
                                     {cycleBadgeLabel}
                                   </span>
                                 </td>
@@ -1908,7 +1999,39 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                         <button
                           key={trackKey}
                           type="button"
-                          onClick={() => setFormData({ ...formData, track: trackKey })}
+                          onClick={() => {
+                            if (!editingKpi && isTeamLead && formData.targetScope === 'individual') {
+                              const targetDefaultName =
+                                trackKey === '디자인'
+                                  ? '박수민'
+                                  : trackKey === '퍼블리싱'
+                                    ? '김리아'
+                                    : resolveMemberDefaultTrack(formData.ownerName) === '기획'
+                                      ? formData.ownerName
+                                      : '최범열';
+                              const matchedMember = teamMembers.find(
+                                (m) => m.name.trim() === targetDefaultName
+                              );
+                              const nextOwnerName = matchedMember
+                                ? matchedMember.name
+                                : formData.ownerName;
+                              const existingSum = computeExistingCycleWeightSum({
+                                year: Number(formData.year),
+                                quarter: formData.quarter,
+                                targetScope: 'individual',
+                                ownerName: nextOwnerName,
+                              });
+                              setFormData({
+                                ...formData,
+                                track: trackKey,
+                                ownerId: matchedMember ? matchedMember.id : formData.ownerId,
+                                ownerName: nextOwnerName,
+                                weight: resolveSmartDefaultWeight(existingSum),
+                              });
+                              return;
+                            }
+                            setFormData({ ...formData, track: trackKey });
+                          }}
                           className={`tasks-modal-track-btn ${config.classKey} ${
                             isSelected ? 'active' : ''
                           }`}
@@ -1934,7 +2057,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                 {!editingKpi && (
                   <div className="kpi-preset-box">
                     <div className="kpi-preset-header">
-                      <span>[{formData.track}] 파트 객관적 KPI 표준 템플릿 (클릭 시 자동 입력)</span>
+                      <span>{formData.track} 파트 표준 템플릿</span>
                     </div>
                     <div className="kpi-preset-list">
                       {KPI_PRESETS.filter((p) => p.track === formData.track).map((preset, idx) => (
@@ -1960,13 +2083,24 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       value={isTeamMember ? 'individual' : formData.targetScope}
                       onChange={(e) => {
                         const nextScope = e.target.value as KpiTargetScope;
+                        const nextOwnerName =
+                          nextScope === 'team'
+                            ? '서비스기획팀 전체'
+                            : currentUser.name || teamMembers[0]?.name || '최범열';
+                        const existingSum = computeExistingCycleWeightSum({
+                          year: Number(formData.year),
+                          quarter: formData.quarter,
+                          targetScope: nextScope,
+                          ownerName: nextOwnerName,
+                          excludeKpiId: editingKpi?.id,
+                        });
                         setFormData({
                           ...formData,
                           targetScope: nextScope,
-                          ownerName:
-                            nextScope === 'team'
-                              ? '서비스기획팀 전체'
-                              : currentUser.name || teamMembers[0]?.name || '최범열',
+                          ownerName: nextOwnerName,
+                          weight: editingKpi
+                            ? formData.weight
+                            : resolveSmartDefaultWeight(existingSum),
                         });
                       }}
                       className="form-select"
@@ -1996,12 +2130,23 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       <select
                         value={formData.ownerName}
                         onChange={(e) => {
-                          const target = teamMembers.find((m) => m.name === e.target.value);
+                          const nextOwner = e.target.value;
+                          const target = teamMembers.find((m) => m.name === nextOwner);
+                          const existingSum = computeExistingCycleWeightSum({
+                            year: Number(formData.year),
+                            quarter: formData.quarter,
+                            targetScope: formData.targetScope,
+                            ownerName: nextOwner,
+                            excludeKpiId: editingKpi?.id,
+                          });
                           setFormData({
                             ...formData,
                             ownerId: target ? target.id : formData.ownerId,
-                            ownerName: e.target.value,
-                            track: resolveMemberDefaultTrack(e.target.value),
+                            ownerName: nextOwner,
+                            track: resolveMemberDefaultTrack(nextOwner),
+                            weight: editingKpi
+                              ? formData.weight
+                              : resolveSmartDefaultWeight(existingSum),
                           });
                         }}
                         className="form-select"
@@ -2027,9 +2172,19 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                           nextYear,
                           formData.quarter
                         );
+                        const existingSum = computeExistingCycleWeightSum({
+                          year: nextYear,
+                          quarter: formData.quarter,
+                          targetScope: isTeamMember ? 'individual' : formData.targetScope,
+                          ownerName: isTeamMember ? currentUser.name : formData.ownerName,
+                          excludeKpiId: editingKpi?.id,
+                        });
                         setFormData({
                           ...formData,
                           year: nextYear,
+                          weight: editingKpi
+                            ? formData.weight
+                            : resolveSmartDefaultWeight(existingSum),
                           status:
                             !editingKpi && todayStr < sch.execStart
                               ? 'planning'
@@ -2058,9 +2213,19 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                           formData.year,
                           nextQuarter
                         );
+                        const existingSum = computeExistingCycleWeightSum({
+                          year: Number(formData.year),
+                          quarter: nextQuarter,
+                          targetScope: isTeamMember ? 'individual' : formData.targetScope,
+                          ownerName: isTeamMember ? currentUser.name : formData.ownerName,
+                          excludeKpiId: editingKpi?.id,
+                        });
                         setFormData({
                           ...formData,
                           quarter: nextQuarter,
+                          weight: editingKpi
+                            ? formData.weight
+                            : resolveSmartDefaultWeight(existingSum),
                           status:
                             !editingKpi && todayStr < sch.execStart
                               ? 'planning'
@@ -2087,75 +2252,75 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       formData.quarter
                     ) || computeDefaultKpiCycleSchedule(Number(formData.year || 2026), formData.quarter);
                   return (
-                    <div className="kpi-modal-schedule-preview">
-                      <span className="kpi-modal-schedule-preview-title">
-                        {formatCycleFullLabel(Number(formData.year || 2026), formData.quarter)} 자동 연계 스케줄 ([팀 통합 일정] 반영)
+                    <div className="kpi-modal-schedule-inline">
+                      <span className="kpi-modal-schedule-inline-label">
+                        {formatCycleFullLabel(Number(formData.year || 2026), formData.quarter)} 일정
                       </span>
-                      <div className="kpi-modal-schedule-preview-grid">
-                        <span>
-                          목표 수립: <strong>{formatShortDateRange(previewSch.goalSetupStart, previewSch.goalSetupEnd)}</strong>
-                        </span>
-                        <span>
-                          수행 기간: <strong>{formatShortDateRange(previewSch.execStart, previewSch.execEnd)}</strong>
-                        </span>
-                        <span>
-                          1주 본인평가: <strong>{formatShortDateRange(previewSch.selfEvalStart, previewSch.selfEvalEnd)}</strong>
-                        </span>
-                        <span>
-                          2주 다면평가: <strong>{formatShortDateRange(previewSch.peerEvalStart, previewSch.peerEvalEnd)}</strong>
-                        </span>
-                        <span>
-                          3주 팀장1차: <strong>{formatShortDateRange(previewSch.leaderEvalStart, previewSch.leaderEvalEnd)}</strong>
-                        </span>
-                        <span>
-                          4주 실장최종: <strong>{formatShortDateRange(previewSch.finalEvalStart, previewSch.finalEvalEnd)}</strong>
-                        </span>
+                      <span className="kpi-modal-schedule-inline-meta">
+                        수행 <strong>{formatShortDateRange(previewSch.execStart, previewSch.execEnd)}</strong> · 평가{' '}
+                        <strong>{formatShortDateRange(previewSch.selfEvalStart, previewSch.finalEvalEnd)}</strong>
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                {(() => {
+                  const existingCycleSum = computeExistingCycleWeightSum({
+                    year: Number(formData.year),
+                    quarter: formData.quarter,
+                    targetScope: isTeamMember ? 'individual' : formData.targetScope,
+                    ownerName: isTeamMember ? currentUser.name : formData.ownerName,
+                    excludeKpiId: editingKpi?.id,
+                  });
+                  const projectedTotal = existingCycleSum + Number(formData.weight || 0);
+                  const sumStateClass =
+                    projectedTotal === 100
+                      ? 'is-valid'
+                      : projectedTotal > 100
+                        ? 'is-over'
+                        : 'is-under';
+                  const sumStatusText =
+                    projectedTotal === 100
+                      ? '적정 (100% 완성)'
+                      : projectedTotal > 100
+                        ? `${projectedTotal - 100}% 초과 (저장 불가)`
+                        : `잔여 ${100 - projectedTotal}%`;
+
+                  return (
+                    <div className="tasks-form-grid-2">
+                      <div className="form-group">
+                        <label className="form-label">가중치 (%) *</label>
+                        <input
+                          type="number"
+                          min={5}
+                          max={100}
+                          step={5}
+                          required
+                          value={formData.weight}
+                          onChange={(e) =>
+                            setFormData({ ...formData, weight: Number(e.target.value) })
+                          }
+                          className="form-input"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label className="form-label">기수 가중치 합계</label>
+                        <div className={`kpi-weight-sum-box ${sumStateClass}`}>
+                          <strong>{projectedTotal}% / 100%</strong>
+                          <span>{sumStatusText}</span>
+                        </div>
                       </div>
                     </div>
                   );
                 })()}
 
-                <div className="tasks-form-grid-2">
-                  <div className="form-group">
-                    <label className="form-label">가중치 (%) *</label>
-                    <input
-                      type="number"
-                      min={5}
-                      max={100}
-                      step={5}
-                      required
-                      value={formData.weight}
-                      onChange={(e) =>
-                        setFormData({ ...formData, weight: Number(e.target.value) })
-                      }
-                      className="form-input"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">진행 상태</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) =>
-                        setFormData({ ...formData, status: e.target.value as KpiStatus })
-                      }
-                      className="form-select"
-                    >
-                      {Object.entries(STATUS_MAP).map(([k, v]) => (
-                        <option key={k} value={k}>
-                          {v.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
                 <div className="form-group">
-                  <label className="form-label">KPI 핵심 목표명 *</label>
+                  <label className="form-label">KPI 목표명 *</label>
                   <input
                     type="text"
                     required
-                    placeholder="예: 시선닷컴 Front UI Renewal 및 프로모션 화면설계(SB) 적기 완수"
+                    placeholder="예: 핵심 과제 및 프로모션 화면설계 적기 완수"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     className="form-input"
@@ -2163,11 +2328,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">객관적 측정 기준 (Metric) *</label>
+                  <label className="form-label">측정 기준 (Metric) *</label>
                   <input
                     type="text"
                     required
-                    placeholder="예: 마일스톤 마감 일정 준수 여부 및 QA 단계 스펙 누락/결함 최소화"
+                    placeholder="예: 합의 일정 내 화면설계서(SB) 확정 및 리뷰 완료 여부"
                     value={formData.targetMetric}
                     onChange={(e) =>
                       setFormData({ ...formData, targetMetric: e.target.value })
@@ -2177,11 +2342,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">완료 및 달성 기준 (DoD) *</label>
+                  <label className="form-label">달성 기준 (DoD) *</label>
                   <textarea
                     rows={2}
                     required
-                    placeholder="예: 합의된 일정 내 기획서/디자인/마크업 산출물 확정 및 중대 결함 없이 정상 오픈"
+                    placeholder="예: 착수·마감 일정 준수 및 유관부서 사전 리뷰 완료"
                     value={formData.targetValue}
                     onChange={(e) =>
                       setFormData({ ...formData, targetValue: e.target.value })
@@ -2615,7 +2780,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
 
                     <div className="tasks-form-grid-2">
                       <div className="form-group">
-                        <label className="form-label">산출물 명확성 · 완성도</label>
+                        <label className="form-label">산출물 명확성 · 완성도 *</label>
                         <select
                           value={peerForm.scoreQuality}
                           onChange={(e) =>
@@ -2623,16 +2788,16 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                           }
                           className="form-select"
                         >
-                          <option value={5}>5점 - 매우 명확하고 완성도 높음</option>
-                          <option value={4}>4점 - 우수함</option>
-                          <option value={3}>3점 - 보통</option>
-                          <option value={2}>2점 - 보완 필요</option>
-                          <option value={1}>1점 - 미흡</option>
+                          <option value={5}>5점 · 탁월 (명확하고 완성도 높음)</option>
+                          <option value={4}>4점 · 우수 (기준 충족)</option>
+                          <option value={3}>3점 · 보통</option>
+                          <option value={2}>2점 · 보완 필요</option>
+                          <option value={1}>1점 · 미흡</option>
                         </select>
                       </div>
 
                       <div className="form-group">
-                        <label className="form-label">일정 공유 및 협업 소통</label>
+                        <label className="form-label">일정 공유 · 협업 소통 *</label>
                         <select
                           value={peerForm.scoreCollaboration}
                           onChange={(e) =>
@@ -2643,11 +2808,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                           }
                           className="form-select"
                         >
-                          <option value={5}>5점 - 적극적이고 원활한 소통</option>
-                          <option value={4}>4점 - 우수함</option>
-                          <option value={3}>3점 - 보통</option>
-                          <option value={2}>2점 - 보완 필요</option>
-                          <option value={1}>1점 - 미흡</option>
+                          <option value={5}>5점 · 탁월 (적극적이고 원활한 소통)</option>
+                          <option value={4}>4점 · 우수 (기준 충족)</option>
+                          <option value={3}>3점 · 보통</option>
+                          <option value={2}>2점 · 보완 필요</option>
+                          <option value={1}>1점 · 미흡</option>
                         </select>
                       </div>
                     </div>

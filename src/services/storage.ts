@@ -39,8 +39,8 @@ const STORAGE_KEYS = {
   USERS: 'ds_planning_users_v2',
   TASKS: 'ds_planning_tasks_clean_v1',
   VACATIONS: 'ds_planning_vacations_clean_v1',
-  KPIS: 'ds_planning_kpis_clean_v1',
-  KPI_SCHEDULES: 'ds_planning_kpi_schedules_v1',
+  KPIS: 'ds_planning_kpis_clean_v2',
+  KPI_SCHEDULES: 'ds_planning_kpi_schedules_v2',
   AUDIT_LOGS: 'ds_planning_audit_logs_clean_v1',
   WORK_INFOS: 'ds_planning_work_infos_v1',
   ONBOARDING_ITEMS: 'ds_planning_onboarding_items_v3',
@@ -50,10 +50,17 @@ const STORAGE_KEYS = {
 };
 
 const WORK_INFO_CLOUD_RECORD_ID = 'sys-work-info-store-v1';
-const KPI_CLOUD_RECORD_ID = 'sys-kpi-extended-store-v1';
-const KPI_SCHEDULE_CLOUD_RECORD_ID = 'sys-kpi-schedule-store-v1';
+const KPI_CLOUD_RECORD_ID = 'sys-kpi-extended-store-v2';
+const KPI_SCHEDULE_CLOUD_RECORD_ID = 'sys-kpi-schedule-store-v2';
 const ONBOARDING_CLOUD_RECORD_ID = 'sys-onboarding-store-v3';
 const POLICY_CLOUD_RECORD_ID = 'sys-policy-store-v1';
+
+function resolveMemberDefaultTrackForStorage(name?: string | null): '기획' | '디자인' | '퍼블리싱' {
+  const trimmed = String(name || '').trim();
+  if (trimmed === '박수민') return '디자인';
+  if (trimmed === '김리아') return '퍼블리싱';
+  return '기획';
+}
 
 export const AUDIT_LOG_RETENTION_DAYS = 90;
 export const AUDIT_LOG_MAX_COUNT = 300;
@@ -1712,20 +1719,107 @@ export class PlanningStorageService {
         localStorage.setItem(STORAGE_KEYS.VACATIONS, JSON.stringify(Array.from(vacMap.values())));
       }
 
-      // 3. kpis 동기화 (로컬 데이터 안전 병합)
-      const { data: remoteKpis, error: kpiErr } = await client.from('kpis').select('*');
+      // 3. kpis 동기화 (타임스탬프 비교 및 자가·다면평가 유실 방지 안전 병합)
+      const [{ data: remoteKpis, error: kpiErr }, { data: deletedKpiLogs }] = await Promise.all([
+        client.from('kpis').select('*'),
+        client
+          .from('audit_logs')
+          .select('entity_id, timestamp')
+          .eq('entity_type', 'kpi')
+          .eq('action', 'DELETE'),
+      ]);
+
+      const deletedKpiIdSet = new Set<string>(
+        (deletedKpiLogs || []).map((l) => String(l.entity_id || '')).filter(Boolean)
+      );
+
+      const mergePeerReviewLists = (
+        listA: KpiPeerReview[] = [],
+        listB: KpiPeerReview[] = []
+      ): KpiPeerReview[] => {
+        const byReviewer = new Map<string, KpiPeerReview>();
+        for (const r of [...listA, ...listB]) {
+          if (!r) continue;
+          const key = String(r.reviewerId || r.id || '');
+          if (!key) continue;
+          const prev = byReviewer.get(key);
+          const prevTs = prev?.submittedAt ? new Date(prev.submittedAt).getTime() : 0;
+          const nextTs = r.submittedAt ? new Date(r.submittedAt).getTime() : 0;
+          if (!prev || nextTs >= prevTs) {
+            byReviewer.set(key, { ...r, reviewerName: '익명 동료' });
+          }
+        }
+        return Array.from(byReviewer.values());
+      };
+
+      const mergeTwoKpiItems = (base: KpiItem, incoming: KpiItem): KpiItem => {
+        const baseTs = base.updatedAt ? new Date(base.updatedAt).getTime() : 0;
+        const incTs = incoming.updatedAt ? new Date(incoming.updatedAt).getTime() : 0;
+        const primary = incTs >= baseTs ? incoming : base;
+        const secondary = incTs >= baseTs ? base : incoming;
+
+        const mergedPeers = mergePeerReviewLists(secondary.peerReviews, primary.peerReviews);
+        const computedPeerAvg =
+          mergedPeers.length > 0
+            ? Number(
+                (
+                  mergedPeers.reduce(
+                    (sum, r) => sum + (Number(r.scoreCollaboration) + Number(r.scoreQuality)) / 2,
+                    0
+                  ) / mergedPeers.length
+                ).toFixed(1)
+              )
+            : primary.peerAvgScore ?? secondary.peerAvgScore;
+
+        const primarySelfEval = (primary.selfEvaluation || '').trim();
+        const secondarySelfEval = (secondary.selfEvaluation || '').trim();
+        const resolvedSelfEval = primarySelfEval || secondarySelfEval;
+        const resolvedSelfScore =
+          primary.selfScore ?? secondary.selfScore ?? (resolvedSelfEval ? 4 : undefined);
+
+        const primaryLinks = Array.isArray(primary.linkedTaskIds) ? primary.linkedTaskIds : [];
+        const secondaryLinks = Array.isArray(secondary.linkedTaskIds) ? secondary.linkedTaskIds : [];
+
+        return {
+          ...secondary,
+          ...primary,
+          track: primary.track || secondary.track || resolveMemberDefaultTrackForStorage(primary.ownerName),
+          ownerId: primary.ownerId || secondary.ownerId,
+          selfEvaluation: resolvedSelfEval,
+          selfScore: resolvedSelfScore,
+          leaderScore: primary.leaderScore ?? secondary.leaderScore,
+          leaderGrade: primary.leaderGrade ?? secondary.leaderGrade,
+          leaderComment: primary.leaderComment || secondary.leaderComment,
+          leaderEvaluatorName: primary.leaderEvaluatorName || secondary.leaderEvaluatorName,
+          leaderEvaluatedAt: primary.leaderEvaluatedAt || secondary.leaderEvaluatedAt,
+          directorScore: primary.directorScore ?? secondary.directorScore,
+          directorGrade: primary.directorGrade ?? secondary.directorGrade,
+          directorComment: primary.directorComment || secondary.directorComment,
+          directorEvaluatorName: primary.directorEvaluatorName || secondary.directorEvaluatorName,
+          directorEvaluatedAt: primary.directorEvaluatedAt || secondary.directorEvaluatedAt,
+          finalEvaluation: primary.finalEvaluation || secondary.finalEvaluation,
+          linkedTaskIds: primaryLinks.length > 0 ? primaryLinks : secondaryLinks,
+          peerReviews: mergedPeers,
+          peerAvgScore: computedPeerAvg,
+        };
+      };
+
       if (!kpiErr && remoteKpis) {
+        const validQuarterSet = new Set(['Q1', 'Q2', 'Q3', 'Q4']);
         const filteredKpis = remoteKpis.filter(
-          (row) => !String(row.id).startsWith('kpi-30') && String(row.id) !== 'kpi-mw1s2aoz-2clky'
+          (row) =>
+            !String(row.id).startsWith('kpi-30') &&
+            validQuarterSet.has(String(row.quarter || '')) &&
+            !deletedKpiIdSet.has(String(row.id))
         );
         const mappedRemoteKpis: KpiItem[] = filteredKpis.map((row) => ({
           id: row.id,
           year: Number(row.year),
-          quarter: row.quarter,
+          quarter: row.quarter as KpiQuarter,
           targetScope: row.target_scope,
           ownerId: row.owner_id || undefined,
           ownerName: row.owner_name,
-          track: row.track || '기획',
+          track: row.track || resolveMemberDefaultTrackForStorage(row.owner_name),
           title: row.title,
           targetMetric: row.target_metric,
           targetValue: row.target_value,
@@ -1755,14 +1849,19 @@ export class PlanningStorageService {
           updatedAt: row.updated_at,
         }));
 
+        const remoteKpiIdSet = new Set<string>(mappedRemoteKpis.map((r) => String(r.id)));
         const localKpis = safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []).filter(
-          (k) => !String(k.id).startsWith('kpi-30') && String(k.id) !== 'kpi-mw1s2aoz-2clky'
+          (k) =>
+            !String(k.id).startsWith('kpi-30') &&
+            validQuarterSet.has(String(k.quarter || '')) &&
+            !deletedKpiIdSet.has(String(k.id)) &&
+            remoteKpiIdSet.has(String(k.id))
         );
         const kpiMap = new Map<string, KpiItem>();
         mappedRemoteKpis.forEach((r) => kpiMap.set(r.id, r));
         localKpis.forEach((k) => {
           const remote = kpiMap.get(k.id);
-          kpiMap.set(k.id, remote ? { ...remote, ...k } : k);
+          kpiMap.set(k.id, remote ? mergeTwoKpiItems(remote, k) : k);
         });
 
         localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(Array.from(kpiMap.values())));
@@ -1817,37 +1916,30 @@ export class PlanningStorageService {
 
         const cloudKpiRow = findStoreRow(KPI_CLOUD_RECORD_ID);
         if (cloudKpiRow && typeof cloudKpiRow.summary === 'string') {
+          const validQuarterSet = new Set(['Q1', 'Q2', 'Q3', 'Q4']);
           const parsedExtendedKpis = safeJsonParse<KpiItem[]>(cloudKpiRow.summary, []).filter(
-            (k) => String(k.id) !== 'kpi-mw1s2aoz-2clky'
+            (k) =>
+              validQuarterSet.has(String(k.quarter || '')) &&
+              !deletedKpiIdSet.has(String(k.id))
           );
-          if (Array.isArray(parsedExtendedKpis) && parsedExtendedKpis.length > 0) {
-            const currentKpis = safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []).filter(
-              (k) => String(k.id) !== 'kpi-mw1s2aoz-2clky'
-            );
-            const mergedMap = new Map<string, KpiItem>();
-            currentKpis.forEach((k) => mergedMap.set(k.id, k));
-            parsedExtendedKpis.forEach((ext) => {
-              const existing = mergedMap.get(ext.id);
-              if (existing) {
-                mergedMap.set(ext.id, {
-                  ...existing,
-                  ...ext,
-                  linkedTaskIds: Array.isArray(ext.linkedTaskIds)
-                    ? ext.linkedTaskIds
-                    : existing.linkedTaskIds || [],
-                  peerReviews: Array.isArray(ext.peerReviews) && ext.peerReviews.length > 0
-                    ? ext.peerReviews
-                    : existing.peerReviews || [],
-                  peerAvgScore: ext.peerAvgScore ?? existing.peerAvgScore,
-                });
-              } else {
-                mergedMap.set(ext.id, ext);
-              }
-            });
-            localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(Array.from(mergedMap.values())));
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('ds-portal-kpis-updated'));
+          const currentKpis = safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []).filter(
+            (k) =>
+              validQuarterSet.has(String(k.quarter || '')) &&
+              !deletedKpiIdSet.has(String(k.id))
+          );
+          const mergedMap = new Map<string, KpiItem>();
+          currentKpis.forEach((k) => mergedMap.set(k.id, k));
+          parsedExtendedKpis.forEach((ext) => {
+            const existing = mergedMap.get(ext.id);
+            if (existing) {
+              mergedMap.set(ext.id, mergeTwoKpiItems(existing, ext));
+            } else if (!remoteKpis || remoteKpis.some((r) => String(r.id) === String(ext.id))) {
+              mergedMap.set(ext.id, ext);
             }
+          });
+          localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(Array.from(mergedMap.values())));
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('ds-portal-kpis-updated'));
           }
         }
 
@@ -3124,6 +3216,8 @@ export class PlanningStorageService {
       options?.syncToNotion ??
       (currentUser.name.trim() === '최범열' ||
         newTask.assigneeName?.trim() === '최범열' ||
+        currentUser.name.trim() === '고범곤' ||
+        newTask.assigneeName?.trim() === '고범곤' ||
         currentUser.name.trim() === '박수민' ||
         newTask.assigneeName?.trim() === '박수민' ||
         currentUser.name.trim() === '김리아' ||
@@ -3444,29 +3538,15 @@ export class PlanningStorageService {
     }
   }
 
-  // --- 3. KPI 관리 CRUD & 4단계 라이프사이클 프로세스 ---
+  // --- 3. KPI 관리 CRUD & 4단계 라이프사이클 프로세스 (분기 전용: Q1 ~ Q4) ---
   public static getKpis(): KpiItem[] {
     this.initialize();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ds_planning_kpis_clean_v1');
+    }
+    const validQuarterSet = new Set(['Q1', 'Q2', 'Q3', 'Q4']);
     const raw = safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []);
-    const dupRow = raw.find((k) => String(k.id) === 'kpi-mw1s2aoz-2clky');
-    const filtered = raw
-      .filter((k) => String(k.id) !== 'kpi-mw1s2aoz-2clky')
-      .map((k) => {
-        if (
-          String(k.id) === 'kpi-mvkjcbtn-luec3' &&
-          dupRow &&
-          Array.isArray(dupRow.linkedTaskIds) &&
-          dupRow.linkedTaskIds.length > 0
-        ) {
-          return {
-            ...k,
-            linkedTaskIds: Array.from(
-              new Set([...(k.linkedTaskIds || []), ...dupRow.linkedTaskIds])
-            ),
-          };
-        }
-        return k;
-      });
+    const filtered = raw.filter((k) => validQuarterSet.has(String(k.quarter || '')));
     if (filtered.length !== raw.length) {
       localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(filtered));
     }
@@ -3478,7 +3558,7 @@ export class PlanningStorageService {
 
     return filtered.map((k) => {
       const yr = Number(k.year || 2026);
-      const qt: KpiQuarter = k.quarter || 'Annual';
+      const qt: KpiQuarter = k.quarter;
       const cycleKey = buildKpiCycleKey(yr, qt);
       const schedule = overrides[cycleKey]
         ? { ...computeDefaultKpiCycleSchedule(yr, qt), ...overrides[cycleKey] }
@@ -3510,6 +3590,9 @@ export class PlanningStorageService {
   // --- KPI 평가 기수별 자동 스케줄 및 관리자(최범열) 미세 조정 스토어 ---
   public static getKpiScheduleOverrides(): Record<string, KpiCycleSchedule> {
     this.initialize();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('ds_planning_kpi_schedules_v1');
+    }
     return safeJsonParse<Record<string, KpiCycleSchedule>>(
       localStorage.getItem(STORAGE_KEYS.KPI_SCHEDULES),
       {}
@@ -3635,13 +3718,99 @@ export class PlanningStorageService {
     };
   }
 
-  private static async pushExtendedKpisToRemote(kpis: KpiItem[]): Promise<void> {
+  private static async pushExtendedKpisToRemote(
+    kpis: KpiItem[],
+    options?: { updatedId?: string; deletedId?: string }
+  ): Promise<void> {
     if (!isSupabaseEnabled()) return;
     const client = getSupabaseClient();
     if (!client) return;
 
     const currentUser = this.getCurrentUser();
     try {
+      let mergedList: KpiItem[] = [...kpis];
+
+      // 원격 최신 스냅샷을 먼저 조회·병합하여 동시 접속 중인 타 팀원의 자가·다면평가 덮어쓰기 방지
+      const { data: existingRow } = await client
+        .from('audit_logs')
+        .select('summary')
+        .eq('id', KPI_CLOUD_RECORD_ID)
+        .maybeSingle();
+
+      if (existingRow && typeof existingRow.summary === 'string') {
+        const remoteList = safeJsonParse<KpiItem[]>(existingRow.summary, []);
+        if (Array.isArray(remoteList) && remoteList.length > 0) {
+          const byId = new Map<string, KpiItem>();
+          for (const rem of remoteList) {
+            if (!rem?.id) continue;
+            if (options?.deletedId && String(rem.id) === String(options.deletedId)) continue;
+            byId.set(String(rem.id), rem);
+          }
+
+          for (const loc of kpis) {
+            if (!loc?.id) continue;
+            const idStr = String(loc.id);
+            if (options?.deletedId && idStr === String(options.deletedId)) continue;
+            const rem = byId.get(idStr);
+            if (!rem) {
+              byId.set(idStr, loc);
+              continue;
+            }
+
+            // 방금 저장 대상인 KPI는 로컬 변경값을 우선하되 무기명 다면평가 목록은 합집합 유지
+            const peerMap = new Map<string, KpiPeerReview>();
+            for (const pr of [...(rem.peerReviews || []), ...(loc.peerReviews || [])]) {
+              if (!pr) continue;
+              const rKey = String(pr.reviewerId || pr.id || '');
+              if (!rKey) continue;
+              const prev = peerMap.get(rKey);
+              const prevTs = prev?.submittedAt ? new Date(prev.submittedAt).getTime() : 0;
+              const nextTs = pr.submittedAt ? new Date(pr.submittedAt).getTime() : 0;
+              if (!prev || nextTs >= prevTs) {
+                peerMap.set(rKey, { ...pr, reviewerName: '익명 동료' });
+              }
+            }
+            const mergedPeers = Array.from(peerMap.values());
+            const mergedPeerAvg =
+              mergedPeers.length > 0
+                ? Number(
+                    (
+                      mergedPeers.reduce(
+                        (s, r) => s + (Number(r.scoreCollaboration) + Number(r.scoreQuality)) / 2,
+                        0
+                      ) / mergedPeers.length
+                    ).toFixed(1)
+                  )
+                : loc.peerAvgScore ?? rem.peerAvgScore;
+
+            if (options?.updatedId && idStr === String(options.updatedId)) {
+              byId.set(idStr, {
+                ...rem,
+                ...loc,
+                peerReviews: mergedPeers,
+                peerAvgScore: mergedPeerAvg,
+              });
+            } else {
+              const remTs = rem.updatedAt ? new Date(rem.updatedAt).getTime() : 0;
+              const locTs = loc.updatedAt ? new Date(loc.updatedAt).getTime() : 0;
+              const newer = locTs >= remTs ? loc : rem;
+              const older = locTs >= remTs ? rem : loc;
+              byId.set(idStr, {
+                ...older,
+                ...newer,
+                selfEvaluation: (newer.selfEvaluation || '').trim() || (older.selfEvaluation || '').trim(),
+                selfScore: newer.selfScore ?? older.selfScore,
+                peerReviews: mergedPeers,
+                peerAvgScore: mergedPeerAvg,
+              });
+            }
+          }
+
+          mergedList = Array.from(byId.values());
+          localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(mergedList));
+        }
+      }
+
       await client.from('audit_logs').upsert({
         id: KPI_CLOUD_RECORD_ID,
         entity_type: 'kpi',
@@ -3652,7 +3821,7 @@ export class PlanningStorageService {
         actor_name: 'SYSTEM',
         actor_role: currentUser.role,
         timestamp: new Date().toISOString(),
-        summary: JSON.stringify(kpis),
+        summary: JSON.stringify(mergedList),
       });
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('ds-portal-kpis-updated'));
@@ -3704,7 +3873,7 @@ export class PlanningStorageService {
     const kpis = this.getKpis();
     const updated = [newKpi, ...kpis];
     localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(updated));
-    this.pushExtendedKpisToRemote(updated);
+    this.pushExtendedKpisToRemote(updated, { updatedId: newKpi.id });
 
     this.recordAuditLog({
       entityType: 'kpi',
@@ -3776,7 +3945,7 @@ export class PlanningStorageService {
 
     kpis[index] = updated;
     localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(kpis));
-    this.pushExtendedKpisToRemote(kpis);
+    this.pushExtendedKpisToRemote(kpis, { updatedId: updated.id });
 
     this.recordAuditLog({
       entityType: 'kpi',
@@ -3926,12 +4095,12 @@ export class PlanningStorageService {
 
     kpis[index] = updated;
     localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(kpis));
-    this.pushExtendedKpisToRemote(kpis);
+    this.pushExtendedKpisToRemote(kpis, { updatedId: updated.id });
 
     return updated;
   }
 
-  // [4단계-자가평가] 팀원 연간 자가평가 제출
+  // [4단계-자가평가] 팀원 분기 자가평가 제출
   public static submitSelfEvaluation(id: string, selfEvaluation: string, selfScore?: number): KpiItem {
     return this.updateKpi(id, {
       selfEvaluation,
@@ -3999,7 +4168,7 @@ export class PlanningStorageService {
 
     const filtered = kpis.filter((k) => k.id !== id);
     localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(filtered));
-    this.pushExtendedKpisToRemote(filtered);
+    this.pushExtendedKpisToRemote(filtered, { deletedId: id });
 
     this.recordAuditLog({
       entityType: 'kpi',

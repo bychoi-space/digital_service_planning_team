@@ -12,7 +12,32 @@ export interface KpiRouteState {
   queryQuarter?: KpiQuarter;
 }
 
-const VALID_QUARTERS = new Set<KpiQuarter>(['Annual', 'Q1', 'Q2', 'Q3', 'Q4']);
+const VALID_QUARTERS = new Set<KpiQuarter>(['Q1', 'Q2', 'Q3', 'Q4']);
+
+export function resolveCurrentQuarterFromDate(dateStr?: string | null): KpiQuarter {
+  const clean = (dateStr || '').trim();
+  let month = 0;
+  if (/^\d{4}-\d{2}/.test(clean)) {
+    month = Number(clean.slice(5, 7));
+  } else {
+    const kstNow = new Date(Date.now() + 9 * 3600 * 1000);
+    month = kstNow.getUTCMonth() + 1;
+  }
+  if (month >= 1 && month <= 3) return 'Q1';
+  if (month >= 4 && month <= 6) return 'Q2';
+  if (month >= 7 && month <= 9) return 'Q3';
+  return 'Q4';
+}
+
+export function normalizeKpiQuarter(
+  rawQuarter?: string | null,
+  fallbackDateStr?: string | null
+): KpiQuarter {
+  if (rawQuarter && VALID_QUARTERS.has(rawQuarter as KpiQuarter)) {
+    return rawQuarter as KpiQuarter;
+  }
+  return resolveCurrentQuarterFromDate(fallbackDateStr);
+}
 
 export function parseKpiRouteFromHash(
   hash: string = typeof window !== 'undefined' ? window.location.hash : ''
@@ -65,7 +90,6 @@ export function parseKpiRouteFromHash(
 export const KPI_YEAR_OPTIONS: number[] = [2026, 2027, 2028];
 
 export const QUARTERS: { key: KpiQuarter; label: string; shortLabel: string }[] = [
-  { key: 'Annual', label: '연간 종합', shortLabel: '연간' },
   { key: 'Q1', label: '1분기', shortLabel: '1분기' },
   { key: 'Q2', label: '2분기', shortLabel: '2분기' },
   { key: 'Q3', label: '3분기', shortLabel: '3분기' },
@@ -347,28 +371,28 @@ export function getKpiLifecycleBadge(kpi: KpiItem): { label: string; classKey: s
 
   if (finalGrade) {
     if (finalGrade === 'S' || finalGrade === 'A') {
-      return { label: `실장 최종 확정 (${finalGrade}등급)`, classKey: 'kpi-status-achieved' };
+      return { label: `최종 ${finalGrade}등급 확정`, classKey: 'kpi-status-achieved' };
     }
     if (finalGrade === 'B') {
-      return { label: `실장 최종 확정 (${finalGrade}등급)`, classKey: 'kpi-status-partial' };
+      return { label: `최종 ${finalGrade}등급 확정`, classKey: 'kpi-status-partial' };
     }
-    return { label: `실장 최종 확정 (${finalGrade}등급)`, classKey: 'kpi-status-missed' };
+    return { label: `최종 ${finalGrade}등급 확정`, classKey: 'kpi-status-missed' };
   }
 
   if (leaderScore5 !== null) {
-    return { label: '1~3단계 점수 입력 완료 · 최종 등급 대기', classKey: 'kpi-status-progress' };
+    return { label: '1차 평가 완료 · 최종 등급 대기', classKey: 'kpi-status-progress' };
   }
 
   if (hasSelf) {
     return {
       label: isLeaderOwnedKpiItem(kpi)
-        ? '자가평가 완료 · 실장 최종 등급 대기'
-        : '자가평가 완료 · 팀장 1차평가 대기',
+        ? '자가평가 완료 · 최종 등급 대기'
+        : '자가평가 완료 · 1차 평가 대기',
       classKey: 'kpi-status-progress',
     };
   }
 
-  return { label: '목표 수행중 · 자가평가 대기', classKey: 'kpi-status-planning' };
+  return { label: '수행중 · 자가평가 대기', classKey: 'kpi-status-planning' };
 }
 
 export function getKpiEvalMetrics(kpi: KpiItem) {

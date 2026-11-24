@@ -11,14 +11,12 @@ export function buildKpiCycleKey(year: number, quarter: KpiQuarter): string {
 }
 
 export function formatCycleFullLabel(year: number, quarter: KpiQuarter): string {
-  if (quarter === 'Annual') return `${year}년 연간`;
   const qNum = quarter.replace('Q', '');
   return `${year}년 ${qNum}분기`;
 }
 
 export function formatCycleShortPrefix(year: number, quarter: KpiQuarter): string {
   const yy = String(year).slice(-2);
-  if (quarter === 'Annual') return `${yy}년 연간`;
   return `${yy}년 ${quarter}`;
 }
 
@@ -114,35 +112,14 @@ export function computeDefaultKpiCycleSchedule(
     };
   }
 
-  if (quarter === 'Q4') {
-    return {
-      cycleKey,
-      year,
-      quarter,
-      goalSetupStart: `${year}-09-24`,
-      goalSetupEnd: `${year}-09-30`,
-      execStart: `${year}-10-01`,
-      execEnd: `${year}-12-31`,
-      selfEvalStart: `${year + 1}-01-01`,
-      selfEvalEnd: `${year + 1}-01-07`,
-      peerEvalStart: `${year + 1}-01-08`,
-      peerEvalEnd: `${year + 1}-01-14`,
-      leaderEvalStart: `${year + 1}-01-15`,
-      leaderEvalEnd: `${year + 1}-01-21`,
-      finalEvalStart: `${year + 1}-01-22`,
-      finalEvalEnd: `${year + 1}-01-28`,
-      isCustomized: false,
-    };
-  }
-
-  // Annual (연간 종합)
+  // Q4 (4분기)
   return {
     cycleKey,
     year,
-    quarter: 'Annual',
-    goalSetupStart: `${year - 1}-12-25`,
-    goalSetupEnd: `${year - 1}-12-31`,
-    execStart: `${year}-01-01`,
+    quarter: 'Q4',
+    goalSetupStart: `${year}-09-24`,
+    goalSetupEnd: `${year}-09-30`,
+    execStart: `${year}-10-01`,
     execEnd: `${year}-12-31`,
     selfEvalStart: `${year + 1}-01-01`,
     selfEvalEnd: `${year + 1}-01-07`,
@@ -303,8 +280,11 @@ export function buildActiveKpiCalendarMilestones(
   const grouped = new Map<string, { year: number; quarter: KpiQuarter; items: KpiItem[] }>();
 
   for (const kpi of kpis) {
+    if (!kpi.quarter || !['Q1', 'Q2', 'Q3', 'Q4'].includes(String(kpi.quarter))) {
+      continue;
+    }
     const yr = Number(kpi.year || 2026);
-    const qt: KpiQuarter = kpi.quarter || 'Annual';
+    const qt: KpiQuarter = kpi.quarter;
     const key = buildKpiCycleKey(yr, qt);
     const existing = grouped.get(key);
     if (existing) {

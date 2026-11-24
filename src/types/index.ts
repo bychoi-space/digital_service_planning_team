@@ -101,8 +101,8 @@ export interface VacationItem extends AuditBase {
   notes: string;     // 인수인계 사항 및 사유
 }
 
-// 3. KPI 목표 및 평가 관련 타입
-export type KpiQuarter = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'Annual';
+// 3. KPI 목표 및 평가 관련 타입 (분기 단위 전용: Q1 ~ Q4)
+export type KpiQuarter = 'Q1' | 'Q2' | 'Q3' | 'Q4';
 export type KpiStatus = 'planning' | 'in_progress' | 'achieved' | 'partially_achieved' | 'missed';
 export type KpiTargetScope = 'team' | 'individual';
 export type KpiTrack = '기획' | '디자인' | '퍼블리싱';
@@ -117,7 +117,7 @@ export type KpiCyclePhaseKey =
   | 'final_eval';
 
 export interface KpiCycleSchedule {
-  cycleKey: string;        // 예: '2027-Q1', '2026-Annual'
+  cycleKey: string;        // 예: '2026-Q4', '2027-Q1'
   year: number;
   quarter: KpiQuarter;
   goalSetupStart: string;  // 목표 수립 주간 시작 (YYYY-MM-DD)
