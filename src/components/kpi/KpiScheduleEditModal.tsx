@@ -47,8 +47,7 @@ export const KpiScheduleEditModal: React.FC<KpiScheduleEditModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (
-      !validateRange('목표 수립 기한', draft.goalSetupStart, draft.goalSetupEnd) ||
-      !validateRange('목표 수행 기간', draft.execStart, draft.execEnd) ||
+      !validateRange('목표 수행 · 매핑 기간', draft.execStart, draft.execEnd) ||
       !validateRange('1주차 본인 자가평가', draft.selfEvalStart, draft.selfEvalEnd) ||
       !validateRange('2주차 협업 다면평가', draft.peerEvalStart, draft.peerEvalEnd) ||
       !validateRange('3주차 팀장 1차평가', draft.leaderEvalStart, draft.leaderEvalEnd) ||
@@ -59,7 +58,11 @@ export const KpiScheduleEditModal: React.FC<KpiScheduleEditModalProps> = ({
 
     setIsSaving(true);
     try {
-      await onSave(draft);
+      await onSave({
+        ...draft,
+        goalSetupStart: draft.execStart,
+        goalSetupEnd: draft.execStart,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -102,43 +105,15 @@ export const KpiScheduleEditModal: React.FC<KpiScheduleEditModalProps> = ({
             <div className="kpi-modal-target-summary">
               <strong>{cycleLabel} 평가 기수 단계별 일정 미세 조정</strong>
               <span>
-                명절·연휴 또는 사내 인사 일정 변동 시 날짜를 조정하면 [KPI 목표 및 평가]와 [팀 통합 일정] 캘린더에 동시 반영됩니다.
+                명절·연휴 또는 인사 일정 변동 시 평가 기간을 조정할 수 있으며, 4주차 최종평가 종료일이 지나면 모든 KPI 수정이 자동 잠금됩니다.
               </span>
             </div>
 
             <div className="kpi-schedule-edit-grid">
               <div className="kpi-schedule-edit-row">
                 <div className="kpi-schedule-edit-label">
-                  <span className="kpi-schedule-step-pill is-prep">사전 준비</span>
-                  <strong>KPI 목표 수립 기한</strong>
-                </div>
-                <div className="kpi-schedule-date-pair">
-                  <input
-                    type="date"
-                    required
-                    value={draft.goalSetupStart}
-                    onChange={(e) =>
-                      setDraft({ ...draft, goalSetupStart: e.target.value })
-                    }
-                    className="form-input"
-                  />
-                  <span className="kpi-schedule-tilde">~</span>
-                  <input
-                    type="date"
-                    required
-                    value={draft.goalSetupEnd}
-                    onChange={(e) =>
-                      setDraft({ ...draft, goalSetupEnd: e.target.value })
-                    }
-                    className="form-input"
-                  />
-                </div>
-              </div>
-
-              <div className="kpi-schedule-edit-row">
-                <div className="kpi-schedule-edit-label">
                   <span className="kpi-schedule-step-pill is-exec">본 수행</span>
-                  <strong>목표 수행(진행중) 기간</strong>
+                  <strong>과제 수행 · 매핑 기간</strong>
                 </div>
                 <div className="kpi-schedule-date-pair">
                   <input

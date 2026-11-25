@@ -213,27 +213,35 @@ function CharacterSpriteCanvas({
   );
 }
 
-export function SisunRenewalStoryStage() {
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+interface SisunRenewalStoryStageProps {
+  isPdfExport?: boolean;
+}
+
+export function SisunRenewalStoryStage({ isPdfExport = false }: SisunRenewalStoryStageProps = {}) {
+  const [isPlaying, setIsPlaying] = useState<boolean>(() => !isPdfExport);
   const [isMobileView, setIsMobileView] = useState<boolean>(() =>
-    typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
+    isPdfExport
+      ? false
+      : typeof window !== 'undefined'
+      ? window.matchMedia('(max-width: 767px)').matches
+      : false
   );
   const stageRef = useRef<HTMLDivElement | null>(null);
 
   // 60fps requestAnimationFrame 연속 모션 타이머 (1초 = 20 subTick = 10 tick)
-  const [subTick, setSubTick] = useState<number>(0);
+  const [subTick, setSubTick] = useState<number>(() => (isPdfExport ? 16 : 0));
 
   useEffect(() => {
     startChronologicalPreload();
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (isPdfExport || typeof window === 'undefined') return;
     const mql = window.matchMedia('(max-width: 767px)');
     const onChange = (e: MediaQueryListEvent) => setIsMobileView(e.matches);
     mql.addEventListener('change', onChange);
     return () => mql.removeEventListener('change', onChange);
-  }, []);
+  }, [isPdfExport]);
 
   useEffect(() => {
     if (!isPlaying) return;

@@ -4,7 +4,13 @@ import type {
   KpiItem,
   KpiQuarter,
 } from '../../types';
-import { checkHasSelfEval, getValidFinalGrade, getValidLeaderGrade } from './kpiShared';
+import {
+  checkHasSelfEval,
+  getLeaderScore5,
+  getValidFinalGrade,
+  getValidLeaderGrade,
+  isLeaderOwnedKpiItem,
+} from './kpiShared';
 
 export function buildKpiCycleKey(year: number, quarter: KpiQuarter): string {
   return `${year}-${quarter}`;
@@ -134,7 +140,7 @@ export function computeDefaultKpiCycleSchedule(
 }
 
 export interface KpiTimelineStep {
-  key: 'goal_setup' | 'execution' | 'self_eval' | 'peer_eval' | 'leader_eval' | 'final_eval';
+  key: 'execution' | 'self_eval' | 'peer_eval' | 'leader_eval' | 'final_eval';
   stepLabel: string;
   title: string;
   startDate: string;
@@ -157,19 +163,13 @@ export function resolveCycleTimelineSteps(
 ): {
   steps: KpiTimelineStep[];
   currentPhaseSummary: string;
+  isCycleClosedByDate: boolean;
 } {
   const rawSteps: Omit<KpiTimelineStep, 'state' | 'dDayBadge'>[] = [
     {
-      key: 'goal_setup',
-      stepLabel: '목표 수립',
-      title: '목표 등록 기한',
-      startDate: schedule.goalSetupStart,
-      endDate: schedule.goalSetupEnd,
-    },
-    {
       key: 'execution',
       stepLabel: '수행 기간',
-      title: '과제 수행 진행',
+      title: '과제 수행 · 매핑',
       startDate: schedule.execStart,
       endDate: schedule.execEnd,
     },
@@ -197,7 +197,7 @@ export function resolveCycleTimelineSteps(
     {
       key: 'final_eval',
       stepLabel: '평가 4주차',
-      title: '실장 최종평가',
+      title: '실장 최종평가 · 마감',
       startDate: schedule.finalEvalStart,
       endDate: schedule.finalEvalEnd,
     },
@@ -224,15 +224,14 @@ export function resolveCycleTimelineSteps(
     };
   });
 
+  const isCycleClosedByDate = todayStr > schedule.finalEvalEnd;
+
   if (!activeSummary) {
-    if (todayStr < schedule.goalSetupStart) {
-      const d = diffDays(todayStr, schedule.goalSetupStart);
-      activeSummary = `목표 수립 오픈 ${d}일 전 (${formatShortDateRange(
-        schedule.goalSetupStart,
-        schedule.goalSetupEnd
-      )})`;
-    } else if (todayStr > schedule.finalEvalEnd) {
-      activeSummary = '전 단계 평가 일정 종료';
+    if (todayStr < schedule.execStart) {
+      const d = diffDays(todayStr, schedule.execStart);
+      activeSummary = `분기 개시 ${d}일 전 (${schedule.execStart} 자동 생성 예정)`;
+    } else if (isCycleClosedByDate) {
+      activeSummary = '평가 기간 종료 · 수정 잠금 완료';
     } else {
       const nextUpcoming = steps.find((s) => s.state === 'upcoming');
       activeSummary = nextUpcoming
@@ -240,11 +239,120 @@ export function resolveCycleTimelineSteps(
             nextUpcoming.startDate,
             nextUpcoming.endDate
           )})`
-        : '일정 진행 중';
+        : '평가 일정 진행 중';
     }
   }
 
-  return { steps, currentPhaseSummary: activeSummary };
+  return { steps, currentPhaseSummary: activeSummary, isCycleClosedByDate };
+}
+
+export type KpiPeriodLifecycle = 'upcoming' | 'execution' | 'evaluation' | 'closed';
+
+export interface KpiPhaseAccess {
+  lifecycle: KpiPeriodLifecycle;
+  isLocked: boolean;
+  lockBadgeText: string | null;
+  lockDescription: string | null;
+  isEvalPeriodActive: boolean;
+  canMapTasks: boolean;
+  canSubmitSelfEval: boolean;
+  canSubmitPeerEval: boolean;
+  canSubmitLeaderEval: boolean;
+  canSubmitDirectorEval: boolean;
+  execPeriodRangeLabel: string;
+  evalPeriodRangeLabel: string;
+}
+
+// 기간(수행 기간 / 평가 기간 / 마감 이후) 및 선행 단계 완료 여부에 따른 KPI 액션 제어 게이트
+export function resolveKpiPhaseAccess(
+  kpi: KpiItem,
+  schedule: KpiCycleSchedule,
+  todayStr: string
+): KpiPhaseAccess {
+  const hasSelf = checkHasSelfEval(kpi);
+  const isLeaderKpi = isLeaderOwnedKpiItem(kpi);
+  const hasLeader = getLeaderScore5(kpi) !== null;
+  const hasFinal = Boolean(getValidFinalGrade(kpi));
+
+  const evalStart = schedule.selfEvalStart;
+  const evalEnd = schedule.finalEvalEnd;
+  const execPeriodRangeLabel = formatShortDateRange(schedule.execStart, schedule.execEnd);
+  const evalPeriodRangeLabel = formatShortDateRange(evalStart, evalEnd);
+
+  // 1) 실장 최종 등급 확정 완료 또는 공식 평가 종료일 경과 -> 영구 잠금 (Read-Only)
+  if (hasFinal || todayStr > evalEnd) {
+    return {
+      lifecycle: 'closed',
+      isLocked: true,
+      lockBadgeText: hasFinal ? '최종 확정 · 수정 잠금' : '평가 마감 · 수정 잠금',
+      lockDescription: hasFinal
+        ? '실장 최종 평가 등급이 확정되어 과제 매핑 및 평가 내용을 수정할 수 없습니다.'
+        : `공식 평가 기간(${evalPeriodRangeLabel})이 종료되어 조회만 가능합니다.`,
+      isEvalPeriodActive: false,
+      canMapTasks: false,
+      canSubmitSelfEval: false,
+      canSubmitPeerEval: false,
+      canSubmitLeaderEval: false,
+      canSubmitDirectorEval: false,
+      execPeriodRangeLabel,
+      evalPeriodRangeLabel,
+    };
+  }
+
+  // 2) 분기 수행 개시 전 (미래 분기)
+  if (todayStr < schedule.execStart) {
+    return {
+      lifecycle: 'upcoming',
+      isLocked: false,
+      lockBadgeText: '수행 개시 전',
+      lockDescription: `${schedule.execStart} 분기 개시일부터 과제 매핑이 활성화됩니다.`,
+      isEvalPeriodActive: false,
+      canMapTasks: false,
+      canSubmitSelfEval: false,
+      canSubmitPeerEval: false,
+      canSubmitLeaderEval: false,
+      canSubmitDirectorEval: false,
+      execPeriodRangeLabel,
+      evalPeriodRangeLabel,
+    };
+  }
+
+  // 3) 수행 기간 (분기 진행 중 ~ 평가 시작 전): 오직 실무 과제 매핑만 허용, 평가 버튼 비노출
+  if (todayStr < evalStart) {
+    return {
+      lifecycle: 'execution',
+      isLocked: false,
+      lockBadgeText: null,
+      lockDescription: null,
+      isEvalPeriodActive: false,
+      canMapTasks: true,
+      canSubmitSelfEval: false,
+      canSubmitPeerEval: false,
+      canSubmitLeaderEval: false,
+      canSubmitDirectorEval: false,
+      execPeriodRangeLabel,
+      evalPeriodRangeLabel,
+    };
+  }
+
+  // 4) 공식 평가 기간 (evalStart <= todayStr <= evalEnd, 최종 미확정 상태)
+  // - 과제 매핑: 자가평가 마감일(selfEvalEnd) 이내이거나 자가평가 미제출 시 보완 매핑 허용 (단, 1차 팀장 평가 완료 후에는 잠금)
+  const canMapDuringEval = !hasLeader && (todayStr <= schedule.selfEvalEnd || !hasSelf);
+
+  return {
+    lifecycle: 'evaluation',
+    isLocked: false,
+    lockBadgeText: null,
+    lockDescription: null,
+    isEvalPeriodActive: true,
+    canMapTasks: canMapDuringEval,
+    canSubmitSelfEval: !hasLeader,
+    canSubmitPeerEval: true,
+    canSubmitLeaderEval: !isLeaderKpi && hasSelf,
+    canSubmitDirectorEval: hasSelf && (isLeaderKpi || hasLeader),
+    execPeriodRangeLabel,
+    evalPeriodRangeLabel,
+  };
 }
 
 export interface KpiCalendarMilestone {
@@ -329,20 +437,10 @@ export function buildActiveKpiCalendarMilestones(
       route: string;
     }[] = [
       {
-        phaseKey: 'goal_setup',
-        phaseTitle: 'KPI 목표 수립 기한',
-        shortBadge: `[${shortPrefix}] 목표 수립 기한`,
-        guide: '구성원별 목표·측정기준(Metric)·완료기준(DoD) 및 가중치(100%)를 등록·합의하는 주간입니다.',
-        start: schedule.goalSetupStart,
-        end: schedule.goalSetupEnd,
-        tone: 'prep',
-        route: evalRoute,
-      },
-      {
         phaseKey: 'exec_start',
-        phaseTitle: 'KPI 목표 수행 개시일',
-        shortBadge: `[${shortPrefix}] 목표 수행 개시`,
-        guide: `${cycleFullLabel} KPI 공식 수행 기간이 시작되며, 목표 수립 상태 과제가 수행·진행중으로 전환됩니다.`,
+        phaseTitle: 'KPI 분기 목표 자동 생성 및 수행 개시일',
+        shortBadge: `[${shortPrefix}] KPI 수행 개시`,
+        guide: `${cycleFullLabel} 파트별 3대 표준 KPI가 자동 생성되며, 수행 기간 중 관련 실무 과제를 매핑합니다.`,
         start: schedule.execStart,
         end: schedule.execStart,
         tone: 'marker',
@@ -350,9 +448,9 @@ export function buildActiveKpiCalendarMilestones(
       },
       {
         phaseKey: 'exec_end',
-        phaseTitle: 'KPI 목표 수행 완료 마감일',
-        shortBadge: `[${shortPrefix}] 목표 수행 마감`,
-        guide: `${cycleFullLabel} 실무 과제 수행 마감일입니다. 익월 1주차부터 단계별 성과 평가가 시작됩니다.`,
+        phaseTitle: 'KPI 목표 수행 마감일',
+        shortBadge: `[${shortPrefix}] KPI 수행 마감`,
+        guide: `${cycleFullLabel} 실무 과제 수행 마감일입니다. 익월 1주차부터 공식 성과 평가 기간이 오픈됩니다.`,
         start: schedule.execEnd,
         end: schedule.execEnd,
         tone: 'marker',

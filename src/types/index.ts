@@ -185,6 +185,7 @@ export interface KpiItem extends AuditBase {
   ownerId?: string;           // 담당자 ID
   ownerName: string;
   track?: KpiTrack;           // '기획' | '디자인' | '퍼블리싱'
+  slotIndex?: 1 | 2 | 3;      // 분기별 자동 생성 3대 표준 목표 슬롯 순번 (1~3)
   title: string;
   targetMetric: string;
   targetValue: string;

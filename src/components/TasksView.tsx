@@ -45,6 +45,8 @@ interface TasksViewProps {
   currentUser: User;
   isViewer: boolean;
   onShowToast: (msg: string, type: 'success' | 'error' | 'info') => void;
+  pdfForceViewMode?: 'kanban' | 'list';
+  isPdfExport?: boolean;
 }
 
 // 업무 파트 (트랙) 설정
@@ -274,10 +276,16 @@ function parseTaskIdFromHash(
   }
 }
 
-export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onShowToast }) => {
+export const TasksView: React.FC<TasksViewProps> = ({
+  currentUser,
+  isViewer,
+  onShowToast,
+  pdfForceViewMode,
+  isPdfExport = false,
+}) => {
   const [tasks, setTasks] = useState<TaskItem[]>(() => PlanningStorageService.getTasks());
   const [teamMembers, setTeamMembers] = useState<User[]>(() => PlanningStorageService.getServicePlanningMembers());
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>(() => pdfForceViewMode || 'kanban');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTrack, setSelectedTrack] = useState<string>('all'); // 'all' | '기획' | '디자인' | '퍼블리싱'
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -291,7 +299,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
   // 모달 상태 및 URL 히스토리 연동 추적
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
-  const [isSyncingNotion, setIsSyncingNotion] = useState(true);
+  const [isSyncingNotion, setIsSyncingNotion] = useState<boolean>(() => !isPdfExport);
   const openedViaPushRef = useRef<boolean>(false);
 
   // 로그인된 회원을 기본 담당자로 반환하는 헬퍼 (파트 지정 시 해당 파트 전담자 우선 매칭)
@@ -357,6 +365,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
 
   // 화면 진입 시 Notion (Sisun-Tasks) 자동 동기화 및 이벤트 리스너 등록
   useEffect(() => {
+    if (isPdfExport) return;
     const handleStorageUpdate = () => {
       refreshTasks();
     };
@@ -379,7 +388,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
       isMounted = false;
       window.removeEventListener('ds-portal-tasks-updated', handleStorageUpdate);
     };
-  }, []);
+  }, [isPdfExport]);
 
   // 수동 Notion · Workspace · Figma 동기화 실행
   const handleManualNotionSync = async () => {
@@ -513,6 +522,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
 
   // URL 해시(#/tasks/{id}) 및 브라우저 뒤로가기/앞으로가기/딥링크 동기화
   useEffect(() => {
+    if (isPdfExport) return;
     const syncModalWithHash = () => {
       const targetId = parseTaskIdFromHash(window.location.hash);
       if (!targetId) {
@@ -541,7 +551,7 @@ export const TasksView: React.FC<TasksViewProps> = ({ currentUser, isViewer, onS
     syncModalWithHash();
     window.addEventListener('hashchange', syncModalWithHash);
     return () => window.removeEventListener('hashchange', syncModalWithHash);
-  }, [tasks, editingTask, isModalOpen, applyTaskToModal]);
+  }, [tasks, editingTask, isModalOpen, applyTaskToModal, isPdfExport]);
 
   // 첨부파일 업로드/삭제 시 상태 갱신 및 기존 업무 수정 중에는 즉시 DB 자동 반영
   const handleAttachmentsChange = (nextAttachments: TaskAttachment[]) => {

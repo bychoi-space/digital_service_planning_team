@@ -30,6 +30,8 @@ interface PolicyViewProps {
   currentUser: User;
   isViewer: boolean;
   onShowToast?: (msg: string, type: 'success' | 'error' | 'info') => void;
+  pdfForceDomain?: PolicyDomain;
+  isPdfExport?: boolean;
 }
 
 interface DomainMeta {
@@ -146,19 +148,22 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
   currentUser,
   isViewer,
   onShowToast,
+  pdfForceDomain,
+  isPdfExport = false,
 }) => {
   const [items, setItems] = useState<SisunPolicyItem[]>(() =>
     PlanningStorageService.getPolicies()
   );
   // 도메인 단위 전용 TAB 상태 (URL 해시 #/policy/{domain} 양방향 동기화)
   const [activeDomain, setActiveDomain] = useState<PolicyDomain>(() =>
-    parsePolicyDomainFromHash()
+    isPdfExport && pdfForceDomain ? pdfForceDomain : parsePolicyDomainFromHash()
   );
   // 도메인 내 세부 중분류 퀵 필터 ('all' 또는 subCategory)
   const [selectedSubCategory, setSelectedSubCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
+    if (isPdfExport) return;
     const handleHashSync = () => {
       const nextDomain = parsePolicyDomainFromHash(window.location.hash);
       setActiveDomain((prev) => {
@@ -170,7 +175,7 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
     };
     window.addEventListener('hashchange', handleHashSync);
     return () => window.removeEventListener('hashchange', handleHashSync);
-  }, []);
+  }, [isPdfExport]);
 
   // 등록/수정 모달 상태
   const [isModalOpen, setIsModalOpen] = useState(false);

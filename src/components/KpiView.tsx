@@ -20,20 +20,23 @@ import { KpiDetailPage } from './kpi/KpiDetailPage';
 import { KpiScheduleEditModal } from './kpi/KpiScheduleEditModal';
 import { TaskQuickDetailModal } from './common/TaskQuickDetailModal';
 import {
-  computeDefaultKpiCycleSchedule,
   formatCycleFullLabel,
   formatShortDateRange,
   resolveCycleTimelineSteps,
+  resolveKpiPhaseAccess,
 } from './kpi/kpiSchedule';
+import type { KpiPhaseAccess } from './kpi/kpiSchedule';
 import {
   KPI_YEAR_OPTIONS,
   QUARTERS,
+  STANDARD_KPI_TEMPLATES,
   TRACK_CONFIG,
   TRACK_LIST,
   SCORE_5_RUBRIC,
   GRADE_RUBRIC,
   parseKpiRouteFromHash,
   resolveCurrentQuarterFromDate,
+  resolveKpiSlotIndex,
   resolveMemberDefaultTrack,
   resolveGradeFromHundredScore,
   recommendGradeFromFiveScore,
@@ -50,12 +53,9 @@ import {
 } from './kpi/kpiShared';
 import type { KpiModeTab } from './kpi/kpiShared';
 import {
-  Plus,
   Award,
-  Trash2,
   X,
   ShieldCheck,
-  CheckCircle2,
   MessageSquare,
   Link as LinkIcon,
   ChevronDown,
@@ -67,6 +67,7 @@ import {
   Eye,
   UserCheck,
   Calendar,
+  Clock,
   SlidersHorizontal,
 } from 'lucide-react';
 
@@ -74,86 +75,17 @@ interface KpiViewProps {
   currentUser: User;
   isViewer: boolean;
   onShowToast: (msg: string, type: 'success' | 'error' | 'info') => void;
+  pdfForceModeTab?: KpiModeTab;
+  isPdfExport?: boolean;
 }
 
-interface KpiPreset {
-  track: KpiTrack;
-  pillar: string;
-  title: string;
-  metric: string;
-  targetValue: string;
-}
-
-const KPI_PRESETS: KpiPreset[] = [
-  // 기획 (파란색)
-  {
-    track: '기획',
-    pillar: '일정 준수',
-    title: '핵심 과제 및 프로모션 화면설계 적기 완수',
-    metric: '합의 일정 내 화면설계서(SB) 확정 및 리뷰 완료 여부',
-    targetValue: '착수·마감 일정 준수 및 유관부서 사전 리뷰 완료',
-  },
-  {
-    track: '기획',
-    pillar: '정책 품질',
-    title: '서비스 정책 명세 무결성 확보',
-    metric: '개발·QA 단계 정책 누락 및 오픈 후 주요 결함 발생 여부',
-    targetValue: '예외 케이스 사전 정의로 스펙 재작업 및 오픈 결함 방지',
-  },
-  {
-    track: '기획',
-    pillar: '운영 · 협업',
-    title: '어드민 운영 효율화 및 유관부서 협업',
-    metric: '유관부서 요구사항 조율 및 반복 수기 업무 개선 기여도',
-    targetValue: '현장 운영 이슈 개선 및 부서 간 협업 프로세스 정립',
-  },
-  // 디자인 (녹색)
-  {
-    track: '디자인',
-    pillar: '일정 준수',
-    title: '개편 및 프로모션 UI/UX 시안 납기 준수',
-    metric: '기획 확정 후 목표 일정 내 디자인 시안 전달 여부',
-    targetValue: '마감 기한 내 시안 확정 및 퍼블리싱 인계 완료',
-  },
-  {
-    track: '디자인',
-    pillar: '디자인 품질',
-    title: 'UI 디자인 시스템 및 공통 컴포넌트 표준화',
-    metric: '화면 간 시각 일관성 유지 및 디자인 QA 통과 여부',
-    targetValue: '타이포·컬러·컴포넌트 규격 통일 및 가이드 자산화',
-  },
-  {
-    track: '디자인',
-    pillar: '사용성 · 협업',
-    title: '디바이스별 쇼핑 탐색 가독성 개선',
-    metric: 'PC·모바일 탐색 사용성 개선 및 핸드오프 명확성',
-    targetValue: '해상도별 최적 시안 구현 및 기획·퍼블리싱 협업 원활화',
-  },
-  // 퍼블리싱 (보라색)
-  {
-    track: '퍼블리싱',
-    pillar: '일정 준수',
-    title: '개편 및 프로모션 웹 마크업 적기 구현',
-    metric: '디자인 인계 후 목표 일정 내 마크업·인터랙션 완료 여부',
-    targetValue: '오픈 일정 내 마크업 전달 및 프론트 반영 지원 완료',
-  },
-  {
-    track: '퍼블리싱',
-    pillar: '마크업 품질',
-    title: '반응형 레이아웃 및 크로스브라우징 무결성 확보',
-    metric: '기기·브라우저별 레이아웃 깨짐 및 QA 결함 발생 여부',
-    targetValue: '전 해상도·주요 브라우저 검수 통과 및 웹 표준 준수',
-  },
-  {
-    track: '퍼블리싱',
-    pillar: '모듈화 · 협업',
-    title: '공통 UI 마크업 모듈화 및 유지보수 효율화',
-    metric: '공통 컴포넌트 CSS·마크업 구조화 및 제작 대응력',
-    targetValue: '재사용 가능한 마크업 모듈 구축 및 협업 대응력 강화',
-  },
-];
-
-export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowToast }) => {
+export const KpiView: React.FC<KpiViewProps> = ({
+  currentUser,
+  isViewer,
+  onShowToast,
+  pdfForceModeTab,
+  isPdfExport = false,
+}) => {
   const [kpis, setKpis] = useState<KpiItem[]>(() => PlanningStorageService.getKpis());
   const [tasks, setTasks] = useState<TaskItem[]>(() => PlanningStorageService.getTasks());
   const [teamMembers, setTeamMembers] = useState<User[]>(() =>
@@ -170,7 +102,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   const isCrossDept = kpiRole === 'cross_dept'; // 타 부서 · 유관부서 임직원 (무기명 협업 다면평가 전용)
 
   const canViewAllOrgKpis = isTeamLead || isDivisionHead || isExecutiveViewer;
-  const canCreateGoal = isTeamLead || isTeamMember;
   const canManageSchedule = canManageUserPermissions(currentUser);
   const [todayStr] = useState<string>(() => getTodayDateString());
 
@@ -184,15 +115,21 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   );
 
   const [selectedYear, setSelectedYear] = useState<number>(
-    () => parseKpiRouteFromHash().queryYear || Number(todayStr.slice(0, 4)) || 2026
+    () =>
+      (isPdfExport ? undefined : parseKpiRouteFromHash().queryYear) ||
+      Number(todayStr.slice(0, 4)) ||
+      2026
   );
   const [selectedQuarter, setSelectedQuarter] = useState<'all' | KpiQuarter>(
-    () => parseKpiRouteFromHash().queryQuarter || resolveCurrentQuarterFromDate(todayStr)
+    () =>
+      (isPdfExport ? undefined : parseKpiRouteFromHash().queryQuarter) ||
+      resolveCurrentQuarterFromDate(todayStr)
   );
   const [scheduleTick, setScheduleTick] = useState<number>(0);
   const [isScheduleEditOpen, setIsScheduleEditOpen] = useState<boolean>(false);
 
   useEffect(() => {
+    if (isPdfExport) return;
     const syncKpiRoute = () => {
       const parsed = parseKpiRouteFromHash(window.location.hash);
       if (parsed.queryYear) {
@@ -254,10 +191,16 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
       window.removeEventListener('ds-portal-kpis-updated', handleKpiOrTaskSync);
       window.removeEventListener('ds-portal-tasks-updated', handleKpiOrTaskSync);
     };
-  }, [isCrossDept, isDivisionHead, isExecutiveViewer]);
+  }, [isCrossDept, isDivisionHead, isExecutiveViewer, isPdfExport]);
 
-  const effectiveModeTab: KpiModeTab = isCrossDept ? 'peer_feedback' : routeState.mode;
-  const selectedKpiId = routeState.detailId;
+  const effectiveModeTab: KpiModeTab = isCrossDept
+    ? 'peer_feedback'
+    : isDivisionHead || isExecutiveViewer
+    ? 'evaluation'
+    : isPdfExport && pdfForceModeTab
+    ? pdfForceModeTab
+    : routeState.mode;
+  const selectedKpiId = isPdfExport ? null : routeState.detailId;
 
   const navigateToKpiMode = (nextMode: KpiModeTab) => {
     cameFromListRef.current = false;
@@ -322,12 +265,21 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   const [ownerFilter, setOwnerFilter] = useState<string>('all');
   const [peerOwnerFilter, setPeerOwnerFilter] = useState<string>('all');
 
-  // 기본 목표 수립/수정 모달
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingKpi, setEditingKpi] = useState<KpiItem | null>(null);
-
   // 상단 평가 기준표(3대 축 & 루브릭) 접기/펼치기 상태 (기본 접힘으로 주요 일정·목록 집중도 확보)
   const [isFrameworkOpen, setIsFrameworkOpen] = useState<boolean>(false);
+
+  // 개별 KPI 기수별 스케줄 및 기간 기반 액션 허용/잠금 상태 조회
+  const getPhaseAccessForKpi = useCallback(
+    (kpi: KpiItem): KpiPhaseAccess => {
+      void scheduleTick;
+      const sched = PlanningStorageService.getKpiCycleSchedule(
+        Number(kpi.year || 2026),
+        kpi.quarter
+      );
+      return resolveKpiPhaseAccess(kpi, sched, todayStr);
+    },
+    [scheduleTick, todayStr]
+  );
 
   // 현재 로그인한 사용자가 해당 KPI의 본인(담당자)인지 여부 판별
   const isKpiOwner = useCallback(
@@ -414,22 +366,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     comment: '',
   });
 
-  const [formData, setFormData] = useState({
-    year: Number(todayStr.slice(0, 4)) || 2026,
-    quarter: resolveCurrentQuarterFromDate(todayStr),
-    targetScope: 'individual' as KpiTargetScope,
-    ownerId: currentUser.id,
-    ownerName: currentUser.name || '최범열',
-    track: resolveMemberDefaultTrack(currentUser.name),
-    title: '',
-    targetMetric: '',
-    targetValue: '',
-    currentValue: '',
-    weight: 35,
-    status: 'in_progress' as KpiStatus,
-    linkedTaskIds: [] as string[],
-  });
-
   const refreshKpis = () => {
     setKpis(PlanningStorageService.getKpis());
     setTasks(PlanningStorageService.getTasks());
@@ -466,254 +402,17 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
     return list.includes(taskId) ? list.filter((id) => id !== taskId) : [...list, taskId];
   };
 
-  const handleApplyPreset = (preset: KpiPreset) => {
-    setFormData((prev) => ({
-      ...prev,
-      track: preset.track,
-      title: preset.title,
-      targetMetric: preset.metric,
-      targetValue: preset.targetValue,
-    }));
-    onShowToast(`[${preset.track} · ${preset.pillar}] 표준 KPI 템플릿이 적용되었습니다.`, 'info');
-  };
-
-  // 특정 담당자(또는 팀 공통)의 동일 연도·기수 내 기존 등록된 가중치 합계 계산
-  const computeExistingCycleWeightSum = useCallback(
-    (params: {
-      year: number;
-      quarter: KpiQuarter;
-      targetScope: KpiTargetScope;
-      ownerName: string;
-      excludeKpiId?: string | null;
-    }): number => {
-      return kpis.reduce((sum, item) => {
-        if (params.excludeKpiId && String(item.id) === String(params.excludeKpiId)) {
-          return sum;
-        }
-        if (Number(item.year || 2026) !== Number(params.year)) return sum;
-        if (item.quarter !== params.quarter) return sum;
-        if (params.targetScope === 'team') {
-          return item.targetScope === 'team' ? sum + Number(item.weight || 0) : sum;
-        }
-        if (item.targetScope === 'team') return sum;
-        return item.ownerName?.trim() === params.ownerName?.trim()
-          ? sum + Number(item.weight || 0)
-          : sum;
-      }, 0);
-    },
-    [kpis]
-  );
-
-  const resolveSmartDefaultWeight = (existingSum: number): number => {
-    if (existingSum > 0 && existingSum < 100) {
-      return Math.max(5, 100 - existingSum);
-    }
-    return 35;
-  };
-
-  // 신규 KPI 목표 수립 모달 열기
-  const handleOpenCreateModal = (defaultTrack?: KpiTrack) => {
-    if (!canCreateGoal) {
-      onShowToast('서비스기획팀 구성원만 KPI 목표를 수립할 수 있습니다.', 'error');
-      return;
-    }
-    const latestMembers = PlanningStorageService.getServicePlanningMembers();
-    setTeamMembers(latestMembers);
-    const matchedSelf =
-      latestMembers.find(
-        (m) => String(m.id) === String(currentUser.id) || m.name.trim() === currentUser.name.trim()
-      ) || currentUser;
-
-    const initialTrack =
-      defaultTrack ||
-      (trackFilter !== 'all' ? trackFilter : resolveMemberDefaultTrack(matchedSelf.name));
-    const createQuarter: KpiQuarter =
-      selectedQuarter === 'all' ? defaultQuarter : selectedQuarter;
-    const targetSchedule = PlanningStorageService.getKpiCycleSchedule(
-      selectedYear,
-      createQuarter
-    );
-    const defaultStatus: KpiStatus =
-      todayStr < targetSchedule.execStart ? 'planning' : 'in_progress';
-    const existingSum = computeExistingCycleWeightSum({
-      year: selectedYear,
-      quarter: createQuarter,
-      targetScope: 'individual',
-      ownerName: matchedSelf.name,
-    });
-
-    setEditingKpi(null);
-    setFormData({
-      year: selectedYear,
-      quarter: createQuarter,
-      targetScope: 'individual',
-      ownerId: matchedSelf.id,
-      ownerName: matchedSelf.name,
-      track: initialTrack,
-      title: '',
-      targetMetric: '',
-      targetValue: '',
-      currentValue: '',
-      weight: resolveSmartDefaultWeight(existingSum),
-      status: defaultStatus,
-      linkedTaskIds: [],
-    });
-    setIsModalOpen(true);
-  };
-
-  // KPI 수정 모달 열기
-  const handleOpenEditModal = (item: KpiItem) => {
-    if (!canEditKpiGoal(item)) {
-      onShowToast('본인의 KPI 또는 팀장 권한만 목표를 수정할 수 있습니다.', 'error');
-      return;
-    }
-    const latestMembers = PlanningStorageService.getServicePlanningMembers();
-    setTeamMembers(latestMembers);
-    const matchedMember = latestMembers.find(
-      (m) => String(m.id) === String(item.ownerId) || m.name.trim() === item.ownerName?.trim()
-    );
-
-    setEditingKpi(item);
-    setFormData({
-      year: item.year,
-      quarter: item.quarter,
-      targetScope: item.targetScope,
-      ownerId: matchedMember ? matchedMember.id : item.ownerId || '',
-      ownerName:
-        item.targetScope === 'team'
-          ? '서비스기획팀 전체'
-          : matchedMember
-            ? matchedMember.name
-            : item.ownerName,
-      track: item.track || '기획',
-      title: item.title,
-      targetMetric: item.targetMetric,
-      targetValue: item.targetValue,
-      currentValue: item.currentValue || '',
-      weight: item.weight,
-      status: item.status,
-      linkedTaskIds: Array.isArray(item.linkedTaskIds) ? [...item.linkedTaskIds] : [],
-    });
-    setIsModalOpen(true);
-  };
-
-  // KPI 저장
-  const handleSaveKpi = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canCreateGoal) return;
-
-    if (!formData.title.trim()) {
-      onShowToast('KPI 목표명을 입력해 주세요.', 'error');
-      return;
-    }
-
-    const effectiveScope: KpiTargetScope = isTeamMember ? 'individual' : formData.targetScope;
-    const ownerIdFinal =
-      effectiveScope === 'team'
-        ? undefined
-        : isTeamMember
-          ? currentUser.id
-          : formData.ownerId;
-    const ownerNameFinal =
-      effectiveScope === 'team'
-        ? '서비스기획팀 전체'
-        : isTeamMember
-          ? currentUser.name
-          : formData.ownerName;
-
-    const existingWeightSum = computeExistingCycleWeightSum({
-      year: Number(formData.year),
-      quarter: formData.quarter,
-      targetScope: effectiveScope,
-      ownerName: ownerNameFinal,
-      excludeKpiId: editingKpi?.id,
-    });
-    const nextWeightNum = Number(formData.weight || 0);
-    if (nextWeightNum < 5 || nextWeightNum > 100) {
-      onShowToast('가중치는 5% ~ 100% 사이로 입력해 주세요.', 'error');
-      return;
-    }
-    if (existingWeightSum + nextWeightNum > 100) {
+  // 0) KPI별 실무 과제 매핑 전용 모달
+  const handleOpenTaskMappingModal = (kpi: KpiItem) => {
+    if (!canEditKpiGoal(kpi)) return;
+    const access = getPhaseAccessForKpi(kpi);
+    if (!access.canMapTasks) {
       onShowToast(
-        `동일 평가 기수 내 가중치 합계는 100%를 초과할 수 없습니다. (현재 예상 합계: ${existingWeightSum + nextWeightNum}%)`,
+        access.lockDescription || '현재 단계에서는 실무 과제 매핑을 변경할 수 없습니다.',
         'error'
       );
       return;
     }
-
-    try {
-      if (editingKpi) {
-        PlanningStorageService.updateKpi(editingKpi.id, {
-          year: Number(formData.year),
-          quarter: formData.quarter,
-          targetScope: effectiveScope,
-          ownerId: ownerIdFinal,
-          ownerName: ownerNameFinal,
-          track: formData.track,
-          title: formData.title.trim(),
-          targetMetric: formData.targetMetric.trim(),
-          targetValue: formData.targetValue.trim(),
-          currentValue: formData.currentValue.trim(),
-          weight: Number(formData.weight),
-          status: formData.status,
-          linkedTaskIds: formData.linkedTaskIds,
-        });
-        onShowToast('KPI 목표 및 매핑 과제 정보가 수정되었습니다.', 'success');
-      } else {
-        PlanningStorageService.createKpi({
-          year: Number(formData.year),
-          quarter: formData.quarter,
-          targetScope: effectiveScope,
-          ownerId: ownerIdFinal,
-          ownerName: ownerNameFinal,
-          track: formData.track,
-          title: formData.title.trim(),
-          targetMetric: formData.targetMetric.trim(),
-          targetValue: formData.targetValue.trim(),
-          currentValue: formData.currentValue.trim(),
-          weight: Number(formData.weight),
-          achievementRate: 0,
-          status: formData.status,
-          linkedTaskIds: formData.linkedTaskIds,
-          stage: 'aligned',
-          selfEvaluation: '',
-          finalEvaluation: '',
-          evaluatorName: '유은정',
-        });
-        onShowToast('새로운 KPI 목표가 등록되었습니다.', 'success');
-      }
-      setIsModalOpen(false);
-      refreshKpis();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '처리 중 오류가 발생했습니다.';
-      onShowToast(msg, 'error');
-    }
-  };
-
-  // KPI 삭제
-  const handleDeleteKpi = (id: string, title: string) => {
-    const target = kpis.find((k) => k.id === id);
-    if (!target || !canEditKpiGoal(target)) return;
-    if (window.confirm(`정말 "${title}" KPI 항목을 삭제하시겠습니까?`)) {
-      try {
-        PlanningStorageService.deleteKpi(id);
-        onShowToast('KPI 항목이 삭제되었습니다.', 'info');
-        setIsModalOpen(false);
-        if (selectedKpiId === id) {
-          cameFromListRef.current = false;
-          window.history.replaceState(null, '', '#/kpi');
-          setRouteState({ mode: 'evaluation', detailId: null });
-        }
-        refreshKpis();
-      } catch (err) {
-        onShowToast(err instanceof Error ? err.message : '삭제 실패', 'error');
-      }
-    }
-  };
-
-  // 0) KPI별 실무 과제 매핑 전용 모달
-  const handleOpenTaskMappingModal = (kpi: KpiItem) => {
-    if (!canEditKpiGoal(kpi)) return;
     setActionModal({ type: 'task_mapping', kpi });
     setMappingTaskIds(Array.isArray(kpi.linkedTaskIds) ? [...kpi.linkedTaskIds] : []);
     setMappingSearch('');
@@ -741,6 +440,15 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   // 1) STEP 1: 본인 자가평가 모달 (5점 만점 점수 + 단일 통합 코멘트)
   const handleOpenSelfModal = (kpi: KpiItem) => {
     if (!isKpiOwner(kpi)) return;
+    const access = getPhaseAccessForKpi(kpi);
+    if (!access.canSubmitSelfEval) {
+      onShowToast(
+        access.lockDescription ||
+          `공식 평가 기간(${access.evalPeriodRangeLabel})에만 자가평가를 등록할 수 있습니다.`,
+        'error'
+      );
+      return;
+    }
     const existing5 = getSelfScore5(kpi);
     setActionModal({ type: 'self_checkin', kpi });
     setSelfForm({
@@ -780,6 +488,15 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   const handleOpenPeerModal = (kpi: KpiItem) => {
     if (isKpiOwner(kpi)) {
       onShowToast('본인의 KPI에는 직접 동료 피드백을 평가할 수 없습니다.', 'info');
+      return;
+    }
+    const access = getPhaseAccessForKpi(kpi);
+    if (!access.canSubmitPeerEval) {
+      onShowToast(
+        access.lockDescription ||
+          `공식 평가 기간(${access.evalPeriodRangeLabel})에만 무기명 협업 다면평가에 참여할 수 있습니다.`,
+        'error'
+      );
       return;
     }
     setActionModal({ type: 'peer_review', kpi });
@@ -833,6 +550,15 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   // 3) STEP 3: 팀장(최범열 차장) 1차 평가 모달 (5점 만점 점수 + 의견)
   const handleOpenLeaderEvalModal = (kpi: KpiItem) => {
     if (!isTeamLead || isLeaderOwnedKpiItem(kpi)) return;
+    const access = getPhaseAccessForKpi(kpi);
+    if (!access.isEvalPeriodActive) {
+      onShowToast(
+        access.lockDescription ||
+          `공식 평가 기간(${access.evalPeriodRangeLabel})에만 1차 팀장 평가를 진행할 수 있습니다.`,
+        'error'
+      );
+      return;
+    }
     if (!checkHasSelfEval(kpi)) {
       onShowToast(
         '담당자의 [STEP 1 자가평가]가 먼저 등록되어야 팀장 1차 평가를 진행할 수 있습니다.',
@@ -885,9 +611,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
   // 4) STEP 4: 디지털마케팅실장(유은정 상무) 최종 등급(S~C) 및 총평 확정 모달
   const handleOpenDirectorEvalModal = (kpi: KpiItem) => {
     if (!isDivisionHead) return;
-    if (!checkHasSelfEval(kpi)) {
+    const access = getPhaseAccessForKpi(kpi);
+    if (!access.canSubmitDirectorEval) {
       onShowToast(
-        '담당자의 [STEP 1 자가평가]가 먼저 등록되어야 최종 등급을 확정할 수 있습니다.',
+        access.lockDescription ||
+          '공식 평가 기간 중 선행 평가(자가평가 및 팀장 1차 평가)가 완료되어야 최종 등급을 확정할 수 있습니다.',
         'error'
       );
       return;
@@ -916,6 +644,13 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
         '담당자의 [실적 · 자가평가]가 먼저 등록되어야 최종 등급을 확정할 수 있습니다.',
         'error'
       );
+      return;
+    }
+    if (
+      !window.confirm(
+        `[${actionModal.kpi.ownerName}] "${actionModal.kpi.title}" 항목을 최종 ${directorEvalForm.grade}등급으로 확정하시겠습니까?\n확정 후에는 과제 매핑 및 평가 내용을 더 이상 수정할 수 없습니다.`
+      )
+    ) {
       return;
     }
     const rubric =
@@ -1214,6 +949,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             <span className="kpi-cycle-phase-pill">
               {activeCycleTimeline.currentPhaseSummary}
             </span>
+            {activeCycleTimeline.isCycleClosedByDate ? (
+              <span className="kpi-cycle-closed-pill">
+                <Lock size={14} /> 평가 마감 · 잠금
+              </span>
+            ) : null}
             {activeCycleSchedule.isCustomized && (
               <span className="kpi-cycle-custom-pill">기수 일정 조정됨</span>
             )}
@@ -1418,6 +1158,7 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                 const trackCfg = TRACK_CONFIG[item.track || '기획'] || TRACK_CONFIG['기획'];
                 const TrackIcon = trackCfg.icon;
                 const linkedTasks = getLinkedTasksForKpi(item);
+                const itemAccess = getPhaseAccessForKpi(item);
                 const myPeerReview = (item.peerReviews || []).find(
                   (p) => String(p.reviewerId) === String(currentUser.id)
                 );
@@ -1431,13 +1172,14 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       <div className="kpi-peer-blind-main">
                         <div className="tasks-card-badges">
                           <span className={`tasks-badge-track ${trackCfg.classKey}`}>
-                            <TrackIcon size={13} /> {trackCfg.label}
+                            <TrackIcon size={14} /> {trackCfg.label}
                           </span>
                           <span className="kpi-peer-owner-pill">{item.ownerName}</span>
                           <span className="kpi-weight-badge">
                             {item.year || 2026}년{' '}
                             {QUARTERS.find((q) => q.key === item.quarter)?.shortLabel ||
-                              item.quarter}
+                              item.quarter}{' '}
+                            · 가중치 {item.weight}%
                           </span>
                           {myPeerReview && (
                             <span className="kpi-stage-pill is-done-peer">
@@ -1453,18 +1195,28 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                       </div>
 
                       <div className="kpi-peer-blind-actions">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenPeerModal(item)}
-                          className={`btn ${
-                            myPeerReview ? 'btn-secondary' : 'btn-primary'
-                          } kpi-peer-submit-btn`}
-                        >
-                          <MessageSquare size={15} />
-                          <span>
-                            {myPeerReview ? '내 무기명 피드백 수정' : '무기명 협업 피드백 작성'}
+                        {itemAccess.canSubmitPeerEval ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPeerModal(item)}
+                            className={`btn ${
+                              myPeerReview ? 'btn-secondary' : 'btn-primary'
+                            } kpi-peer-submit-btn`}
+                          >
+                            <MessageSquare size={15} />
+                            <span>
+                              {myPeerReview ? '내 무기명 피드백 수정' : '무기명 협업 피드백 작성'}
+                            </span>
+                          </button>
+                        ) : itemAccess.isLocked ? (
+                          <span className="kpi-readonly-lock-chip">
+                            <Lock size={14} /> 평가 마감
                           </span>
-                        </button>
+                        ) : (
+                          <span className="kpi-eval-wait-chip">
+                            <Clock size={14} /> 평가 기간 오픈 ({itemAccess.evalPeriodRangeLabel})
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -1516,14 +1268,13 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             item={selectedKpi}
             currentUser={currentUser}
             linkedTasks={getLinkedTasksForKpi(selectedKpi)}
+            phaseAccess={getPhaseAccessForKpi(selectedKpi)}
             isSelf={isKpiOwner(selectedKpi)}
             canEditGoal={canEditKpiGoal(selectedKpi)}
             isTeamLead={isTeamLead}
             isDivisionHead={isDivisionHead}
             isExecutiveViewer={isExecutiveViewer}
             onBackToList={navigateBackToKpiList}
-            onOpenEditGoal={handleOpenEditModal}
-            onDeleteGoal={handleDeleteKpi}
             onOpenTaskMapping={handleOpenTaskMappingModal}
             onOpenTaskDetailPopup={(task) => setPopupTask(task)}
             onOpenSelfEval={handleOpenSelfModal}
@@ -1652,57 +1403,38 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                   className="btn btn-secondary kpi-framework-toggle-btn"
                 >
                   <ShieldCheck size={15} />
-                  <span>평가 기준</span>
+                  <span>파트별 표준 KPI · 평가 기준</span>
                   {isFrameworkOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                 </button>
-
-                {canCreateGoal && (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenCreateModal()}
-                    className="btn btn-primary kpi-create-main-btn"
-                  >
-                    <Plus size={16} /> {isTeamMember ? '내 KPI 목표 수립' : 'KPI 목표 수립'}
-                  </button>
-                )}
               </div>
             </div>
 
             {isFrameworkOpen && (
               <div className="kpi-framework-collapse-body">
                 <div className="kpi-pillars-grid">
-                  <div className="kpi-pillar-box">
-                    <div className="kpi-pillar-top">
-                      <span className="kpi-pillar-name">
-                        <span className="kpi-pillar-num">01</span> 일정 준수
-                      </span>
-                    </div>
-                    <p className="kpi-pillar-desc">
-                      핵심 과제 및 프로모션의 합의된 마일스톤(착수~마감일) 적기 완수 여부
-                    </p>
-                  </div>
-
-                  <div className="kpi-pillar-box">
-                    <div className="kpi-pillar-top">
-                      <span className="kpi-pillar-name">
-                        <span className="kpi-pillar-num">02</span> 산출물 품질 · 표준화
-                      </span>
-                    </div>
-                    <p className="kpi-pillar-desc">
-                      정책 누락 방지, UI 디자인 일관성, 반응형 마크업 무결성 및 공통 모듈 자산화
-                    </p>
-                  </div>
-
-                  <div className="kpi-pillar-box">
-                    <div className="kpi-pillar-top">
-                      <span className="kpi-pillar-name">
-                        <span className="kpi-pillar-num">03</span> 서비스 개선 · 협업 기여
-                      </span>
-                    </div>
-                    <p className="kpi-pillar-desc">
-                      시선닷컴 탐색·주문 사용성 강화, 어드민 운영 효율화 및 유관부서 협업 만족도
-                    </p>
-                  </div>
+                  {TRACK_LIST.map((tk) => {
+                    const tkCfg = TRACK_CONFIG[tk];
+                    const templates = STANDARD_KPI_TEMPLATES[tk];
+                    return (
+                      <div key={tk} className={`kpi-pillar-box ${tkCfg.classKey}`}>
+                        <div className="kpi-pillar-top">
+                          <span className="kpi-pillar-name">
+                            <span className="kpi-pillar-num">{tkCfg.label}</span> 분기 자동 생성 표준 목표 (100%)
+                          </span>
+                        </div>
+                        <ul className="kpi-standard-tpl-list">
+                          {templates.map((tpl) => (
+                            <li key={tpl.slotIndex} className="kpi-standard-tpl-item">
+                              <span className="kpi-standard-tpl-title">
+                                {tpl.slotIndex}. {tpl.title}
+                              </span>
+                              <strong className="kpi-standard-tpl-weight">{tpl.weight}%</strong>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="kpi-rubric-bar">
@@ -1726,24 +1458,11 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             <div className="card kpi-empty-card">
               <Award size={36} className="kpi-empty-icon" />
               <div className="kpi-empty-title">
-                {isTeamMember
-                  ? `${currentUser.name}님의 등록된 KPI 목표 과제가 없습니다.`
-                  : '선택한 조건에 등록된 KPI 목표 과제가 없습니다.'}
+                선택한 기수에 도래한 KPI 목표가 아직 없습니다.
               </div>
               <p className="kpi-empty-desc">
-                {canCreateGoal
-                  ? '상단 [+ KPI 목표 수립] 버튼을 눌러 직무 파트별 목표와 달성 기준(DoD)을 등록해 주세요.'
-                  : '소속 구성원이 KPI 목표를 등록하면 이곳에서 진행 현황과 평가 내역을 열람하실 수 있습니다.'}
+                매 분기 개시일(1월 1일 · 4월 1일 · 7월 1일 · 10월 1일)이 도래하면 파트별 3대 표준 KPI 목표가 자동으로 생성됩니다.
               </p>
-              {canCreateGoal && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenCreateModal()}
-                  className="btn btn-primary"
-                >
-                  <Plus size={16} /> {isTeamMember ? '내 KPI 목표 수립' : 'KPI 목표 수립'}
-                </button>
-              )}
             </div>
           ) : (
             <div className="card kpi-table-card">
@@ -1849,7 +1568,9 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                             </td>
                           </tr>
 
-                          {group.items.map((item) => {
+                          {[...group.items]
+                            .sort((a, b) => resolveKpiSlotIndex(a) - resolveKpiSlotIndex(b))
+                            .map((item) => {
                             const cycleBadgeLabel =
                               QUARTERS.find((q) => q.key === item.quarter)?.shortLabel ||
                               item.quarter;
@@ -1860,6 +1581,8 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                             const finalGrade = getValidFinalGrade(item);
                             const evalMetrics = getKpiEvalMetrics(item);
                             const linkedTasks = getLinkedTasksForKpi(item);
+                            const itemAccess = getPhaseAccessForKpi(item);
+                            const canQuickMap = canEditKpiGoal(item) && itemAccess.canMapTasks;
 
                             return (
                               <tr
@@ -1882,15 +1605,36 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
                                 </td>
 
                                 <td className="kpi-col-tasks">
-                                  <span
-                                    className={`kpi-stage-pill ${
-                                      linkedTasks.length > 0 ? 'is-done-task' : 'is-wait'
-                                    }`}
-                                  >
-                                    {linkedTasks.length > 0
-                                      ? `${linkedTasks.length}건 연결`
-                                      : '미연결'}
-                                  </span>
+                                  {canQuickMap ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenTaskMappingModal(item);
+                                      }}
+                                      className={`kpi-quick-map-btn ${
+                                        linkedTasks.length > 0 ? 'has-tasks' : 'is-empty'
+                                      }`}
+                                      title="클릭하여 실무 수행 근거 과제 매핑"
+                                    >
+                                      <LinkIcon size={14} />
+                                      <span>
+                                        {linkedTasks.length > 0
+                                          ? `${linkedTasks.length}건 · 매핑`
+                                          : '+ 과제 매핑'}
+                                      </span>
+                                    </button>
+                                  ) : (
+                                    <span
+                                      className={`kpi-stage-pill ${
+                                        linkedTasks.length > 0 ? 'is-done-task' : 'is-wait'
+                                      }`}
+                                    >
+                                      {linkedTasks.length > 0
+                                        ? `${linkedTasks.length}건 연결`
+                                        : '미연결'}
+                                    </span>
+                                  )}
                                 </td>
 
                                 <td className="kpi-col-self">
@@ -1964,498 +1708,6 @@ export const KpiView: React.FC<KpiViewProps> = ({ currentUser, isViewer, onShowT
             </div>
           )}
         </>
-      )}
-
-      {/* =====================================================================
-          모달 1: KPI 목표 수립 / 수정 모달
-          ===================================================================== */}
-      {isModalOpen && canCreateGoal && (
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-box kpi-modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">
-                {editingKpi ? 'KPI 목표 및 달성 기준(DoD) 수정' : '신규 KPI 목표 수립'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="tasks-modal-close-btn"
-                aria-label="모달 닫기"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveKpi} className="tasks-modal-form">
-              <div className="modal-body">
-                <div className="form-group tasks-modal-track-group">
-                  <label className="form-label">직무 파트 구분 *</label>
-                  <div className="tasks-modal-track-grid">
-                    {TRACK_LIST.map((trackKey) => {
-                      const config = TRACK_CONFIG[trackKey];
-                      const isSelected = formData.track === trackKey;
-                      const IconComponent = config.icon;
-                      return (
-                        <button
-                          key={trackKey}
-                          type="button"
-                          onClick={() => {
-                            if (!editingKpi && isTeamLead && formData.targetScope === 'individual') {
-                              const targetDefaultName =
-                                trackKey === '디자인'
-                                  ? '박수민'
-                                  : trackKey === '퍼블리싱'
-                                    ? '김리아'
-                                    : resolveMemberDefaultTrack(formData.ownerName) === '기획'
-                                      ? formData.ownerName
-                                      : '최범열';
-                              const matchedMember = teamMembers.find(
-                                (m) => m.name.trim() === targetDefaultName
-                              );
-                              const nextOwnerName = matchedMember
-                                ? matchedMember.name
-                                : formData.ownerName;
-                              const existingSum = computeExistingCycleWeightSum({
-                                year: Number(formData.year),
-                                quarter: formData.quarter,
-                                targetScope: 'individual',
-                                ownerName: nextOwnerName,
-                              });
-                              setFormData({
-                                ...formData,
-                                track: trackKey,
-                                ownerId: matchedMember ? matchedMember.id : formData.ownerId,
-                                ownerName: nextOwnerName,
-                                weight: resolveSmartDefaultWeight(existingSum),
-                              });
-                              return;
-                            }
-                            setFormData({ ...formData, track: trackKey });
-                          }}
-                          className={`tasks-modal-track-btn ${config.classKey} ${
-                            isSelected ? 'active' : ''
-                          }`}
-                        >
-                          <div className="tasks-modal-track-info">
-                            <div className="tasks-modal-track-icon-box">
-                              <IconComponent size={16} />
-                            </div>
-                            <div className="tasks-modal-track-text">
-                              <div className="tasks-modal-track-name">{config.label}</div>
-                              <div className="tasks-modal-track-en">{config.enLabel}</div>
-                            </div>
-                          </div>
-                          {isSelected && (
-                            <CheckCircle2 size={16} className="tasks-modal-track-check" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {!editingKpi && (
-                  <div className="kpi-preset-box">
-                    <div className="kpi-preset-header">
-                      <span>{formData.track} 파트 표준 템플릿</span>
-                    </div>
-                    <div className="kpi-preset-list">
-                      {KPI_PRESETS.filter((p) => p.track === formData.track).map((preset, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => handleApplyPreset(preset)}
-                          className="kpi-preset-item-btn"
-                        >
-                          <span className="kpi-preset-pillar">[{preset.pillar}]</span>
-                          <span className="kpi-preset-title">{preset.title}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="tasks-form-grid-2">
-                  <div className="form-group">
-                    <label className="form-label">목표 범위 *</label>
-                    <select
-                      disabled={isTeamMember}
-                      value={isTeamMember ? 'individual' : formData.targetScope}
-                      onChange={(e) => {
-                        const nextScope = e.target.value as KpiTargetScope;
-                        const nextOwnerName =
-                          nextScope === 'team'
-                            ? '서비스기획팀 전체'
-                            : currentUser.name || teamMembers[0]?.name || '최범열';
-                        const existingSum = computeExistingCycleWeightSum({
-                          year: Number(formData.year),
-                          quarter: formData.quarter,
-                          targetScope: nextScope,
-                          ownerName: nextOwnerName,
-                          excludeKpiId: editingKpi?.id,
-                        });
-                        setFormData({
-                          ...formData,
-                          targetScope: nextScope,
-                          ownerName: nextOwnerName,
-                          weight: editingKpi
-                            ? formData.weight
-                            : resolveSmartDefaultWeight(existingSum),
-                        });
-                      }}
-                      className="form-select"
-                    >
-                      <option value="individual">개인별 KPI 과제</option>
-                      {isTeamLead && <option value="team">서비스기획팀 공통 과제</option>}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">담당자 *</label>
-                    {formData.targetScope === 'team' && isTeamLead ? (
-                      <input
-                        type="text"
-                        disabled
-                        value="서비스기획팀 전체"
-                        className="form-input"
-                      />
-                    ) : isTeamMember ? (
-                      <input
-                        type="text"
-                        disabled
-                        value={currentUser.name}
-                        className="form-input"
-                      />
-                    ) : (
-                      <select
-                        value={formData.ownerName}
-                        onChange={(e) => {
-                          const nextOwner = e.target.value;
-                          const target = teamMembers.find((m) => m.name === nextOwner);
-                          const existingSum = computeExistingCycleWeightSum({
-                            year: Number(formData.year),
-                            quarter: formData.quarter,
-                            targetScope: formData.targetScope,
-                            ownerName: nextOwner,
-                            excludeKpiId: editingKpi?.id,
-                          });
-                          setFormData({
-                            ...formData,
-                            ownerId: target ? target.id : formData.ownerId,
-                            ownerName: nextOwner,
-                            track: resolveMemberDefaultTrack(nextOwner),
-                            weight: editingKpi
-                              ? formData.weight
-                              : resolveSmartDefaultWeight(existingSum),
-                          });
-                        }}
-                        className="form-select"
-                      >
-                        {teamMembers.map((m) => (
-                          <option key={m.id} value={m.name}>
-                            {m.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                </div>
-
-                <div className="tasks-form-grid-2">
-                  <div className="form-group">
-                    <label className="form-label">평가 연도 *</label>
-                    <select
-                      value={formData.year}
-                      onChange={(e) => {
-                        const nextYear = Number(e.target.value);
-                        const sch = PlanningStorageService.getKpiCycleSchedule(
-                          nextYear,
-                          formData.quarter
-                        );
-                        const existingSum = computeExistingCycleWeightSum({
-                          year: nextYear,
-                          quarter: formData.quarter,
-                          targetScope: isTeamMember ? 'individual' : formData.targetScope,
-                          ownerName: isTeamMember ? currentUser.name : formData.ownerName,
-                          excludeKpiId: editingKpi?.id,
-                        });
-                        setFormData({
-                          ...formData,
-                          year: nextYear,
-                          weight: editingKpi
-                            ? formData.weight
-                            : resolveSmartDefaultWeight(existingSum),
-                          status:
-                            !editingKpi && todayStr < sch.execStart
-                              ? 'planning'
-                              : !editingKpi
-                                ? 'in_progress'
-                                : formData.status,
-                        });
-                      }}
-                      className="form-select"
-                    >
-                      {availableYears.map((yr) => (
-                        <option key={yr} value={yr}>
-                          {yr}년
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">평가 기수 *</label>
-                    <select
-                      value={formData.quarter}
-                      onChange={(e) => {
-                        const nextQuarter = e.target.value as KpiQuarter;
-                        const sch = PlanningStorageService.getKpiCycleSchedule(
-                          formData.year,
-                          nextQuarter
-                        );
-                        const existingSum = computeExistingCycleWeightSum({
-                          year: Number(formData.year),
-                          quarter: nextQuarter,
-                          targetScope: isTeamMember ? 'individual' : formData.targetScope,
-                          ownerName: isTeamMember ? currentUser.name : formData.ownerName,
-                          excludeKpiId: editingKpi?.id,
-                        });
-                        setFormData({
-                          ...formData,
-                          quarter: nextQuarter,
-                          weight: editingKpi
-                            ? formData.weight
-                            : resolveSmartDefaultWeight(existingSum),
-                          status:
-                            !editingKpi && todayStr < sch.execStart
-                              ? 'planning'
-                              : !editingKpi
-                                ? 'in_progress'
-                                : formData.status,
-                        });
-                      }}
-                      className="form-select"
-                    >
-                      {QUARTERS.map((q) => (
-                        <option key={q.key} value={q.key}>
-                          {q.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {(() => {
-                  const previewSch =
-                    PlanningStorageService.getKpiCycleSchedule(
-                      Number(formData.year || 2026),
-                      formData.quarter
-                    ) || computeDefaultKpiCycleSchedule(Number(formData.year || 2026), formData.quarter);
-                  return (
-                    <div className="kpi-modal-schedule-inline">
-                      <span className="kpi-modal-schedule-inline-label">
-                        {formatCycleFullLabel(Number(formData.year || 2026), formData.quarter)} 일정
-                      </span>
-                      <span className="kpi-modal-schedule-inline-meta">
-                        수행 <strong>{formatShortDateRange(previewSch.execStart, previewSch.execEnd)}</strong> · 평가{' '}
-                        <strong>{formatShortDateRange(previewSch.selfEvalStart, previewSch.finalEvalEnd)}</strong>
-                      </span>
-                    </div>
-                  );
-                })()}
-
-                {(() => {
-                  const existingCycleSum = computeExistingCycleWeightSum({
-                    year: Number(formData.year),
-                    quarter: formData.quarter,
-                    targetScope: isTeamMember ? 'individual' : formData.targetScope,
-                    ownerName: isTeamMember ? currentUser.name : formData.ownerName,
-                    excludeKpiId: editingKpi?.id,
-                  });
-                  const projectedTotal = existingCycleSum + Number(formData.weight || 0);
-                  const sumStateClass =
-                    projectedTotal === 100
-                      ? 'is-valid'
-                      : projectedTotal > 100
-                        ? 'is-over'
-                        : 'is-under';
-                  const sumStatusText =
-                    projectedTotal === 100
-                      ? '적정 (100% 완성)'
-                      : projectedTotal > 100
-                        ? `${projectedTotal - 100}% 초과 (저장 불가)`
-                        : `잔여 ${100 - projectedTotal}%`;
-
-                  return (
-                    <div className="tasks-form-grid-2">
-                      <div className="form-group">
-                        <label className="form-label">가중치 (%) *</label>
-                        <input
-                          type="number"
-                          min={5}
-                          max={100}
-                          step={5}
-                          required
-                          value={formData.weight}
-                          onChange={(e) =>
-                            setFormData({ ...formData, weight: Number(e.target.value) })
-                          }
-                          className="form-input"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label className="form-label">기수 가중치 합계</label>
-                        <div className={`kpi-weight-sum-box ${sumStateClass}`}>
-                          <strong>{projectedTotal}% / 100%</strong>
-                          <span>{sumStatusText}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                <div className="form-group">
-                  <label className="form-label">KPI 목표명 *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="예: 핵심 과제 및 프로모션 화면설계 적기 완수"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="form-input"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">측정 기준 (Metric) *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="예: 합의 일정 내 화면설계서(SB) 확정 및 리뷰 완료 여부"
-                    value={formData.targetMetric}
-                    onChange={(e) =>
-                      setFormData({ ...formData, targetMetric: e.target.value })
-                    }
-                    className="form-input"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">달성 기준 (DoD) *</label>
-                  <textarea
-                    rows={2}
-                    required
-                    placeholder="예: 착수·마감 일정 준수 및 유관부서 사전 리뷰 완료"
-                    value={formData.targetValue}
-                    onChange={(e) =>
-                      setFormData({ ...formData, targetValue: e.target.value })
-                    }
-                    className="form-textarea"
-                  />
-                </div>
-
-                {(() => {
-                  const candidateTasks = getCandidateTasks({
-                    targetScope: isTeamMember ? 'individual' : formData.targetScope,
-                    ownerName: isTeamMember ? currentUser.name : formData.ownerName,
-                    ownerId: isTeamMember ? currentUser.id : formData.ownerId,
-                    track: formData.track,
-                  });
-                  return (
-                    <div className="form-group">
-                      <label className="form-label">
-                        실무 수행 근거 과제 매핑 (선택됨 {formData.linkedTaskIds.length}건 / 후보{' '}
-                        {candidateTasks.length}건)
-                      </label>
-                      {candidateTasks.length === 0 ? (
-                        <div className="kpi-task-map-empty">
-                          [서비스기획 업무 관리]에 등록된{' '}
-                          {formData.targetScope === 'team' && isTeamLead
-                            ? `${formData.track} 파트`
-                            : `${isTeamMember ? currentUser.name : formData.ownerName} 담당`}{' '}
-                          업무가 없습니다.
-                        </div>
-                      ) : (
-                        <div className="kpi-task-map-list is-compact">
-                          {candidateTasks.map((t) => {
-                            const isChecked = formData.linkedTaskIds.includes(t.id);
-                            return (
-                              <label
-                                key={t.id}
-                                className={`kpi-task-map-item ${isChecked ? 'is-checked' : ''}`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() =>
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      linkedTaskIds: toggleTaskIdInList(prev.linkedTaskIds, t.id),
-                                    }))
-                                  }
-                                  className="kpi-task-map-checkbox"
-                                />
-                                <div className="kpi-task-map-info">
-                                  <div className="kpi-task-map-title-row">
-                                    <span className="tasks-badge-category">{t.category}</span>
-                                    <span className="kpi-task-map-title">{t.title}</span>
-                                  </div>
-                                  <span className="kpi-task-map-meta">
-                                    {t.assigneeName} ·{' '}
-                                    {t.startDate || t.dueDate
-                                      ? `${t.startDate || '미정'} ~ ${t.dueDate || '미정'}`
-                                      : '일정 미정'}{' '}
-                                    ({t.status === 'done' ? '완료' : '진행/대기'})
-                                  </span>
-                                </div>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {editingKpi && (
-                  <div className="tasks-audit-bar">
-                    <span>
-                      최초 등록: <strong>{editingKpi.createdBy}</strong> (
-                      {new Date(editingKpi.createdAt).toLocaleString('ko-KR')})
-                    </span>
-                    <span>
-                      최종 수정: <strong>{editingKpi.updatedBy}</strong> (
-                      {new Date(editingKpi.updatedAt).toLocaleString('ko-KR')})
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="modal-footer">
-                {editingKpi && canEditKpiGoal(editingKpi) && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteKpi(editingKpi.id, editingKpi.title)}
-                    className="btn btn-danger tasks-modal-delete-btn"
-                  >
-                    <Trash2 size={15} /> 삭제
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="btn btn-secondary"
-                >
-                  취소
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  {editingKpi ? '수정 내용 저장' : 'KPI 목표 등록'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
       )}
 
       {/* =====================================================================

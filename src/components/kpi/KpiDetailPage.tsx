@@ -1,5 +1,6 @@
 import React from 'react';
 import type { KpiItem, TaskItem, User } from '../../types';
+import type { KpiPhaseAccess } from './kpiSchedule';
 import {
   QUARTERS,
   TRACK_CONFIG,
@@ -21,10 +22,9 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Clock,
-  Edit2,
   Link as LinkIcon,
+  Lock,
   MessageSquare,
-  Trash2,
   UserCheck,
 } from 'lucide-react';
 
@@ -32,14 +32,13 @@ interface KpiDetailPageProps {
   item: KpiItem;
   currentUser: User;
   linkedTasks: TaskItem[];
+  phaseAccess: KpiPhaseAccess;
   isSelf: boolean;
   canEditGoal: boolean;
   isTeamLead: boolean;
   isDivisionHead: boolean;
   isExecutiveViewer: boolean;
   onBackToList: () => void;
-  onOpenEditGoal: (kpi: KpiItem) => void;
-  onDeleteGoal: (id: string, title: string) => void;
   onOpenTaskMapping: (kpi: KpiItem) => void;
   onOpenTaskDetailPopup: (task: TaskItem) => void;
   onOpenSelfEval: (kpi: KpiItem) => void;
@@ -52,14 +51,13 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
   item,
   currentUser,
   linkedTasks,
+  phaseAccess,
   isSelf,
   canEditGoal,
   isTeamLead,
   isDivisionHead,
   isExecutiveViewer,
   onBackToList,
-  onOpenEditGoal,
-  onDeleteGoal,
   onOpenTaskMapping,
   onOpenTaskDetailPopup,
   onOpenSelfEval,
@@ -90,6 +88,8 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
   );
   const finalComment = getValidFinalComment(item);
 
+  const canMapNow = canEditGoal && phaseAccess.canMapTasks;
+
   return (
     <div className="kpi-detail-view">
       {/* 상세 페이지 상단 네비게이션 바 */}
@@ -102,25 +102,18 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
           <ArrowLeft size={16} /> KPI 목록으로 돌아가기
         </button>
 
-        {canEditGoal && (
-          <div className="tasks-row-actions">
-            <button
-              type="button"
-              onClick={() => onOpenEditGoal(item)}
-              className="btn btn-secondary tasks-action-btn"
-              title="목표 수정"
-            >
-              <Edit2 size={14} /> 목표 수정
-            </button>
-            <button
-              type="button"
-              onClick={() => onDeleteGoal(item.id, item.title)}
-              className="btn btn-secondary tasks-delete-icon-btn"
-              title="목표 삭제"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
+        {phaseAccess.isLocked ? (
+          <span className="kpi-phase-status-pill is-locked">
+            <Lock size={14} /> {phaseAccess.lockBadgeText}
+          </span>
+        ) : phaseAccess.lifecycle === 'evaluation' ? (
+          <span className="kpi-phase-status-pill is-eval">
+            공식 평가 기간 ({phaseAccess.evalPeriodRangeLabel})
+          </span>
+        ) : (
+          <span className="kpi-phase-status-pill is-exec">
+            수행 · 과제 매핑 기간 ({phaseAccess.execPeriodRangeLabel})
+          </span>
         )}
       </div>
 
@@ -130,7 +123,7 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
           <div className="kpi-detail-hero-main">
             <div className="tasks-card-badges">
               <span className={`tasks-badge-track ${trackCfg.classKey}`}>
-                <TrackIcon size={13} /> {trackCfg.label}
+                <TrackIcon size={14} /> {trackCfg.label}
               </span>
               <span className="tasks-badge-category">
                 {item.targetScope === 'team' ? '팀 공통' : item.ownerName}
@@ -197,9 +190,7 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
           </div>
 
           <div className="kpi-detail-criteria-item is-dod">
-            <span className="kpi-detail-criteria-label">
-              달성 기준 (DoD)
-            </span>
+            <span className="kpi-detail-criteria-label">달성 기준 (DoD)</span>
             <p className="kpi-detail-criteria-val is-target">{item.targetValue || '-'}</p>
           </div>
         </div>
@@ -220,21 +211,27 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
             )}
           </div>
 
-          {canEditGoal && (
+          {canMapNow ? (
             <button
               type="button"
               onClick={() => onOpenTaskMapping(item)}
-              className="btn btn-secondary tasks-action-btn kpi-evidence-map-btn-lg"
+              className="btn btn-primary tasks-action-btn kpi-evidence-map-btn-lg"
             >
               <LinkIcon size={14} />{' '}
               {linkedTasks.length > 0 ? '과제 매핑 편집' : '+ 실무 과제 매핑'}
             </button>
+          ) : (
+            !phaseAccess.canMapTasks && (
+              <span className="kpi-readonly-lock-chip">
+                <Lock size={14} /> 과제 매핑 마감
+              </span>
+            )
           )}
         </div>
 
         {linkedTasks.length === 0 ? (
           <div className="kpi-detail-empty-box">
-            {canEditGoal
+            {canMapNow
               ? '연결된 실무 수행 과제가 없습니다. 우측 상단 [+ 실무 과제 매핑] 버튼으로 관련 업무를 연결해 주세요.'
               : '연결된 실무 수행 과제가 없습니다.'}
           </div>
@@ -281,6 +278,25 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
         )}
       </div>
 
+      {/* 평가 기간 안내 또는 잠금 배너 */}
+      {phaseAccess.isLocked ? (
+        <div className="kpi-phase-gate-banner is-locked">
+          <Lock size={16} />
+          <span>{phaseAccess.lockDescription}</span>
+        </div>
+      ) : (
+        !phaseAccess.isEvalPeriodActive && (
+          <div className="kpi-phase-gate-banner is-exec">
+            <Clock size={16} />
+            <span>
+              현재는 분기 수행 기간({phaseAccess.execPeriodRangeLabel})입니다. 수행 기간 중에는
+              실무 과제만 매핑하며, 공식 평가 기간({phaseAccess.evalPeriodRangeLabel})에 단계별
+              평가 버튼이 활성화됩니다.
+            </span>
+          </div>
+        )
+      )}
+
       {/* 섹션 3. 4단계 성과 평가 워크플로우 ([자가평가] > [협업다면] > [1차 팀장] > [최종 실장]) */}
       <div className="kpi-eval-steps-grid is-detail-page">
         {/* STEP 1: 본인 자가평가 */}
@@ -298,11 +314,13 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
                   {selfScore5.toFixed(1)}점
                 </span>
               ) : (
-                <span className="kpi-step-pending-badge">미등록 (필수 선행)</span>
+                <span className="kpi-step-pending-badge">
+                  {phaseAccess.isEvalPeriodActive ? '미등록 (필수 선행)' : '평가 기간 대기'}
+                </span>
               )}
             </div>
 
-            {isSelf && (
+            {isSelf && phaseAccess.canSubmitSelfEval && (
               <button
                 type="button"
                 onClick={() => onOpenSelfEval(item)}
@@ -324,9 +342,13 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
             </div>
           ) : (
             <div className="kpi-detail-empty-box">
-              {isSelf
-                ? '우측 상단 [자가평가 등록] 버튼을 눌러 점수와 수행 실적을 작성해 주세요.'
-                : '담당자 본인의 자가평가 등록을 대기 중입니다.'}
+              {phaseAccess.isLocked
+                ? '등록된 자가평가 내역이 없습니다.'
+                : !phaseAccess.isEvalPeriodActive
+                  ? `공식 평가 기간(${phaseAccess.evalPeriodRangeLabel})이 시작되면 자가평가를 등록할 수 있습니다.`
+                  : isSelf
+                    ? '우측 상단 [자가평가 등록] 버튼을 눌러 점수와 수행 실적을 작성해 주세요.'
+                    : '담당자 본인의 자가평가 등록을 대기 중입니다.'}
             </div>
           )}
         </div>
@@ -346,25 +368,34 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
                   평균 {peerInfo.avg.toFixed(1)}점 ({peerInfo.count}명)
                 </span>
               ) : (
-                <span className="kpi-step-pending-badge">참여 대기</span>
+                <span className="kpi-step-pending-badge">
+                  {phaseAccess.isEvalPeriodActive ? '참여 대기' : '평가 기간 대기'}
+                </span>
               )}
             </div>
 
-            {!isSelf && !isDivisionHead && !isExecutiveViewer && (
-              <button
-                type="button"
-                onClick={() => onOpenPeerEval(item)}
-                className="btn btn-secondary tasks-action-btn kpi-peer-eval-btn"
-              >
-                <MessageSquare size={14} />{' '}
-                {myPeerReview ? '내 다면평가 수정' : '다면평가 참여'}
-              </button>
-            )}
+            {!isSelf &&
+              !isDivisionHead &&
+              !isExecutiveViewer &&
+              phaseAccess.canSubmitPeerEval && (
+                <button
+                  type="button"
+                  onClick={() => onOpenPeerEval(item)}
+                  className="btn btn-secondary tasks-action-btn kpi-peer-eval-btn"
+                >
+                  <MessageSquare size={14} />{' '}
+                  {myPeerReview ? '내 다면평가 수정' : '다면평가 참여'}
+                </button>
+              )}
           </div>
 
           {peerInfo.count === 0 ? (
             <div className="kpi-detail-empty-box">
-              팀 동료 및 유관부서 협업 담당자가 무기명 평가를 등록하면 평균 점수와 코멘트가 집계됩니다.
+              {phaseAccess.isLocked
+                ? '참여한 무기명 협업 다면평가 내역이 없습니다.'
+                : !phaseAccess.isEvalPeriodActive
+                  ? `공식 평가 기간(${phaseAccess.evalPeriodRangeLabel})에 동료 및 유관부서 무기명 다면평가가 진행됩니다.`
+                  : '팀 동료 및 유관부서 협업 담당자가 무기명 평가를 등록하면 평균 점수와 코멘트가 집계됩니다.'}
             </div>
           ) : (
             <div className="kpi-step-body is-detail">
@@ -418,6 +449,8 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
                 <span className="kpi-score5-chip is-leader">
                   {leaderScore5.toFixed(1)}점
                 </span>
+              ) : !phaseAccess.isEvalPeriodActive ? (
+                <span className="kpi-step-pending-badge">평가 기간 대기</span>
               ) : !hasSelfEvaluated ? (
                 <span className="kpi-step-pending-badge is-locked">STEP 1 선행 필요</span>
               ) : (
@@ -425,12 +458,12 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
               )}
             </div>
 
-            {!isLeaderKpi && isTeamLead && (
+            {!isLeaderKpi && isTeamLead && phaseAccess.isEvalPeriodActive && (
               <button
                 type="button"
                 onClick={() => onOpenLeaderEval(item)}
-                disabled={!hasSelfEvaluated}
-                className={`btn ${hasSelfEvaluated ? 'btn-primary' : 'btn-secondary'} tasks-action-btn`}
+                disabled={!phaseAccess.canSubmitLeaderEval}
+                className={`btn ${phaseAccess.canSubmitLeaderEval ? 'btn-primary' : 'btn-secondary'} tasks-action-btn`}
               >
                 <UserCheck size={14} />{' '}
                 {!hasSelfEvaluated
@@ -454,6 +487,12 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
                 </p>
               </div>
             </div>
+          ) : phaseAccess.isLocked ? (
+            <div className="kpi-detail-empty-box">등록된 1차 팀장 평가 내역이 없습니다.</div>
+          ) : !phaseAccess.isEvalPeriodActive ? (
+            <div className="kpi-detail-empty-box">
+              공식 평가 기간({phaseAccess.evalPeriodRangeLabel}) 중 본인 자가평가 완료 후 진행됩니다.
+            </div>
           ) : !hasSelfEvaluated ? (
             <div className="kpi-detail-empty-box">
               STEP 1 [자가평가]가 먼저 등록되어야 1차 팀장 평가를 진행할 수 있습니다.
@@ -470,7 +509,7 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
           className={`card kpi-eval-step-card is-detail ${
             finalGrade
               ? 'is-completed-admin'
-              : !hasSelfEvaluated
+              : !hasSelfEvaluated || (!isLeaderKpi && leaderScore5 === null)
                 ? 'is-locked'
                 : 'is-pending'
           }`}
@@ -485,31 +524,33 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
                 <span className={`kpi-grade-chip grade-${finalGrade.toLowerCase()}`}>
                   최종 {finalGrade}등급 (가중 {evalMetrics.weightedPoint} / {item.weight}점)
                 </span>
+              ) : !phaseAccess.isEvalPeriodActive ? (
+                <span className="kpi-step-pending-badge">평가 기간 대기</span>
               ) : !hasSelfEvaluated ? (
                 <span className="kpi-step-pending-badge is-locked">STEP 1 선행 필요</span>
+              ) : !isLeaderKpi && leaderScore5 === null ? (
+                <span className="kpi-step-pending-badge is-locked">STEP 3 선행 필요</span>
               ) : (
                 <span className="kpi-step-pending-badge">최종 등급 대기</span>
               )}
             </div>
 
-            {isDivisionHead && (
+            {isDivisionHead && phaseAccess.isEvalPeriodActive && (
               <button
                 type="button"
                 onClick={() => onOpenDirectorEval(item)}
-                disabled={!hasSelfEvaluated}
-                className={`btn ${hasSelfEvaluated ? 'btn-primary' : 'btn-secondary'} tasks-action-btn kpi-final-eval-btn`}
+                disabled={!phaseAccess.canSubmitDirectorEval}
+                className={`btn ${phaseAccess.canSubmitDirectorEval ? 'btn-primary' : 'btn-secondary'} tasks-action-btn kpi-final-eval-btn`}
                 title={
-                  hasSelfEvaluated
-                    ? '1~3단계 점수를 종합 확인하여 최종 등급(S~C) 확정'
-                    : '담당자 본인의 [STEP 1 자가평가]가 먼저 등록되어야 최종 등급을 확정할 수 있습니다.'
+                  phaseAccess.canSubmitDirectorEval
+                    ? '1~3단계 점수를 종합 확인하여 최종 등급(S~C) 확정 (확정 후 영구 잠금)'
+                    : '선행 평가(자가평가 및 1차 팀장 평가)가 먼저 완료되어야 최종 등급을 확정할 수 있습니다.'
                 }
               >
                 <Award size={14} />{' '}
-                {!hasSelfEvaluated
-                  ? '최종 등급 확정 (자가평가 선행 필요)'
-                  : finalGrade
-                    ? '최종 등급 수정'
-                    : '최종 등급 부여'}
+                {!phaseAccess.canSubmitDirectorEval
+                  ? '최종 등급 확정 (선행 평가 필요)'
+                  : '최종 등급 부여 · 확정'}
               </button>
             )}
           </div>
@@ -547,9 +588,17 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
                 </p>
               </div>
             </div>
-          ) : !hasSelfEvaluated ? (
+          ) : phaseAccess.isLocked ? (
+            <div className="kpi-detail-empty-box">최종 등급 미확정 상태로 평가 기간이 마감되었습니다.</div>
+          ) : !phaseAccess.isEvalPeriodActive ? (
             <div className="kpi-detail-empty-box">
-              STEP 1 [자가평가]가 먼저 등록되어야 최종 등급을 부여할 수 있습니다.
+              공식 평가 기간({phaseAccess.evalPeriodRangeLabel}) 중 1~3단계 평가 결과를 종합하여 최종 등급이 확정됩니다.
+            </div>
+          ) : !phaseAccess.canSubmitDirectorEval ? (
+            <div className="kpi-detail-empty-box">
+              {isLeaderKpi
+                ? 'STEP 1 [자가평가]가 먼저 등록되어야 최종 등급을 부여할 수 있습니다.'
+                : 'STEP 1 [자가평가] 및 STEP 3 [1차 팀장 평가]가 완료되어야 최종 등급을 확정할 수 있습니다.'}
             </div>
           ) : (
             <div className="kpi-detail-empty-box">

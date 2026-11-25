@@ -35,6 +35,8 @@ interface AuditLogsViewProps {
   currentUser: User;
   onShowToast?: (msg: string, type: 'success' | 'error' | 'info') => void;
   onUserUpdated?: (user: User) => void;
+  pdfForceSubTab?: 'permissions' | 'logs';
+  isPdfExport?: boolean;
 }
 
 type AuditSubTab = 'permissions' | 'logs';
@@ -63,20 +65,23 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
   currentUser,
   onShowToast,
   onUserUpdated,
+  pdfForceSubTab,
+  isPdfExport = false,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<AuditSubTab>(() =>
-    parseAuditSubTabFromHash()
+    isPdfExport && pdfForceSubTab ? pdfForceSubTab : parseAuditSubTabFromHash()
   );
   const [logs, setLogs] = useState<AuditLog[]>(() => PlanningStorageService.getAuditLogs());
   const [users, setUsers] = useState<User[]>(() => PlanningStorageService.getUsers());
 
   useEffect(() => {
+    if (isPdfExport) return;
     const handleHashSync = () => {
       setActiveSubTab(parseAuditSubTabFromHash(window.location.hash));
     };
     window.addEventListener('hashchange', handleHashSync);
     return () => window.removeEventListener('hashchange', handleHashSync);
-  }, []);
+  }, [isPdfExport]);
 
   const handleSelectSubTab = (tab: AuditSubTab) => {
     setActiveSubTab(tab);
@@ -186,10 +191,11 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
     });
   }, [logs, filterType, searchQuery]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / LOGS_PER_PAGE));
+  const effectiveLogsPerPage = isPdfExport ? 50 : LOGS_PER_PAGE;
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / effectiveLogsPerPage));
   const safePage = Math.min(currentPage, totalPages);
-  const pageStartIdx = (safePage - 1) * LOGS_PER_PAGE;
-  const paginatedLogs = filteredLogs.slice(pageStartIdx, pageStartIdx + LOGS_PER_PAGE);
+  const pageStartIdx = (safePage - 1) * effectiveLogsPerPage;
+  const paginatedLogs = filteredLogs.slice(pageStartIdx, pageStartIdx + effectiveLogsPerPage);
 
   const pageNumbers = useMemo(() => {
     const windowSize = 5;

@@ -33,7 +33,15 @@ import {
   buildKpiCycleKey,
   computeDefaultKpiCycleSchedule,
   formatCycleFullLabel,
+  resolveKpiPhaseAccess,
 } from '../components/kpi/kpiSchedule';
+import {
+  STANDARD_KPI_TEMPLATES,
+  buildAutoKpiDeterministicId,
+  resolveCurrentQuarterFromDate,
+  resolveKpiSlotIndex,
+  resolveMemberDefaultTrack,
+} from '../components/kpi/kpiShared';
 
 const STORAGE_KEYS = {
   USERS: 'ds_planning_users_v2',
@@ -2021,6 +2029,9 @@ export class PlanningStorageService {
           window.dispatchEvent(new CustomEvent('ds-portal-audit-updated'));
         }
       }
+
+      // 원격 회원·스케줄 동기화 완료 직후 도래한 분기의 팀원별 3대 표준 KPI 자동 생성·보정
+      this.ensureAutoQuarterlyKpis({ syncRemote: true });
     } catch (e) {
       console.warn('Supabase background sync skipped (tables pending creation):', e);
     } finally {
@@ -3538,53 +3549,276 @@ export class PlanningStorageService {
     }
   }
 
-  // --- 3. KPI 관리 CRUD & 4단계 라이프사이클 프로세스 (분기 전용: Q1 ~ Q4) ---
+  // --- 3. KPI 관리 CRUD & 분기 자동 생성 · 기간 잠금 프로세스 (분기 전용: Q1 ~ Q4) ---
+  public static ensureAutoQuarterlyKpis(options?: { syncRemote?: boolean }): KpiItem[] {
+    this.initialize();
+    const validQuarterSet = new Set(['Q1', 'Q2', 'Q3', 'Q4']);
+    const raw = safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []).filter(
+      (k) => validQuarterSet.has(String(k.quarter || ''))
+    );
+
+    const members = this.getServicePlanningMembers();
+    if (members.length === 0) return raw;
+
+    const todayStr = getTodayDateString();
+    const todayYear = Number(todayStr.slice(0, 4)) || 2026;
+    const overrides = safeJsonParse<Record<string, KpiCycleSchedule>>(
+      localStorage.getItem(STORAGE_KEYS.KPI_SCHEDULES),
+      {}
+    );
+
+    // 2026-Q4(KPI 도입 기수)부터 현재 연도까지 수행·평가 진행 중인 기수 목록 산출
+    const candidateCycles: { year: number; quarter: KpiQuarter; schedule: KpiCycleSchedule }[] = [];
+    const quartersOrder: KpiQuarter[] = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+    for (let yr = 2026; yr <= todayYear + 1; yr += 1) {
+      for (const qt of quartersOrder) {
+        if (yr === 2026 && qt !== 'Q4') continue;
+        const cycleKey = buildKpiCycleKey(yr, qt);
+        const base = computeDefaultKpiCycleSchedule(yr, qt);
+        const schedule = overrides[cycleKey]
+          ? { ...base, ...overrides[cycleKey], cycleKey, year: yr, quarter: qt }
+          : base;
+        // 분기 개시일(1/1, 4/1, 7/1, 10/1)이 도래했고 아직 최종 평가 마감일 전인 활성 기수만 자동 생성
+        if (todayStr >= schedule.execStart && todayStr <= schedule.finalEvalEnd) {
+          candidateCycles.push({ year: yr, quarter: qt, schedule });
+        }
+      }
+    }
+
+    // 만약 오늘 날짜가 기수 사이 공백이더라도 현재 분기가 2026-Q4 이상이면 개시일 도래 시 포함
+    const currentQ = resolveCurrentQuarterFromDate(todayStr);
+    if (
+      (todayYear > 2026 || (todayYear === 2026 && currentQ === 'Q4')) &&
+      !candidateCycles.some((c) => c.year === todayYear && c.quarter === currentQ)
+    ) {
+      const cycleKey = buildKpiCycleKey(todayYear, currentQ);
+      const base = computeDefaultKpiCycleSchedule(todayYear, currentQ);
+      const schedule = overrides[cycleKey]
+        ? { ...base, ...overrides[cycleKey], cycleKey, year: todayYear, quarter: currentQ }
+        : base;
+      if (todayStr >= schedule.execStart && todayStr <= schedule.finalEvalEnd) {
+        candidateCycles.push({ year: todayYear, quarter: currentQ, schedule });
+      }
+    }
+
+    let hasChanges = false;
+    const upsertedItems: KpiItem[] = [];
+    const nextList: KpiItem[] = [...raw];
+    const nowIso = new Date().toISOString();
+
+    for (const { year, quarter } of candidateCycles) {
+      for (const member of members) {
+        const memberName = member.name.trim();
+        if (!memberName) continue;
+        const memberTrack = resolveMemberDefaultTrack(memberName);
+        const templates = STANDARD_KPI_TEMPLATES[memberTrack] || STANDARD_KPI_TEMPLATES['기획'];
+
+        const memberCycleIndices: number[] = [];
+        nextList.forEach((item, idx) => {
+          if (
+            Number(item.year || 2026) === year &&
+            item.quarter === quarter &&
+            item.targetScope !== 'team' &&
+            (item.ownerName?.trim() === memberName ||
+              (item.ownerId && String(item.ownerId) === String(member.id)))
+          ) {
+            memberCycleIndices.push(idx);
+          }
+        });
+
+        const usedIndices = new Set<number>();
+
+        for (const tpl of templates) {
+          // 1순위: slotIndex 일치 또는 타이틀/레거시 슬롯 매칭
+          let matchedIdx = memberCycleIndices.find(
+            (idx) => !usedIndices.has(idx) && resolveKpiSlotIndex(nextList[idx]) === tpl.slotIndex
+          );
+          // 2순위: 미분류 기존 항목 폴백 매칭
+          if (matchedIdx === undefined) {
+            matchedIdx = memberCycleIndices.find((idx) => !usedIndices.has(idx));
+          }
+
+          if (matchedIdx !== undefined) {
+            usedIndices.add(matchedIdx);
+            const existing = nextList[matchedIdx];
+            const isFinalized = Boolean(existing.directorGrade);
+
+            // 아직 최종 확정되지 않은 항목은 표준 타이틀·가중치·측정기준·달성기준·슬롯번호 동기화 (매핑 과제·평가 내역 100% 보존)
+            if (
+              !isFinalized &&
+              (existing.title !== tpl.title ||
+                Number(existing.weight) !== tpl.weight ||
+                existing.targetMetric !== tpl.targetMetric ||
+                existing.targetValue !== tpl.targetValue ||
+                existing.track !== memberTrack ||
+                existing.slotIndex !== tpl.slotIndex ||
+                existing.ownerId !== member.id)
+            ) {
+              const syncedItem: KpiItem = {
+                ...existing,
+                ownerId: member.id,
+                ownerName: memberName,
+                track: memberTrack,
+                slotIndex: tpl.slotIndex,
+                title: tpl.title,
+                weight: tpl.weight,
+                targetMetric: tpl.targetMetric,
+                targetValue: tpl.targetValue,
+                status: existing.status === 'planning' ? 'in_progress' : existing.status,
+                stage: existing.stage === 'draft' ? 'aligned' : existing.stage || 'aligned',
+              };
+              nextList[matchedIdx] = syncedItem;
+              upsertedItems.push(syncedItem);
+              hasChanges = true;
+            }
+          } else {
+            const detId = buildAutoKpiDeterministicId(
+              year,
+              quarter,
+              member.id || memberName,
+              tpl.slotIndex
+            );
+            const alreadyByIdIdx = nextList.findIndex((x) => x.id === detId);
+            if (alreadyByIdIdx === -1) {
+              const createdItem: KpiItem = {
+                id: detId,
+                year,
+                quarter,
+                targetScope: 'individual',
+                ownerId: member.id,
+                ownerName: memberName,
+                track: memberTrack,
+                slotIndex: tpl.slotIndex,
+                title: tpl.title,
+                targetMetric: tpl.targetMetric,
+                targetValue: tpl.targetValue,
+                currentValue: '',
+                weight: tpl.weight,
+                achievementRate: 0,
+                status: 'in_progress',
+                stage: 'aligned',
+                linkedTaskIds: [],
+                checkins: [],
+                peerReviews: [],
+                selfEvaluation: '',
+                finalEvaluation: '',
+                evaluatorName: '유은정',
+                createdBy: 'SYSTEM',
+                createdAt: nowIso,
+                updatedBy: 'SYSTEM',
+                updatedAt: nowIso,
+              };
+              nextList.push(createdItem);
+              upsertedItems.push(createdItem);
+              hasChanges = true;
+            }
+          }
+        }
+      }
+    }
+
+    if (hasChanges) {
+      localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(nextList));
+      if (options?.syncRemote && isSupabaseEnabled()) {
+        const client = getSupabaseClient();
+        if (client && upsertedItems.length > 0) {
+          const rows = upsertedItems.map((item) => ({
+            id: item.id,
+            year: item.year,
+            quarter: item.quarter,
+            target_scope: item.targetScope,
+            owner_name: item.ownerName,
+            title: item.title,
+            target_metric: item.targetMetric,
+            target_value: item.targetValue,
+            current_value: item.currentValue || '',
+            weight: item.weight,
+            achievement_rate: item.achievementRate || 0,
+            status: item.status,
+            self_evaluation: item.selfEvaluation || '',
+            final_evaluation: item.finalEvaluation || '',
+            evaluator_name: item.evaluatorName || '유은정',
+            created_by: item.createdBy || 'SYSTEM',
+            created_at: item.createdAt || nowIso,
+            updated_by: item.updatedBy || 'SYSTEM',
+            updated_at: item.updatedAt || nowIso,
+          }));
+          client
+            .from('kpis')
+            .upsert(rows, { onConflict: 'id' })
+            .then(({ error }) => {
+              if (error) console.warn('Supabase auto kpi upsert note:', error.message);
+            });
+          void this.pushExtendedKpisToRemote(nextList);
+        }
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ds-portal-kpis-updated'));
+      }
+    }
+
+    return nextList;
+  }
+
   public static getKpis(): KpiItem[] {
     this.initialize();
     if (typeof window !== 'undefined') {
       localStorage.removeItem('ds_planning_kpis_clean_v1');
     }
-    const validQuarterSet = new Set(['Q1', 'Q2', 'Q3', 'Q4']);
-    const raw = safeJsonParse<KpiItem[]>(localStorage.getItem(STORAGE_KEYS.KPIS), []);
-    const filtered = raw.filter((k) => validQuarterSet.has(String(k.quarter || '')));
-    if (filtered.length !== raw.length) {
-      localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(filtered));
-    }
+    const ensured = this.ensureAutoQuarterlyKpis({ syncRemote: false });
     const todayStr = getTodayDateString();
     const overrides = safeJsonParse<Record<string, KpiCycleSchedule>>(
       localStorage.getItem(STORAGE_KEYS.KPI_SCHEDULES),
       {}
     );
 
-    return filtered.map((k) => {
-      const yr = Number(k.year || 2026);
-      const qt: KpiQuarter = k.quarter;
-      const cycleKey = buildKpiCycleKey(yr, qt);
-      const schedule = overrides[cycleKey]
-        ? { ...computeDefaultKpiCycleSchedule(yr, qt), ...overrides[cycleKey] }
-        : computeDefaultKpiCycleSchedule(yr, qt);
+    return ensured
+      .map((k) => {
+        const yr = Number(k.year || 2026);
+        const qt: KpiQuarter = k.quarter;
+        const cycleKey = buildKpiCycleKey(yr, qt);
+        const schedule = overrides[cycleKey]
+          ? { ...computeDefaultKpiCycleSchedule(yr, qt), ...overrides[cycleKey] }
+          : computeDefaultKpiCycleSchedule(yr, qt);
 
-      // 수행 개시일 도래 시 '목표 수립(planning)' 상태 과제를 자동으로 '수행·점검중(in_progress)'으로 전환
-      const resolvedStatus =
-        k.status === 'planning' && todayStr >= schedule.execStart ? 'in_progress' : k.status;
+        const resolvedStatus =
+          k.status === 'planning' && todayStr >= schedule.execStart ? 'in_progress' : k.status;
+        const resolvedTrack = k.track || resolveMemberDefaultTrack(k.ownerName);
+        const resolvedSlot = resolveKpiSlotIndex({
+          slotIndex: k.slotIndex,
+          track: resolvedTrack,
+          title: k.title,
+        });
 
-      return {
-        ...k,
-        year: yr,
-        quarter: qt,
-        status: resolvedStatus,
-        stage: k.stage || (resolvedStatus === 'planning' ? 'draft' : 'aligned'),
-        linkedTaskIds: Array.isArray(k.linkedTaskIds) ? k.linkedTaskIds : [],
-        checkins: Array.isArray(k.checkins) ? k.checkins : [],
-        peerReviews: Array.isArray(k.peerReviews)
-          ? k.peerReviews.map((pr) => ({
-              ...pr,
-              reviewerName: '익명 동료',
-            }))
-          : [],
-        track: k.track || '기획',
-      };
-    });
+        const normalizedSlot: 1 | 2 | 3 | undefined =
+          resolvedSlot === 1 || resolvedSlot === 2 || resolvedSlot === 3
+            ? resolvedSlot
+            : undefined;
+
+        return {
+          ...k,
+          year: yr,
+          quarter: qt,
+          status: resolvedStatus,
+          stage: k.stage || (resolvedStatus === 'planning' ? 'draft' : 'aligned'),
+          linkedTaskIds: Array.isArray(k.linkedTaskIds) ? k.linkedTaskIds : [],
+          checkins: Array.isArray(k.checkins) ? k.checkins : [],
+          peerReviews: Array.isArray(k.peerReviews)
+            ? k.peerReviews.map((pr) => ({
+                ...pr,
+                reviewerName: '익명 동료',
+              }))
+            : [],
+          track: resolvedTrack,
+          slotIndex: normalizedSlot,
+        };
+      })
+      .sort((a, b) => {
+        const slotDiff = resolveKpiSlotIndex(a) - resolveKpiSlotIndex(b);
+        if (slotDiff !== 0) return slotDiff;
+        return a.id.localeCompare(b.id);
+      });
   }
 
   // --- KPI 평가 기수별 자동 스케줄 및 관리자(최범열) 미세 조정 스토어 ---
@@ -3935,6 +4169,40 @@ export class PlanningStorageService {
       throw new Error('해당 KPI 항목을 수정하거나 평가할 권한이 없습니다.');
     }
 
+    // 기간 및 최종 확정 상태 기반 무결성 게이트 검증
+    const cycleSchedule = this.getKpiCycleSchedule(
+      Number(original.year || 2026),
+      original.quarter
+    );
+    const phaseAccess = resolveKpiPhaseAccess(
+      original,
+      cycleSchedule,
+      getTodayDateString()
+    );
+
+    if (phaseAccess.isLocked) {
+      throw new Error(
+        phaseAccess.lockDescription ||
+          '평가 기간이 종료되었거나 최종 등급이 확정되어 수정할 수 없습니다.'
+      );
+    }
+
+    const isSubmittingEvaluation =
+      changes.selfScore !== undefined ||
+      changes.selfEvaluation !== undefined ||
+      changes.leaderScore !== undefined ||
+      changes.directorGrade !== undefined;
+
+    if (isSubmittingEvaluation && !phaseAccess.isEvalPeriodActive) {
+      throw new Error(
+        `공식 평가 기간(${phaseAccess.evalPeriodRangeLabel})에만 평가를 등록·수정할 수 있습니다.`
+      );
+    }
+
+    if (changes.linkedTaskIds !== undefined && !phaseAccess.canMapTasks) {
+      throw new Error('현재 단계에서는 실무 과제 매핑을 변경할 수 없습니다.');
+    }
+
     const now = new Date().toISOString();
     const updated: KpiItem = {
       ...original,
@@ -4064,6 +4332,24 @@ export class PlanningStorageService {
       throw new Error('본인의 KPI에는 직접 동료 피드백을 등록할 수 없습니다.');
     }
 
+    const cycleSchedule = this.getKpiCycleSchedule(
+      Number(target.year || 2026),
+      target.quarter
+    );
+    const phaseAccess = resolveKpiPhaseAccess(
+      target,
+      cycleSchedule,
+      getTodayDateString()
+    );
+
+    if (!phaseAccess.canSubmitPeerEval) {
+      throw new Error(
+        phaseAccess.isLocked
+          ? '평가 기간이 마감되었거나 최종 확정되어 다면평가를 등록·수정할 수 없습니다.'
+          : `공식 평가 기간(${phaseAccess.evalPeriodRangeLabel})에만 무기명 협업 다면평가에 참여할 수 있습니다.`
+      );
+    }
+
     const now = new Date().toISOString();
     const newReview: KpiPeerReview = {
       ...reviewData,
@@ -4151,39 +4437,8 @@ export class PlanningStorageService {
     return this.updateKpi(id, { stage: targetStage });
   }
 
-  public static deleteKpi(id: string): void {
-    const kpis = this.getKpis();
-    const target = kpis.find((k) => k.id === id);
-    if (!target) return;
-
-    const currentUser = this.getCurrentUser();
-    const kpiRole = resolveKpiAccessRole(currentUser);
-    const isOwner =
-      target.ownerName?.trim() === currentUser.name?.trim() ||
-      (target.ownerId ? String(target.ownerId) === String(currentUser.id) : false);
-
-    if (kpiRole !== 'team_lead' && !(kpiRole === 'team_member' && isOwner)) {
-      throw new Error('본인의 KPI 또는 팀장 권한만 삭제할 수 있습니다.');
-    }
-
-    const filtered = kpis.filter((k) => k.id !== id);
-    localStorage.setItem(STORAGE_KEYS.KPIS, JSON.stringify(filtered));
-    this.pushExtendedKpisToRemote(filtered, { deletedId: id });
-
-    this.recordAuditLog({
-      entityType: 'kpi',
-      entityId: target.id,
-      entityTitle: target.title,
-      action: 'DELETE',
-      summary: `KPI 삭제: ${target.title}`,
-    });
-
-    if (isSupabaseEnabled()) {
-      const client = getSupabaseClient();
-      client?.from('kpis').delete().eq('id', id).then(({ error }) => {
-        if (error) console.warn('Supabase kpi delete note:', error.message);
-      });
-    }
+  public static deleteKpi(_id: string): void {
+    throw new Error('분기별 자동 생성되는 표준 KPI 목표는 임의로 삭제할 수 없습니다.');
   }
 
   // --- 4. 업무 관련 정보 (Work Info) CRUD & 클라우드 동기화 ---

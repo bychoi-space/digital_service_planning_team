@@ -87,7 +87,158 @@ export function parseKpiRouteFromHash(
   return { mode: 'evaluation', detailId: null, queryYear, queryQuarter };
 }
 
-export const KPI_YEAR_OPTIONS: number[] = [2026, 2027, 2028];
+export const KPI_YEAR_OPTIONS: number[] = [2026, 2027, 2028, 2029];
+
+export interface StandardKpiTemplate {
+  slotIndex: 1 | 2 | 3;
+  track: KpiTrack;
+  pillar: string;
+  title: string;
+  weight: number;
+  targetMetric: string;
+  targetValue: string;
+}
+
+// 파트별 분기 자동 생성 3대 표준 KPI 정의 (각 파트 가중치 합계 100%)
+export const STANDARD_KPI_TEMPLATES: Record<KpiTrack, StandardKpiTemplate[]> = {
+  기획: [
+    {
+      slotIndex: 1,
+      track: '기획',
+      pillar: '핵심 과제',
+      title: '핵심 과제 (프로젝트) 수행 및 성과 측정',
+      weight: 40,
+      targetMetric:
+        '합의 일정 내 핵심 프로젝트 기획서(화면설계서/SB) 확정 및 오픈 후 성과 점검 여부',
+      targetValue:
+        '착수·마감 일정 준수, 유관부서 사전 리뷰 완료 및 배포 후 서비스 적용 상태 검증',
+    },
+    {
+      slotIndex: 2,
+      track: '기획',
+      pillar: '운영 과제',
+      title: '운영 과제 (유지보수) 수행 및 일정 준수',
+      weight: 40,
+      targetMetric:
+        '자사몰·어드민 상시 운영 개선 및 유관부서 요청 과제 납기 준수 여부',
+      targetValue:
+        '운영 유지보수 요구사항 적기 설계 반영 및 이슈 지연 없는 안정적 대응',
+    },
+    {
+      slotIndex: 3,
+      track: '기획',
+      pillar: '정책 · 표준화',
+      title: '정책, 프로세스, 공통화 정리',
+      weight: 20,
+      targetMetric:
+        '시선닷컴 도메인별 서비스 정책 명문화, 업무 프로세스 및 공통 기준 정립 기여도',
+      targetValue:
+        '프론트·어드민 핵심 정책서 최신화, 예외 케이스 표준화 및 협업 절차 체계화',
+    },
+  ],
+  디자인: [
+    {
+      slotIndex: 1,
+      track: '디자인',
+      pillar: 'UI/UX 개편',
+      title: '시선닷컴 UI / UX 개편 및 공통 컴포넌트 정립',
+      weight: 40,
+      targetMetric:
+        '시선닷컴 개편 화면 UI/UX 시안 완성도 및 Figma 공통 컴포넌트 표준화 수준',
+      targetValue:
+        '개편 일정 내 고해상도 UI 시안 확정, 디자인 토큰·컴포넌트 일관성 확보 및 퍼블리싱 핸드오프 완료',
+    },
+    {
+      slotIndex: 2,
+      track: '디자인',
+      pillar: '운영 과제',
+      title: '운영 과제 (유지보수) 수행 및 일정 준수',
+      weight: 30,
+      targetMetric:
+        '상시 서비스 운영·기능 개선 디자인 시안 납기 준수 및 디자인 QA 완결성',
+      targetValue:
+        '합의된 마감 일정 내 운영 디자인 전달 및 디바이스별 시각적 완성도 유지',
+    },
+    {
+      slotIndex: 3,
+      track: '디자인',
+      pillar: '협업 · 프로모션',
+      title: '유관부서 요청 업무 (제휴 프로모션) 진행',
+      weight: 30,
+      targetMetric:
+        '유관부서 요청 제휴 프로모션·이벤트 비주얼 제작 일정 준수 및 협업 만족도',
+      targetValue:
+        '브랜드 톤앤매너에 부합하는 프로모션 디자인 적기 제작 및 원활한 유관부서 소통',
+    },
+  ],
+  퍼블리싱: [
+    {
+      slotIndex: 1,
+      track: '퍼블리싱',
+      pillar: 'UI/UX 개편',
+      title: '시선닷컴 UI / UX 개편 및 공통 컴포넌트 정립',
+      weight: 40,
+      targetMetric:
+        '시선닷컴 개편 화면 반응형 마크업 구현 완성도 및 공통 UI 모듈 표준화 수준',
+      targetValue:
+        '디자인 시안 일치도 확보, 크로스브라우징·반응형 검수 통과 및 재사용 가능한 공통 마크업 자산화',
+    },
+    {
+      slotIndex: 2,
+      track: '퍼블리싱',
+      pillar: '운영 과제',
+      title: '운영 과제 (유지보수) 수행 및 일정 준수',
+      weight: 20,
+      targetMetric:
+        '상시 운영·유지보수 마크업 개선 과제 납기 준수 및 배포 후 UI 결함 방지 여부',
+      targetValue:
+        '요청 일정 내 운영 마크업 수정 반영 및 PC·모바일 환경 레이아웃 무결성 유지',
+    },
+    {
+      slotIndex: 3,
+      track: '퍼블리싱',
+      pillar: '기획전 · 프로모션',
+      title: '유관부서 요청 업무 (기획전, 제휴 프로모션) 진행',
+      weight: 40,
+      targetMetric:
+        '기획전 및 제휴 프로모션 퍼블리싱 오픈 일정 준수 및 인터랙션 구현 품질',
+      targetValue:
+        '오픈 기한 내 기획전·프로모션 퍼블리싱 적기 구현 및 유관부서 검수·수정에 대한 신속한 협업 대응',
+    },
+  ],
+};
+
+export function buildAutoKpiDeterministicId(
+  year: number,
+  quarter: KpiQuarter,
+  ownerIdOrName: string,
+  slotIndex: 1 | 2 | 3
+): string {
+  const safeOwnerKey = ownerIdOrName
+    .trim()
+    .replace(/[^a-zA-Z0-9가-힣_-]/g, '')
+    .toLowerCase();
+  return `kpi-auto-${year}-${quarter}-${safeOwnerKey}-s${slotIndex}`;
+}
+
+export function resolveKpiSlotIndex(kpi: Pick<KpiItem, 'slotIndex' | 'track' | 'title'>): number {
+  if (kpi.slotIndex === 1 || kpi.slotIndex === 2 || kpi.slotIndex === 3) {
+    return kpi.slotIndex;
+  }
+  const track: KpiTrack = kpi.track || '기획';
+  const templates = STANDARD_KPI_TEMPLATES[track] || STANDARD_KPI_TEMPLATES['기획'];
+  const cleanTitle = (kpi.title || '').trim();
+  const exact = templates.find((t) => t.title === cleanTitle);
+  if (exact) return exact.slotIndex;
+
+  // 레거시 2026-Q4 프리셋 타이틀 매칭 호환
+  if (cleanTitle.includes('핵심 과제') || cleanTitle.includes('개편')) return 1;
+  if (cleanTitle.includes('운영') || cleanTitle.includes('유지보수')) return 2;
+  if (cleanTitle.includes('정책') || cleanTitle.includes('제휴') || cleanTitle.includes('모듈화')) {
+    return 3;
+  }
+  return 9;
+}
 
 export const QUARTERS: { key: KpiQuarter; label: string; shortLabel: string }[] = [
   { key: 'Q1', label: '1분기', shortLabel: '1분기' },

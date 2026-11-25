@@ -15,6 +15,7 @@ import { WorkInfoView } from './components/WorkInfoView';
 import { OnboardingView } from './components/OnboardingView';
 import { PolicyView } from './components/PolicyView';
 import { AuditLogsView } from './components/AuditLogsView';
+import { PdfExportModal } from './components/pdf/PdfExportModal';
 import {
   Compass,
   CheckSquare,
@@ -29,6 +30,7 @@ import {
   AlertTriangle,
   Info,
   Database,
+  FileDown,
   LogOut,
   KeyRound,
   Lock,
@@ -229,6 +231,7 @@ export function App() {
 
   // 내 비밀번호 변경 모달 상태 (초기값 항상 빈 값 유지)
   const [isPwChangeModalOpen, setIsPwChangeModalOpen] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [currentPasswordInput, setCurrentPasswordInput] = useState('');
   const [newPasswordInput, setNewPasswordInput] = useState('');
   const [newPasswordConfirmInput, setNewPasswordConfirmInput] = useState('');
@@ -479,6 +482,16 @@ export function App() {
           )}
           <button
             type="button"
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              setIsPdfModalOpen(true);
+            }}
+            className="btn btn-primary sidebar-mobile-pdf-btn"
+          >
+            <FileDown size={14} /> PDF 다운로드
+          </button>
+          <button
+            type="button"
             onClick={handleOpenPwChangeModal}
             className="btn btn-secondary sidebar-mobile-pw-btn"
           >
@@ -521,6 +534,15 @@ export function App() {
             <span className="topbar-user-info">
               접속자: <strong className="topbar-user-name">{currentUser.name}</strong> ({currentUser.department})
             </span>
+            <button
+              type="button"
+              onClick={() => setIsPdfModalOpen(true)}
+              className="btn btn-primary topbar-pdf-btn"
+              title="포털 화면 PDF 다운로드"
+            >
+              <FileDown size={15} />
+              <span className="topbar-pdf-btn-text">PDF 다운로드</span>
+            </button>
             <button
               type="button"
               onClick={handleOpenPwChangeModal}
@@ -702,6 +724,17 @@ export function App() {
           </div>
         </div>
       )}
+
+      {/* 포털 화면 선택형 PDF 다운로드 모달 */}
+      <PdfExportModal
+        key={currentUser.id}
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        currentUser={currentUser}
+        isViewer={isViewer}
+        activeTab={activeTab}
+        onShowToast={showToast}
+      />
 
       {/* 3. 플로팅 토스트 알림 컨테이너 */}
       <div className="toast-container">

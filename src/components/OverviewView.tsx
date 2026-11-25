@@ -7,9 +7,19 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
-export function OverviewView() {
+interface OverviewViewProps {
+  pdfSelectedPillarIds?: number[];
+  isPdfExport?: boolean;
+}
+
+export function OverviewView({
+  pdfSelectedPillarIds,
+  isPdfExport = false,
+}: OverviewViewProps = {}) {
   // 3대 핵심 업무 탭 상태 (0: UI/UX개편, 1: 어드민효율화, 2: 이커머스정책)
-  const [activePillar, setActivePillar] = useState<number>(0);
+  const [activePillar, setActivePillar] = useState<number>(() =>
+    pdfSelectedPillarIds && pdfSelectedPillarIds.length > 0 ? pdfSelectedPillarIds[0] : 0
+  );
 
   // 3대 핵심 업무 상세 데이터
   const PILLARS_DATA = [
@@ -141,7 +151,7 @@ export function OverviewView() {
       </div>
 
       {/* 2. 3인 캐릭터 [시선닷컴 UI/UX 개편] 릴레이 애니메이션 쇼케이스 */}
-      <SisunRenewalStoryStage />
+      <SisunRenewalStoryStage isPdfExport={isPdfExport} />
 
       {/* 3. 서비스기획 주요 업무 범위 (슬림 연결형 폴더 탭 UI & 통합 상세 뷰) */}
       <div id="pillars-section">
@@ -150,70 +160,119 @@ export function OverviewView() {
           <h2 className="overview-section-title">서비스기획 주요 업무 범위</h2>
         </div>
 
-        <div className="pillars-tabs-wrapper">
-          {/* 상단 3대 영역 슬림 1줄 연결형 TAB 바 */}
-          <div
-            role="tablist"
-            aria-label="서비스기획 주요 업무 범위 탭"
-            className="pillars-tablist"
-          >
-            {PILLARS_DATA.map((pillar) => {
-              const isSelected = activePillar === pillar.id;
-              return (
-                <button
-                  key={pillar.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isSelected}
-                  onClick={() => setActivePillar(pillar.id)}
-                  className={`pillar-tab ${pillar.themeClass} ${isSelected ? 'active' : ''}`}
-                >
-                  <div className="pillar-tab-main">
-                    <span className="pillar-tab-badge">{pillar.badge}</span>
-                    <span className="pillar-tab-title">{pillar.title}</span>
+        {isPdfExport && pdfSelectedPillarIds && pdfSelectedPillarIds.length > 1 ? (
+          <div className="pdf-pillars-multi-stack">
+            {PILLARS_DATA.filter((p) => pdfSelectedPillarIds.includes(p.id)).map((selected) => (
+              <div
+                key={selected.id}
+                className={`pillars-tabs-wrapper pdf-pillar-expanded-block ${selected.themeClass}`}
+              >
+                <div className={`pdf-pillar-single-head ${selected.themeClass}`}>
+                  <span className="pillar-tab-badge">{selected.badge}</span>
+                  <span className="pillar-tab-title">{selected.title}</span>
+                </div>
+                <div className={`pillar-panel ${selected.themeClass}`}>
+                  <div className="pillar-panel-header">
+                    <p className="pillar-panel-desc">{selected.description}</p>
                   </div>
-                  <span className="pillar-tab-radio" aria-hidden="true" />
-                </button>
-              );
-            })}
-          </div>
-
-          {/* 선택된 탭과 하나로 이어지는 통합 상세 패널 */}
-          {(() => {
-            const selected = PILLARS_DATA[activePillar];
-            return (
-              <div role="tabpanel" className={`pillar-panel ${selected.themeClass}`}>
-                <div className="pillar-panel-header">
-                  <p className="pillar-panel-desc">{selected.description}</p>
-                </div>
-
-                {/* 통합 3단계 핵심 과업 카드 그리드 */}
-                <div className="pillar-steps-grid">
-                  {selected.pipelineSteps.map((step, sIdx) => (
-                    <div key={sIdx} className="pillar-step-card">
-                      <div className="pillar-step-name">{step.name}</div>
-                      <div className="pillar-step-desc">{step.desc}</div>
-                      <div className="pillar-step-points">
-                        {step.points.map((pt, pIdx) => (
-                          <div key={pIdx} className="pillar-step-point">
-                            • {pt}
-                          </div>
-                        ))}
+                  <div className="pillar-steps-grid">
+                    {selected.pipelineSteps.map((step, sIdx) => (
+                      <div key={sIdx} className="pillar-step-card">
+                        <div className="pillar-step-name">{step.name}</div>
+                        <div className="pillar-step-desc">{step.desc}</div>
+                        <div className="pillar-step-points">
+                          {step.points.map((pt, pIdx) => (
+                            <div key={pIdx} className="pillar-step-point">
+                              • {pt}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* 핵심 추진 목표 바 */}
-                <div className="pillar-goal-bar">
-                  <span className="pillar-goal-label">핵심 추진 목표</span>
-                  <span className="pillar-goal-divider">|</span>
-                  <strong className="pillar-goal-text">{selected.keyMetrics}</strong>
+                    ))}
+                  </div>
+                  <div className="pillar-goal-bar">
+                    <span className="pillar-goal-label">핵심 추진 목표</span>
+                    <span className="pillar-goal-divider">|</span>
+                    <strong className="pillar-goal-text">{selected.keyMetrics}</strong>
+                  </div>
                 </div>
               </div>
-            );
-          })()}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="pillars-tabs-wrapper">
+            {/* 상단 3대 영역 슬림 1줄 연결형 TAB 바 */}
+            <div
+              role="tablist"
+              aria-label="서비스기획 주요 업무 범위 탭"
+              className="pillars-tablist"
+            >
+              {PILLARS_DATA.map((pillar) => {
+                const effectiveActiveId =
+                  isPdfExport && pdfSelectedPillarIds && pdfSelectedPillarIds.length === 1
+                    ? pdfSelectedPillarIds[0]
+                    : activePillar;
+                const isSelected = effectiveActiveId === pillar.id;
+                return (
+                  <button
+                    key={pillar.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelected}
+                    onClick={() => setActivePillar(pillar.id)}
+                    className={`pillar-tab ${pillar.themeClass} ${isSelected ? 'active' : ''}`}
+                  >
+                    <div className="pillar-tab-main">
+                      <span className="pillar-tab-badge">{pillar.badge}</span>
+                      <span className="pillar-tab-title">{pillar.title}</span>
+                    </div>
+                    <span className="pillar-tab-radio" aria-hidden="true" />
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 선택된 탭과 하나로 이어지는 통합 상세 패널 */}
+            {(() => {
+              const effectiveActiveId =
+                isPdfExport && pdfSelectedPillarIds && pdfSelectedPillarIds.length === 1
+                  ? pdfSelectedPillarIds[0]
+                  : activePillar;
+              const selected = PILLARS_DATA[effectiveActiveId] || PILLARS_DATA[0];
+              return (
+                <div role="tabpanel" className={`pillar-panel ${selected.themeClass}`}>
+                  <div className="pillar-panel-header">
+                    <p className="pillar-panel-desc">{selected.description}</p>
+                  </div>
+
+                  {/* 통합 3단계 핵심 과업 카드 그리드 */}
+                  <div className="pillar-steps-grid">
+                    {selected.pipelineSteps.map((step, sIdx) => (
+                      <div key={sIdx} className="pillar-step-card">
+                        <div className="pillar-step-name">{step.name}</div>
+                        <div className="pillar-step-desc">{step.desc}</div>
+                        <div className="pillar-step-points">
+                          {step.points.map((pt, pIdx) => (
+                            <div key={pIdx} className="pillar-step-point">
+                              • {pt}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 핵심 추진 목표 바 */}
+                  <div className="pillar-goal-bar">
+                    <span className="pillar-goal-label">핵심 추진 목표</span>
+                    <span className="pillar-goal-divider">|</span>
+                    <strong className="pillar-goal-text">{selected.keyMetrics}</strong>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {/* 4. 서비스기획 5단계 표준 프로세스 (중복 표기 제거 & 화살표 플로우 연결) */}
