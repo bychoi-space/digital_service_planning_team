@@ -83,8 +83,8 @@ function LoginSpriteCanvas({ fileName, fallbackFileName }: SpriteCanvasProps) {
         targetImg && (LOGIN_SPRITE_READY.has(targetUrl) || (targetImg.complete && targetImg.naturalWidth > 0))
           ? targetImg
           : fallbackImg && (LOGIN_SPRITE_READY.has(fallbackUrl) || (fallbackImg.complete && fallbackImg.naturalWidth > 0))
-          ? fallbackImg
-          : null;
+            ? fallbackImg
+            : null;
 
       if (chosenImg && chosenImg.src !== lastDrawnRef.current) {
         ctx.clearRect(0, 0, 560, 560);
@@ -347,20 +347,12 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
           <div className="login-brand-panel">
             <div>
               <div className="login-brand-badge">
-                <Sparkles size={14} /> 서비스기획팀 업무 포털
+                <Sparkles size={14} /> 서비스기획팀 업무포털
               </div>
 
               <h2 className="login-brand-title">
                 서비스 기획과 협업의 모든 것,<br />하나의 포털에서
               </h2>
-
-              <p className="login-brand-desc">
-                일상 기획 업무(Task), 팀원 휴가 일정, 분기/연간 KPI 목표 및 달성 평가를 투명하게 공유하고 관리합니다.
-              </p>
-            </div>
-
-            <div className="login-brand-footer">
-              서비스기획팀 업무 포털 v1.0
             </div>
           </div>
 
@@ -504,9 +496,6 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
                       </option>
                     ))}
                   </select>
-                  <div className="login-dept-hint">
-                    * 서비스기획팀 선택 시 [편집 권한], 유관부서 선택 시 [읽기 전용 모드]가 적용됩니다.
-                  </div>
                 </div>
 
                 <div className="login-pw-grid">
@@ -568,7 +557,7 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
-              <h3 className="modal-title">비밀번호 재설정 (본인 확인)</h3>
+              <h3 className="modal-title">비밀번호 재설정</h3>
               <button
                 type="button"
                 onClick={() => setIsResetModalOpen(false)}
@@ -585,13 +574,6 @@ export function LoginPage({ onLoginSuccess, initialMode = 'login', onModeChange 
               className="tasks-modal-form"
             >
               <div className="modal-body">
-                <div className="kpi-modal-target-summary">
-                  <strong>가입 정보 확인 후 즉시 새 비밀번호로 변경합니다.</strong>
-                  <span>
-                    회원가입 시 등록한 성명과 소속 부서가 일치하면 새 비밀번호로 즉시 재설정됩니다.
-                  </span>
-                </div>
-
                 {resetErrorMessage && (
                   <div className="login-error-alert">
                     <AlertCircle size={15} />

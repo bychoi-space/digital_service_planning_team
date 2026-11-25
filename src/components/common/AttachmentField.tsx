@@ -123,8 +123,8 @@ export const AttachmentField: React.FC<AttachmentFieldProps> = ({
   isViewer,
   uploaderName,
   storageFolder = 'tasks',
-  label = '첨부 파일 (MS Office Excel · PPT · Word · PDF)',
-  emptyHint = '엑셀(.xlsx), 파워포인트(.pptx), 워드(.docx), PDF 등 파일을 끌어다 놓거나 클릭하여 첨부하세요.',
+  label = '첨부 파일',
+  emptyHint = '파일을 끌어다 놓거나 클릭하여 첨부하세요.',
   onAttachmentsChange,
   onShowToast,
 }) => {
@@ -222,9 +222,8 @@ export const AttachmentField: React.FC<AttachmentFieldProps> = ({
       </div>
 
       <div
-        className={`tasks-attachments-dropzone ${isDragOver ? 'is-dragover' : ''} ${
-          safeAttachments.length > 0 ? 'has-files' : ''
-        }`}
+        className={`tasks-attachments-dropzone ${isDragOver ? 'is-dragover' : ''} ${safeAttachments.length > 0 ? 'has-files' : ''
+          }`}
         onDragOver={(e) => {
           if (isViewer) return;
           e.preventDefault();

@@ -33,7 +33,6 @@ import {
   FileText,
   Palette,
   Code,
-  Layers,
   CheckCircle2,
   RefreshCw,
   ChevronDown,
@@ -111,9 +110,9 @@ const PRIORITIES: { key: TaskPriority; label: string; classKey: string }[] = [
 ];
 
 const STATUSES: { key: TaskStatus; label: string; shortLabel: string; classKey: string }[] = [
-  { key: 'backlog', label: '대기 (Backlog)', shortLabel: '대기', classKey: 'status-backlog' },
-  { key: 'in_progress', label: '진행중 (In Progress)', shortLabel: '진행중', classKey: 'status-in_progress' },
-  { key: 'done', label: '완료 (Done)', shortLabel: '완료', classKey: 'status-done' },
+  { key: 'backlog', label: '대기', shortLabel: '대기', classKey: 'status-backlog' },
+  { key: 'in_progress', label: '진행중', shortLabel: '진행중', classKey: 'status-in_progress' },
+  { key: 'done', label: '완료', shortLabel: '완료', classKey: 'status-done' },
 ];
 
 function getDatePlusDaysString(days: number): string {
@@ -893,15 +892,11 @@ export const TasksView: React.FC<TasksViewProps> = ({
 
   return (
     <div className="tasks-container">
-      {/* 1. 상단 컨트롤 바 (검색, 파트 필터, 세부 필터, 뷰 전환, 등록 버튼) */}
+      {/* 1. 상단 컨트롤 바 (파트 필터, 검색, 세부 필터, 뷰 전환, 등록 버튼) */}
       <div className="card tasks-control-card">
-        {/* 1-A. 파트 퀵 필터 탭 + 우측 완료 포함 ON/OFF 스위치 */}
+        {/* 1-A. 파트 퀵 필터 탭 */}
         <div className="tasks-track-bar">
           <div className="tasks-track-filter-group">
-            <span className="tasks-track-label">
-              <Layers size={15} className="tasks-track-label-icon" /> 업무 파트:
-            </span>
-
             <div className="tasks-track-tabs">
               {/* 전체 파트 */}
               <button
@@ -909,7 +904,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                 onClick={() => setSelectedTrack('all')}
                 className={`tasks-track-tab track-all ${selectedTrack === 'all' ? 'active' : ''}`}
               >
-                <span>전체 파트</span>
+                <span>전체</span>
                 <span className="tasks-track-count">{trackCounts.all}</span>
               </button>
 
@@ -932,31 +927,6 @@ export const TasksView: React.FC<TasksViewProps> = ({
                 );
               })}
             </div>
-          </div>
-
-          {/* 우측: 완료 업무 표시 ON/OFF 토글 버튼 */}
-          <div className="tasks-done-visibility-bar">
-            <button
-              type="button"
-              onClick={() => {
-                if (selectedStatus === 'done') {
-                  setSelectedStatus('all');
-                  setShowDoneTasks(false);
-                } else {
-                  setShowDoneTasks((prev) => !prev);
-                }
-              }}
-              className={`tasks-done-toggle-btn ${effectiveShowDone ? 'active' : ''}`}
-              title={
-                effectiveShowDone
-                  ? '클릭하면 완료된 과제를 숨기고 진행·대기 과제만 표시합니다'
-                  : '클릭하면 완료된 과제를 화면에 함께 표시합니다'
-              }
-            >
-              <CheckCircle2 size={15} />
-              <span>{effectiveShowDone ? '완료 과제 표시 중' : '완료 과제 숨김'}</span>
-              <span className="tasks-done-toggle-count">{totalFilteredDoneCount}</span>
-            </button>
           </div>
         </div>
 
@@ -1188,16 +1158,6 @@ export const TasksView: React.FC<TasksViewProps> = ({
                           ))}
                       </button>
                     </div>
-
-                    {!isViewer && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenCreateModal(trackKey)}
-                        className={`btn btn-secondary tasks-swimlane-add-btn ${trackCfg.classKey}`}
-                      >
-                        <Plus size={14} /> {trackCfg.label} 등록
-                      </button>
-                    )}
                   </div>
                 </div>
 
@@ -1342,26 +1302,29 @@ export const TasksView: React.FC<TasksViewProps> = ({
                           className="tasks-table-title-cell"
                         >
                           <span>{task.title}</span>
-                          {(Boolean(task.notionUrl) || String(task.id).startsWith('notion-')) && (
-                            <span className="tasks-badge-notion" title="Notion (Sisun-Tasks) 양방향 연동 과제">
-                              Notion
-                            </span>
-                          )}
-                          {resolveWorkspaceProjectId(task) && (
-                            <span
-                              className="tasks-badge-workspace"
-                              title={`기획서 워크스페이스 (${resolveWorkspaceProjectId(task)}) · v${task.version || '0.1'}`}
+                          {resolveWorkspaceViewerUrl(task) && (
+                            <a
+                              href={resolveWorkspaceViewerUrl(task)!}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="tasks-card-link-chip is-workspace"
+                              title={`기획서 워크스페이스 (${resolveWorkspaceProjectId(task)}) · v${task.version || '0.1'} 열기`}
                             >
-                              기획서 v{task.version || '0.1'}
-                            </span>
+                              기획서 v{task.version || '0.1'} <ExternalLink size={12} />
+                            </a>
                           )}
                           {resolveFigmaUrl(task) && (
-                            <span
-                              className="tasks-badge-figma"
-                              title={`Figma 디자인 시안 (${resolveFigmaMetaLabel(resolveFigmaUrl(task)!)})`}
+                            <a
+                              href={resolveFigmaUrl(task)!}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="tasks-card-link-chip is-figma"
+                              title={`Figma 시안 열기 (${resolveFigmaMetaLabel(resolveFigmaUrl(task)!)})`}
                             >
-                              Figma
-                            </span>
+                              Figma <ExternalLink size={12} />
+                            </a>
                           )}
                           {task.attachments?.map((att) => {
                             const attMeta = getAttachmentMeta(att.ext);
@@ -1376,7 +1339,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                                 className={`tasks-card-link-chip ${attMeta.classKey}`}
                                 title={
                                   isViewable
-                                    ? `${att.name} (${formatAttachmentSize(att.size)}) Google 읽기 전용 뷰어로 새 창에서 열기`
+                                    ? `${att.name} (${formatAttachmentSize(att.size)}) 새 창에서 열기`
                                     : `${att.name} (${formatAttachmentSize(att.size)}) 다운로드`
                                 }
                               >
@@ -1389,11 +1352,19 @@ export const TasksView: React.FC<TasksViewProps> = ({
                               </a>
                             );
                           })}
-                          {(task.links?.length ?? 0) > 0 && (
-                            <LinkIcon size={14} className="tasks-link-indicator" />
+                          {task.notionUrl && (
+                            <a
+                              href={task.notionUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="tasks-card-link-chip is-notion"
+                              title="Notion (Sisun-Tasks) 페이지 열기"
+                            >
+                              Notion <ExternalLink size={12} />
+                            </a>
                           )}
                         </div>
-                        <div className="tasks-table-desc">{task.description}</div>
                       </td>
                       <td className="tasks-table-assignee">{task.assigneeName}</td>
                       <td>
@@ -1409,28 +1380,6 @@ export const TasksView: React.FC<TasksViewProps> = ({
                       </td>
                       <td className="td-center">
                         <div className="tasks-row-actions">
-                          {resolveWorkspaceViewerUrl(task) && (
-                            <a
-                              href={resolveWorkspaceViewerUrl(task)!}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-secondary tasks-action-btn tasks-workspace-open-btn"
-                              title="기획서 뷰어 새 창으로 열기"
-                            >
-                              <ExternalLink size={14} /> 기획서
-                            </a>
-                          )}
-                          {resolveFigmaUrl(task) && (
-                            <a
-                              href={resolveFigmaUrl(task)!}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-secondary tasks-action-btn tasks-figma-open-btn"
-                              title="Figma 디자인 시안 새 창으로 열기"
-                            >
-                              <ExternalLink size={14} /> Figma
-                            </a>
-                          )}
                           <button
                             type="button"
                             onClick={() => handleOpenEditModal(task)}
@@ -1623,11 +1572,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
             <div className="modal-header">
               <div className="tasks-modal-header-left">
                 <h3 className="modal-title">
-                  {editingTask
-                    ? isViewer
-                      ? '서비스기획 업무 상세 조회 (읽기 전용)'
-                      : '서비스기획 업무 상세 및 수정'
-                    : '새로운 서비스기획 업무 등록'}
+                  {editingTask ? '업무 상세' : '업무 등록'}
                 </h3>
                 {isViewer && <span className="tasks-viewer-chip">조회 전용</span>}
               </div>
@@ -1677,7 +1622,6 @@ export const TasksView: React.FC<TasksViewProps> = ({
                             </div>
                             <div className="tasks-modal-track-text">
                               <div className="tasks-modal-track-name">{config.label}</div>
-                              <div className="tasks-modal-track-en">{config.enLabel}</div>
                             </div>
                           </div>
                           {isSelected && <CheckCircle2 size={16} className="tasks-modal-track-check" />}
@@ -1736,7 +1680,7 @@ export const TasksView: React.FC<TasksViewProps> = ({
                     >
                       {teamMembers.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.name} ({m.department || '서비스기획팀'})
+                          {m.name}
                         </option>
                       ))}
                     </select>
@@ -1817,7 +1761,6 @@ export const TasksView: React.FC<TasksViewProps> = ({
                             <span className={`tasks-status-dot ${autoStatusCfg.classKey}`} />
                             <span>{autoStatusCfg.label}</span>
                           </span>
-                          <span className="tasks-auto-status-tag">일정 자동</span>
                         </div>
                       );
                     })()}

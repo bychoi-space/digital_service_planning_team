@@ -10,8 +10,6 @@ import {
   Copy,
   Check,
   X,
-  BookOpen,
-  FolderOpen,
   ArrowUp,
   ArrowDown,
 } from 'lucide-react';
@@ -270,8 +268,7 @@ export const WorkInfoView: React.FC<WorkInfoViewProps> = ({
               onClick={() => setSelectedCategory('all')}
               className={`winfo-category-tab ${selectedCategory === 'all' ? 'active' : ''}`}
             >
-              <BookOpen size={15} />
-              <span>전체 보기</span>
+              <span>전체</span>
               <span className="winfo-category-count">{items.length}</span>
             </button>
 
@@ -287,7 +284,6 @@ export const WorkInfoView: React.FC<WorkInfoViewProps> = ({
                   onClick={() => setSelectedCategory(cat)}
                   className={`winfo-category-tab ${isSelected ? 'active' : ''}`}
                 >
-                  <FolderOpen size={15} />
                   <span>{cat}</span>
                   <span className="winfo-category-count">{count}</span>
                 </button>
@@ -332,18 +328,8 @@ export const WorkInfoView: React.FC<WorkInfoViewProps> = ({
             <div className="winfo-section-header">
               <div className="winfo-section-title-group">
                 <h2 className="winfo-section-title">{section.category}</h2>
-                <span className="winfo-section-badge">{section.rows.length}개 항목</span>
+                <span className="winfo-section-badge">{section.rows.length}개</span>
               </div>
-
-              {!isViewer && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenCreateModal(section.category)}
-                  className="btn btn-secondary winfo-section-add-btn"
-                >
-                  <Plus size={15} /> {section.category} 항목 추가
-                </button>
-              )}
             </div>
 
             {/* 데스크톱 & 태블릿용 노션 스타일 3열(+관리) 테이블 */}
@@ -550,11 +536,7 @@ export const WorkInfoView: React.FC<WorkInfoViewProps> = ({
             <div className="modal-header">
               <div className="tasks-modal-header-left">
                 <h3 className="modal-title">
-                  {editingItem
-                    ? isViewer
-                      ? '업무 관련 정보 상세 조회'
-                      : '업무 관련 정보 수정'
-                    : '새 업무 관련 정보 추가'}
+                  {editingItem ? '정보 상세' : '정보 추가'}
                 </h3>
                 {isViewer && <span className="tasks-viewer-chip">조회 전용</span>}
               </div>

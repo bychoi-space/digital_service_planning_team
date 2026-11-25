@@ -102,13 +102,6 @@ export const KpiScheduleEditModal: React.FC<KpiScheduleEditModalProps> = ({
 
         <form onSubmit={handleSubmit} className="tasks-modal-form">
           <div className="modal-body">
-            <div className="kpi-modal-target-summary">
-              <strong>{cycleLabel} 평가 기수 단계별 일정 미세 조정</strong>
-              <span>
-                명절·연휴 또는 인사 일정 변동 시 평가 기간을 조정할 수 있으며, 4주차 최종평가 종료일이 지나면 모든 KPI 수정이 자동 잠금됩니다.
-              </span>
-            </div>
-
             <div className="kpi-schedule-edit-grid">
               <div className="kpi-schedule-edit-row">
                 <div className="kpi-schedule-edit-label">

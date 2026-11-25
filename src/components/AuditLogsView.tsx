@@ -410,14 +410,7 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
 
   const renderKpiRoleBadge = (kpiRole: KpiAccessRole) => {
     const meta = KPI_ACCESS_ROLE_META[kpiRole];
-    return (
-      <div className="audit-role-cell">
-        <span className={`audit-role-badge role-${kpiRole}`}>{meta.shortLabel}</span>
-        <span className="audit-role-sub">
-          {meta.portalAccessLabel} · {meta.kpiAccessLabel}
-        </span>
-      </div>
-    );
+    return <span className={`audit-role-badge role-${kpiRole}`}>{meta.shortLabel}</span>;
   };
 
   const isEditingSelfOwner = Boolean(editingUser && canManageUserPermissions(editingUser));
@@ -456,8 +449,17 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
         <div className="audit-header-controls">
           {!canManage && (
             <span className="audit-readonly-pill">
-              <Lock size={14} /> 읽기 전용 (수정 권한: 최범열)
+              <Lock size={14} /> 읽기 전용
             </span>
+          )}
+          {activeSubTab === 'permissions' && canManage && (
+            <button
+              type="button"
+              onClick={handleOpenPreRegisterModal}
+              className="btn btn-primary audit-refresh-btn"
+            >
+              <Plus size={15} /> 계정 사전 등록
+            </button>
           )}
           <button
             type="button"
@@ -472,36 +474,6 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
       {/* [탭 1] 조직 계정 권한 및 직책 현황 / 설정 */}
       {activeSubTab === 'permissions' && (
         <div className="card audit-users-card">
-          <div className="audit-users-header">
-            <div className="audit-header-info">
-              <div className="audit-header-icon is-users">
-                <Users size={22} />
-              </div>
-              <div className="audit-header-text">
-                <h2 className="audit-header-title">
-                  조직 계정 권한 및 직책 현황 (총 {sortedUsers.length}명)
-                </h2>
-                <p className="audit-header-desc">
-                  {canManage
-                    ? '계정별 소속 부서·직책과 포털·KPI 권한 등급을 설정하거나 미가입 임원·구성원 계정을 사전 등록합니다.'
-                    : '조직 구성원 및 상위 직책자의 소속 부서, 직책, 포털·KPI 권한 등급 현황입니다.'}
-                </p>
-              </div>
-            </div>
-
-            {canManage && (
-              <div className="audit-header-controls">
-                <button
-                  type="button"
-                  onClick={handleOpenPreRegisterModal}
-                  className="btn btn-primary audit-refresh-btn"
-                >
-                  <Plus size={15} /> 계정 · 권한 사전 등록
-                </button>
-              </div>
-            )}
-          </div>
-
           {/* 데스크톱 회원 및 권한 테이블 */}
           <div className="audit-table-scroll">
             <table className="audit-table">
@@ -528,9 +500,7 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
                         {u.password ? (
                           <span className="audit-pw-status is-set">가입 완료</span>
                         ) : (
-                          <span className="audit-pw-status is-reset">
-                            사전 등록 (첫 접속 시 비밀번호 설정)
-                          </span>
+                          <span className="audit-pw-status is-reset">사전 등록</span>
                         )}
                       </td>
                       {canManage && (
@@ -634,24 +604,7 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
       {/* [탭 2] 시스템 감사 로그 (15건 페이지네이션 + 최근 90일·300건 자동 보관) */}
       {activeSubTab === 'logs' && (
         <div className="card audit-table-card">
-          <div className="audit-logs-toolbar">
-            <div className="audit-logs-toolbar-left">
-              <div className="audit-header-icon">
-                <ShieldCheck size={22} />
-              </div>
-              <div className="audit-header-text">
-                <div className="audit-logs-title-row">
-                  <h2 className="audit-header-title">데이터 및 권한 변경 감사 로그</h2>
-                  <span className="audit-retention-badge">
-                    최근 {AUDIT_LOG_RETENTION_DAYS}일 · 최대 {AUDIT_LOG_MAX_COUNT}건 자동 보관
-                  </span>
-                </div>
-                <p className="audit-header-desc">
-                  단순 로그인·로그아웃 및 체크박스 토글은 제외하고, 주요 데이터·권한의 등록·수정·삭제 이력만 보관합니다.
-                </p>
-              </div>
-            </div>
-
+          <div className="audit-logs-toolbar is-compact">
             <div className="audit-logs-controls">
               <div className="audit-search-box">
                 <Search size={15} className="audit-search-icon" />
@@ -848,22 +801,6 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
               className="tasks-modal-form"
             >
               <div className="modal-body">
-                {roleModalMode === 'create' ? (
-                  <div className="kpi-modal-target-summary">
-                    <strong>미가입 임원 · 구성원 사전 권한 지정</strong>
-                    <span>
-                      성명과 직책·권한을 미리 등록해 두면, 해당 인원이 추후 회원가입 또는 첫 로그인 시 입력한 비밀번호로 즉시 활성화됩니다.
-                    </span>
-                  </div>
-                ) : (
-                  <div className="kpi-modal-target-summary">
-                    <strong>대상 계정: {editingUser?.name}</strong>
-                    <span>
-                      소속 부서, 직책 및 포털·KPI 권한 등급 변경 사항은 즉시 클라우드 DB와 감사 로그에 반영됩니다.
-                    </span>
-                  </div>
-                )}
-
                 {roleModalMode === 'create' && (
                   <div className="form-group">
                     <label className="form-label login-form-label">
@@ -1005,7 +942,9 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
-              <h3 className="modal-title">회원 비밀번호 재설정</h3>
+              <h3 className="modal-title">
+                비밀번호 지정 — {targetUserForPw.name}
+              </h3>
               <button
                 type="button"
                 onClick={() => setTargetUserForPw(null)}
@@ -1022,15 +961,6 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({
               className="tasks-modal-form"
             >
               <div className="modal-body">
-                <div className="kpi-modal-target-summary">
-                  <strong>
-                    대상 회원: {targetUserForPw.name} ({targetUserForPw.department})
-                  </strong>
-                  <span>
-                    해당 회원의 새 비밀번호를 직접 지정합니다.
-                  </span>
-                </div>
-
                 <div className="tasks-form-grid-2">
                   <div className="form-group">
                     <label className="form-label login-form-label">

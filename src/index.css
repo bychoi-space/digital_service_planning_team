@@ -13560,6 +13560,24 @@ button.kpi-peer-task-chip.is-link:hover {
   color: #334155;
 }
 
+/* 심플 UI 레이아웃 보강 (KPI 상단 모드 바 & 감사 로그 컴팩트 툴바) */
+.kpi-top-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.audit-logs-toolbar.is-compact {
+  justify-content: flex-end;
+  padding: 14px 20px;
+}
+
+.audit-logs-toolbar.is-compact .audit-logs-controls {
+  width: 100%;
+  justify-content: space-between;
+}
+
+
 
 
 

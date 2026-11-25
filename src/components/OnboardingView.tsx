@@ -32,22 +32,22 @@ const PHASE_META_LIST: PhaseMeta[] = [
   {
     key: 'day1',
     title: '1일차 · 출근 첫날 (계정·환경 설정)',
-    tabLabel: '1일차 (출근 첫날)',
+    tabLabel: '1일차',
   },
   {
     key: 'week1',
     title: '1주차 · 서비스·시스템 파악',
-    tabLabel: '1주차 (서비스·시스템)',
+    tabLabel: '1주차',
   },
   {
     key: 'week2',
     title: '2주차 · 협업 및 첫 과제 실습',
-    tabLabel: '2주차 (협업·실습)',
+    tabLabel: '2주차',
   },
   {
     key: 'week3_4',
     title: '3~4주차 · 검수·배포 및 담당 배정',
-    tabLabel: '3~4주차 (검수·배포)',
+    tabLabel: '3~4주차',
   },
 ];
 
@@ -388,21 +388,21 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                 onClick={() => setStatusFilter('all')}
                 className={`onb-status-seg-btn ${statusFilter === 'all' ? 'active' : ''}`}
               >
-                전체 {summaryStats.total}
+                전체
               </button>
               <button
                 type="button"
                 onClick={() => setStatusFilter('pending')}
                 className={`onb-status-seg-btn ${statusFilter === 'pending' ? 'active' : ''}`}
               >
-                미완료 {summaryStats.pending}
+                미완료
               </button>
               <button
                 type="button"
                 onClick={() => setStatusFilter('completed')}
                 className={`onb-status-seg-btn ${statusFilter === 'completed' ? 'active' : ''}`}
               >
-                완료 {summaryStats.completed}
+                완료
               </button>
             </div>
 
@@ -451,16 +451,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({
                   {completedInPhase} / {totalInPhase} 완료
                 </span>
               </div>
-
-              {!isViewer && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenCreateModal(meta.key)}
-                  className="btn btn-secondary onb-section-add-btn"
-                >
-                  <Plus size={15} /> 추가
-                </button>
-              )}
             </div>
 
             {/* 데스크톱 & 태블릿용 정형 다열 테이블 */}

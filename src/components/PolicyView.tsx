@@ -16,7 +16,6 @@ import {
   RefreshCcw,
   Search,
   Globe,
-  ExternalLink,
   FileText,
   Plus,
   Edit2,
@@ -576,37 +575,21 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
               )}
             </div>
 
-            <a
-              href="https://sisun.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-secondary policy-external-btn"
-            >
-              <ExternalLink size={15} /> 시선닷컴
-            </a>
-
             {!isViewer && (
               <button
                 type="button"
                 onClick={handleOpenCreateModal}
                 className="btn btn-primary policy-add-main-btn"
               >
-                <Plus size={16} /> {currentMeta.label} 정책 등록
+                <Plus size={16} /> 정책 등록
               </button>
             )}
           </div>
         </div>
 
-        {/* 현재 선택된 도메인 헤더 요약 & 세부 영역(중분류) 퀵 탭 */}
-        <div className="policy-active-domain-bar">
-          <div className="policy-active-domain-info">
-            <span className={`policy-domain-pill is-${currentMeta.key}`}>
-              {currentMeta.label} ({currentMeta.enLabel})
-            </span>
-            <span className="policy-active-domain-desc">{currentMeta.desc}</span>
-          </div>
-
-          {subCategories.length > 1 && (
+        {/* 중분류 퀵 필터 (2개 이상일 때만 간결하게 노출) */}
+        {subCategories.length > 1 && (
+          <div className="policy-active-domain-bar">
             <div className="policy-subcat-chips">
               <button
                 type="button"
@@ -630,8 +613,8 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
                 </button>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* 2. 선택된 도메인 탭의 정책 목록 */}
@@ -790,9 +773,7 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
           >
             <div className="modal-header">
               <h3 className="modal-title">
-                {editingItem
-                  ? '시선닷컴 Front 정책 수정'
-                  : '시선닷컴 Front 신규 정책 등록'}
+                {editingItem ? '정책 수정' : '정책 등록'}
               </h3>
               <button
                 type="button"
@@ -818,7 +799,7 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
                     >
                       {DOMAIN_META_LIST.map((d) => (
                         <option key={d.key} value={d.key}>
-                          {d.label} ({d.enLabel})
+                          {d.label}
                         </option>
                       ))}
                     </select>
@@ -894,8 +875,6 @@ export const PolicyView: React.FC<PolicyViewProps> = ({
                   isViewer={isViewer}
                   uploaderName={currentUser.name || '시스템'}
                   storageFolder="policies"
-                  label="첨부 파일 (MS Office 정책서 · Excel · PPT · Word · PDF)"
-                  emptyHint="MS Office 정책서(.xlsx, .pptx, .docx) 또는 PDF 파일을 끌어다 놓거나 클릭하여 첨부하세요."
                   onAttachmentsChange={handleAttachmentsChange}
                   onShowToast={notify}
                 />

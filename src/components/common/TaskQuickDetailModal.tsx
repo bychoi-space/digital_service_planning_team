@@ -66,9 +66,9 @@ const PRIORITIES: { key: TaskPriority; label: string }[] = [
 ];
 
 const STATUSES: { key: TaskStatus; label: string; classKey: string }[] = [
-  { key: 'backlog', label: '대기 (Backlog)', classKey: 'status-backlog' },
-  { key: 'in_progress', label: '진행중 (In Progress)', classKey: 'status-in_progress' },
-  { key: 'done', label: '완료 (Done)', classKey: 'status-done' },
+  { key: 'backlog', label: '대기', classKey: 'status-backlog' },
+  { key: 'in_progress', label: '진행중', classKey: 'status-in_progress' },
+  { key: 'done', label: '완료', classKey: 'status-done' },
 ];
 
 function resolvePlanningLinkUrl(task: TaskItem): string {
@@ -268,11 +268,7 @@ export const TaskQuickDetailModal: React.FC<TaskQuickDetailModalProps> = ({
       >
         <div className="modal-header">
           <div className="tasks-modal-header-left">
-            <h3 className="modal-title">
-              {isViewer
-                ? '매핑 업무 상세 조회 (읽기 전용)'
-                : '매핑 업무 상세 조회 및 수정'}
-            </h3>
+            <h3 className="modal-title">업무 상세</h3>
             {isViewer && <span className="tasks-viewer-chip">조회 전용</span>}
           </div>
           <button
@@ -310,7 +306,6 @@ export const TaskQuickDetailModal: React.FC<TaskQuickDetailModalProps> = ({
                         </div>
                         <div className="tasks-modal-track-text">
                           <div className="tasks-modal-track-name">{config.label}</div>
-                          <div className="tasks-modal-track-en">{config.enLabel}</div>
                         </div>
                       </div>
                       {isSelected && (
@@ -376,7 +371,7 @@ export const TaskQuickDetailModal: React.FC<TaskQuickDetailModalProps> = ({
                     )}
                   {teamMembers.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} ({m.department || '서비스기획팀'})
+                      {m.name}
                     </option>
                   ))}
                 </select>
@@ -431,7 +426,6 @@ export const TaskQuickDetailModal: React.FC<TaskQuickDetailModalProps> = ({
                     <span className={`tasks-status-dot ${autoStatusCfg.classKey}`} />
                     <span>{autoStatusCfg.label}</span>
                   </span>
-                  <span className="tasks-auto-status-tag">일정 자동</span>
                 </div>
               </div>
             </div>

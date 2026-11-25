@@ -301,9 +301,8 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
       <div className="kpi-eval-steps-grid is-detail-page">
         {/* STEP 1: 본인 자가평가 */}
         <div
-          className={`card kpi-eval-step-card is-detail ${
-            hasSelfEvaluated ? 'is-completed-self' : 'is-pending'
-          }`}
+          className={`card kpi-eval-step-card is-detail ${hasSelfEvaluated ? 'is-completed-self' : 'is-pending'
+            }`}
         >
           <div className="kpi-eval-step-header">
             <div className="kpi-step-badge-wrap">
@@ -355,9 +354,8 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
 
         {/* STEP 2: 협업 다면평가 (무기명) */}
         <div
-          className={`card kpi-eval-step-card is-detail ${
-            peerInfo.count > 0 ? 'is-completed-peer' : 'is-pending'
-          }`}
+          className={`card kpi-eval-step-card is-detail ${peerInfo.count > 0 ? 'is-completed-peer' : 'is-pending'
+            }`}
         >
           <div className="kpi-eval-step-header">
             <div className="kpi-step-badge-wrap">
@@ -427,8 +425,7 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
 
         {/* STEP 3: 1차 팀장 평가 */}
         <div
-          className={`card kpi-eval-step-card is-detail ${
-            isLeaderKpi
+          className={`card kpi-eval-step-card is-detail ${isLeaderKpi
               ? hasSelfEvaluated
                 ? 'is-completed-leader'
                 : 'is-pending'
@@ -437,12 +434,12 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
                 : !hasSelfEvaluated
                   ? 'is-locked'
                   : 'is-pending'
-          }`}
+            }`}
         >
           <div className="kpi-eval-step-header">
             <div className="kpi-step-badge-wrap">
               <span className="kpi-step-num step-leader">STEP 3</span>
-              <span className="kpi-step-title">1차 팀장 평가 (서비스기획팀장)</span>
+              <span className="kpi-step-title">1차 팀장 평가</span>
               {isLeaderKpi ? (
                 <span className="kpi-step-pending-badge">팀장 본인 과제 (STEP 4 직행)</span>
               ) : leaderScore5 !== null ? (
@@ -506,20 +503,17 @@ export const KpiDetailPage: React.FC<KpiDetailPageProps> = ({
 
         {/* STEP 4: 최종 실장 평가 */}
         <div
-          className={`card kpi-eval-step-card is-detail ${
-            finalGrade
+          className={`card kpi-eval-step-card is-detail ${finalGrade
               ? 'is-completed-admin'
               : !hasSelfEvaluated || (!isLeaderKpi && leaderScore5 === null)
                 ? 'is-locked'
                 : 'is-pending'
-          }`}
+            }`}
         >
           <div className="kpi-eval-step-header">
             <div className="kpi-step-badge-wrap">
               <span className="kpi-step-num step-3">STEP 4</span>
-              <span className="kpi-step-title">
-                최종 실장 평가 (디지털마케팅실장 · 유은정 상무)
-              </span>
+              <span className="kpi-step-title">최종 실장 평가</span>
               {finalGrade ? (
                 <span className={`kpi-grade-chip grade-${finalGrade.toLowerCase()}`}>
                   최종 {finalGrade}등급 (가중 {evalMetrics.weightedPoint} / {item.weight}점)

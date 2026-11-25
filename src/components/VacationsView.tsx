@@ -110,9 +110,9 @@ const TASK_PRIORITIES: { key: TaskPriority; label: string; classKey: string }[] 
 ];
 
 const TASK_STATUSES: { key: TaskStatus; label: string; shortLabel: string; classKey: string }[] = [
-  { key: 'backlog', label: '대기 (Backlog)', shortLabel: '대기', classKey: 'status-backlog' },
-  { key: 'in_progress', label: '진행중 (In Progress)', shortLabel: '진행중', classKey: 'status-in_progress' },
-  { key: 'done', label: '완료 (Done)', shortLabel: '완료', classKey: 'status-done' },
+  { key: 'backlog', label: '대기', shortLabel: '대기', classKey: 'status-backlog' },
+  { key: 'in_progress', label: '진행중', shortLabel: '진행중', classKey: 'status-in_progress' },
+  { key: 'done', label: '완료', shortLabel: '완료', classKey: 'status-done' },
 ];
 
 function getDatePlusDaysString(days: number): string {
@@ -853,8 +853,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
         {/* 하단 필터 바: 파트별 토글 필터 칩 */}
         <div className="schedule-filter-bar">
           <div className="schedule-filter-group">
-            <span className="schedule-filter-label">일정 필터:</span>
-
             <div className="schedule-filter-chips">
               <button
                 type="button"
@@ -919,14 +917,14 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
             </div>
           </div>
 
-          {/* 진행/검토 중 업무만 보기 토글 체크박스 */}
+          {/* 진행중 업무만 보기 토글 체크박스 */}
           <label className="schedule-active-only-toggle">
             <input
               type="checkbox"
               checked={onlyActiveTasks}
               onChange={(e) => setOnlyActiveTasks(e.target.checked)}
             />
-            <span>진행·검토 중 업무만 캘린더에 표시</span>
+            <span>진행중 업무만 보기</span>
           </label>
         </div>
       </div>
@@ -936,19 +934,13 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
           <div className="card schedule-calendar-card">
             {/* 요일 헤더 (일: 레드, 토: 블루) */}
             <div className="schedule-weekdays">
-              <div className="schedule-weekday is-sun">
-                <span className="weekday-full">일 (Sun)</span>
-                <span className="weekday-short">일</span>
-              </div>
+              <div className="schedule-weekday is-sun">일</div>
               <div className="schedule-weekday">월</div>
               <div className="schedule-weekday">화</div>
               <div className="schedule-weekday">수</div>
               <div className="schedule-weekday">목</div>
               <div className="schedule-weekday">금</div>
-              <div className="schedule-weekday is-sat">
-                <span className="weekday-full">토 (Sat)</span>
-                <span className="weekday-short">토</span>
-              </div>
+              <div className="schedule-weekday is-sat">토</div>
             </div>
 
             {/* 달력 날짜 그리드 (7열 균등 분할) */}
@@ -1267,11 +1259,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title">
-                {editingVacation
-                  ? isViewer
-                    ? '휴가 상세 정보 (읽기 전용)'
-                    : '휴가 일정 수정'
-                  : '팀원 휴가 일정 등록'}
+                {editingVacation ? '휴가 상세' : '휴가 등록'}
               </h3>
               <button
                 type="button"
@@ -1631,11 +1619,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
             <div className="modal-header">
               <div className="tasks-modal-header-left">
                 <h3 className="modal-title">
-                  {editingTask
-                    ? isViewer
-                      ? '서비스기획 업무 상세 조회 (읽기 전용)'
-                      : '서비스기획 업무 상세 및 수정'
-                    : '새로운 서비스기획 업무 등록'}
+                  {editingTask ? '업무 상세' : '업무 등록'}
                 </h3>
                 {isViewer && <span className="tasks-viewer-chip">조회 전용</span>}
               </div>
@@ -1675,7 +1659,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             </div>
                             <div className="tasks-modal-track-text">
                               <div className="tasks-modal-track-name">{config.label}</div>
-                              <div className="tasks-modal-track-en">{config.enLabel}</div>
                             </div>
                           </div>
                           {isSelected && (
@@ -1743,7 +1726,7 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                     >
                       {teamMembers.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.name} ({m.department || '서비스기획팀'})
+                          {m.name}
                         </option>
                       ))}
                     </select>
@@ -1829,7 +1812,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                             <span className={`tasks-status-dot ${autoStatusCfg.classKey}`} />
                             <span>{autoStatusCfg.label}</span>
                           </span>
-                          <span className="tasks-auto-status-tag">일정 자동</span>
                         </div>
                       );
                     })()}
@@ -2103,16 +2085,6 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                 </div>
 
                 <div className="modal-body">
-                  <div className="kpi-modal-target-summary">
-                    <strong>
-                      해당 단계 기간:{' '}
-                      {ms.startDate === ms.endDate
-                        ? ms.startDate
-                        : `${ms.startDate} ~ ${ms.endDate}`}
-                    </strong>
-                    <span>{ms.actionGuide}</span>
-                  </div>
-
                   <div className="schedule-kpi-stats-grid">
                     <div className="schedule-kpi-stat-box">
                       <span className="schedule-kpi-stat-label">등록된 KPI 목표</span>

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { User } from './types';
 import { PlanningStorageService } from './services/storage';
-import { isSupabaseEnabled } from './services/supabase';
 import {
   resolveViewerModeBadgeText,
   resolveMobileViewerBadgeText,
@@ -29,7 +28,6 @@ import {
   Check,
   AlertTriangle,
   Info,
-  Database,
   FileDown,
   LogOut,
   KeyRound,
@@ -356,9 +354,6 @@ export function App() {
             <div className="brand-title">
               서비스기획팀 업무포털
             </div>
-            <div className="brand-sub">
-              Digital Service Planning Team
-            </div>
           </div>
           <button
             type="button"
@@ -473,7 +468,7 @@ export function App() {
 
         <div className="sidebar-mobile-footer">
           <div className="sidebar-mobile-user">
-            접속자: <strong>{currentUser.name}</strong> ({currentUser.department})
+            <strong>{currentUser.name}</strong> ({currentUser.department})
           </div>
           {isViewer && (
             <div className="sidebar-mobile-viewer-badge">
@@ -526,13 +521,8 @@ export function App() {
           </div>
 
           <div className="topbar-right">
-            {isSupabaseEnabled() && (
-              <span className="topbar-db-badge">
-                <Database size={14} className="topbar-db-icon" /> 클라우드 DB 연결됨 (Supabase)
-              </span>
-            )}
             <span className="topbar-user-info">
-              접속자: <strong className="topbar-user-name">{currentUser.name}</strong> ({currentUser.department})
+              <strong className="topbar-user-name">{currentUser.name}</strong> ({currentUser.department})
             </span>
             <button
               type="button"
@@ -645,15 +635,6 @@ export function App() {
               className="tasks-modal-form"
             >
               <div className="modal-body">
-                <div className="kpi-modal-target-summary">
-                  <strong>
-                    접속 계정: {currentUser.name} ({currentUser.department})
-                  </strong>
-                  <span>
-                    현재 사용 중인 비밀번호를 확인한 후 새로운 비밀번호로 안전하게 변경합니다.
-                  </span>
-                </div>
-
                 <div className="form-group">
                   <label className="form-label login-form-label">
                     <Lock size={14} className="login-label-icon" /> 현재 비밀번호 *

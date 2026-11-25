@@ -542,11 +542,6 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
     setSelectedIds(new Set(allOptionIds));
   };
 
-  const handleSelectDefaultMenus = () => {
-    if (isGenerating) return;
-    setSelectedIds(new Set(defaultSelectedIds));
-  };
-
   const handleSelectCurrentOnly = () => {
     if (isGenerating) return;
     setSelectedIds(resolveCurrentScreenOptionIds(activeTab, menuGroups));
@@ -827,14 +822,9 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
               <span className="pdf-modal-icon-badge">
                 <FileDown size={18} />
               </span>
-              <div>
-                <h3 id="pdf-export-modal-title" className="modal-title">
-                  포털 화면 PDF 다운로드
-                </h3>
-                <p className="pdf-modal-subtitle">
-                  다운로드할 메뉴와 세부 탭을 선택하면 하나의 PDF 파일로 병합하여 저장합니다.
-                </p>
-              </div>
+              <h3 id="pdf-export-modal-title" className="modal-title">
+                포털 화면 PDF 다운로드
+              </h3>
             </div>
             <button
               type="button"
@@ -855,18 +845,10 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                 <button
                   type="button"
                   disabled={isGenerating}
-                  onClick={handleSelectDefaultMenus}
-                  className="btn btn-secondary pdf-quick-btn"
-                >
-                  8개 메뉴 기본 선택
-                </button>
-                <button
-                  type="button"
-                  disabled={isGenerating}
                   onClick={handleSelectAll}
                   className={`btn btn-secondary pdf-quick-btn ${isAllChecked ? 'is-active' : ''}`}
                 >
-                  세부 탭 전체 선택
+                  전체 선택
                 </button>
                 <button
                   type="button"
