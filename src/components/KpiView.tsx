@@ -728,8 +728,11 @@ export const KpiView: React.FC<KpiViewProps> = ({
     return Array.from(names);
   }, [teamMembers, peerBaseKpis, currentUser.name]);
 
-  // 담당자별 KPI 그룹 및 가중치 합계·평균 산출 (중단 중복 카드 대신 테이블 내 그룹 써머리 행으로 통합)
+  // 담당자별 KPI 그룹 및 가중치 합계·평균·수행 과제 진척도 산출
   const ownerGroups = useMemo(() => {
+    const taskById = new Map<string, TaskItem>();
+    tasks.forEach((t) => taskById.set(t.id, t));
+
     const map = new Map<
       string,
       {
@@ -739,6 +742,8 @@ export const KpiView: React.FC<KpiViewProps> = ({
         track: KpiTrack;
         items: KpiItem[];
         kpiCount: number;
+        mappedKpiCount: number;
+        linkedTaskIdSet: Set<string>;
         selfDoneCount: number;
         leaderDoneCount: number;
         finalizedCount: number;
@@ -757,6 +762,7 @@ export const KpiView: React.FC<KpiViewProps> = ({
       const evalInfo = getKpiEvalMetrics(item);
       const hasSelf = checkHasSelfEval(item);
       const hasLeader = getLeaderScore5(item) !== null;
+      const validLinkedIds = (item.linkedTaskIds || []).filter((tid) => taskById.has(tid));
 
       const existing = map.get(ownerKey) || {
         ownerKey,
@@ -765,6 +771,8 @@ export const KpiView: React.FC<KpiViewProps> = ({
         track: (item.track || resolveMemberDefaultTrack(ownerKey)) as KpiTrack,
         items: [],
         kpiCount: 0,
+        mappedKpiCount: 0,
+        linkedTaskIdSet: new Set<string>(),
         selfDoneCount: 0,
         leaderDoneCount: 0,
         finalizedCount: 0,
@@ -778,6 +786,11 @@ export const KpiView: React.FC<KpiViewProps> = ({
       existing.items.push(item);
       existing.kpiCount += 1;
       existing.totalWeight += evalInfo.weight;
+
+      if (validLinkedIds.length > 0) {
+        existing.mappedKpiCount += 1;
+        validLinkedIds.forEach((tid) => existing.linkedTaskIdSet.add(tid));
+      }
 
       if (hasSelf) {
         existing.selfDoneCount += 1;
@@ -805,6 +818,8 @@ export const KpiView: React.FC<KpiViewProps> = ({
       퍼블리싱: 2,
     };
 
+    const isBeforeEvalStart = todayStr < activeCycleSchedule.selfEvalStart;
+
     return Array.from(map.values())
       .map((entry) => {
         const isAllFinalized = entry.kpiCount > 0 && entry.finalizedCount === entry.kpiCount;
@@ -820,6 +835,18 @@ export const KpiView: React.FC<KpiViewProps> = ({
             : null;
         const overallGrade = isAllFinalized ? resolveGradeFromHundredScore(finalScore100) : null;
 
+        const uniqueLinkedIds = Array.from(entry.linkedTaskIdSet);
+        const linkedTaskCount = uniqueLinkedIds.length;
+        const doneTaskCount = uniqueLinkedIds.filter(
+          (tid) => taskById.get(tid)?.status === 'done'
+        ).length;
+
+        const isPreEvalSummaryMode =
+          isBeforeEvalStart &&
+          entry.selfDoneCount === 0 &&
+          entry.leaderDoneCount === 0 &&
+          entry.finalizedCount === 0;
+
         return {
           ...entry,
           hasSingleCycle,
@@ -827,6 +854,9 @@ export const KpiView: React.FC<KpiViewProps> = ({
           finalScore100,
           overallGrade,
           isAllFinalized,
+          linkedTaskCount,
+          doneTaskCount,
+          isPreEvalSummaryMode,
         };
       })
       .sort((a, b) => {
@@ -838,7 +868,7 @@ export const KpiView: React.FC<KpiViewProps> = ({
         if (aLead !== bLead) return aLead - bLead;
         return a.ownerLabel.localeCompare(b.ownerLabel, 'ko-KR');
       });
-  }, [currentKpis]);
+  }, [currentKpis, tasks, todayStr, activeCycleSchedule.selfEvalStart]);
 
   const handleSaveScheduleOverride = async (nextSchedule: KpiCycleSchedule) => {
     const res = await PlanningStorageService.saveKpiCycleScheduleOverride(nextSchedule);
@@ -925,48 +955,84 @@ export const KpiView: React.FC<KpiViewProps> = ({
     );
   };
 
+  const showModeSwitch = !isDetailRouteActive && (isTeamMember || isTeamLead);
+
+  const renderModeSwitch = () => {
+    if (!showModeSwitch) return null;
+    return (
+      <div className="kpi-mode-switch" role="tablist" aria-label="KPI 화면 모드 전환">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={effectiveModeTab === 'evaluation'}
+          onClick={() => navigateToKpiMode('evaluation')}
+          className={`kpi-mode-switch-btn ${
+            effectiveModeTab === 'evaluation' ? 'active' : ''
+          }`}
+        >
+          <Award size={15} />
+          <span>{isTeamMember ? '내 KPI 목표 · 평가' : '소속 구성원 KPI 평가'}</span>
+          <span className="kpi-mode-switch-count">{periodEvalKpis.length}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={effectiveModeTab === 'peer_feedback'}
+          onClick={() => navigateToKpiMode('peer_feedback')}
+          className={`kpi-mode-switch-btn ${
+            effectiveModeTab === 'peer_feedback' ? 'active' : ''
+          }`}
+        >
+          <MessageSquare size={15} />
+          <span>협업 다면평가 (무기명)</span>
+          <span className="kpi-mode-switch-count">{periodPeerKpis.length}</span>
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className="kpi-container">
-      {/* 모드 전환 탭 (팀원·팀장에게만 간결하게 표시) */}
-      {!isDetailRouteActive && (isTeamMember || isTeamLead) && (
-        <div className="kpi-top-mode-bar">
-          <div className="kpi-mode-switch" role="tablist" aria-label="KPI 화면 모드 전환">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={effectiveModeTab === 'evaluation'}
-              onClick={() => navigateToKpiMode('evaluation')}
-              className={`kpi-mode-switch-btn ${
-                effectiveModeTab === 'evaluation' ? 'active' : ''
-              }`}
-            >
-              <Award size={15} />
-              <span>{isTeamMember ? '내 KPI 목표 · 평가' : '소속 구성원 KPI 평가'}</span>
-              <span className="kpi-mode-switch-count">{periodEvalKpis.length}</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={effectiveModeTab === 'peer_feedback'}
-              onClick={() => navigateToKpiMode('peer_feedback')}
-              className={`kpi-mode-switch-btn ${
-                effectiveModeTab === 'peer_feedback' ? 'active' : ''
-              }`}
-            >
-              <MessageSquare size={15} />
-              <span>협업 다면평가 (무기명)</span>
-              <span className="kpi-mode-switch-count">{periodPeerKpis.length}</span>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* =====================================================================
           모드 B: 사내 · 유관부서 무기명 협업 다면평가 전용 화면 (개인 점수·등급 완전 비공개)
           ===================================================================== */}
       {effectiveModeTab === 'peer_feedback' ? (
         <>
           <div className="card kpi-control-card">
+            {showModeSwitch && (
+              <div className="kpi-control-header-row">
+                {renderModeSwitch()}
+                <div className="kpi-period-selector-group">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="form-select kpi-year-select"
+                    aria-label="평가 연도 선택"
+                  >
+                    {availableYears.map((yr) => (
+                      <option key={yr} value={yr}>
+                        {yr}년
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="kpi-quarter-tabs">
+                    {QUARTERS.map((q) => (
+                      <button
+                        key={q.key}
+                        type="button"
+                        onClick={() => setSelectedQuarter(q.key)}
+                        className={`kpi-quarter-btn ${selectedQuarter === q.key ? 'active' : ''}`}
+                      >
+                        <span className="quarter-label-full">{q.label}</span>
+                        <span className="quarter-label-short">{q.shortLabel}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="kpi-unified-toolbar">
               <div className="tasks-track-tabs">
                 <button
@@ -999,34 +1065,36 @@ export const KpiView: React.FC<KpiViewProps> = ({
               </div>
 
               <div className="kpi-toolbar-right">
-                <div className="kpi-period-selector-group">
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(Number(e.target.value))}
-                    className="form-select kpi-year-select"
-                    aria-label="평가 연도 선택"
-                  >
-                    {availableYears.map((yr) => (
-                      <option key={yr} value={yr}>
-                        {yr}년
-                      </option>
-                    ))}
-                  </select>
+                {!showModeSwitch && (
+                  <div className="kpi-period-selector-group">
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(Number(e.target.value))}
+                      className="form-select kpi-year-select"
+                      aria-label="평가 연도 선택"
+                    >
+                      {availableYears.map((yr) => (
+                        <option key={yr} value={yr}>
+                          {yr}년
+                        </option>
+                      ))}
+                    </select>
 
-                  <div className="kpi-quarter-tabs">
-                    {QUARTERS.map((q) => (
-                      <button
-                        key={q.key}
-                        type="button"
-                        onClick={() => setSelectedQuarter(q.key)}
-                        className={`kpi-quarter-btn ${selectedQuarter === q.key ? 'active' : ''}`}
-                      >
-                        <span className="quarter-label-full">{q.label}</span>
-                        <span className="quarter-label-short">{q.shortLabel}</span>
-                      </button>
-                    ))}
+                    <div className="kpi-quarter-tabs">
+                      {QUARTERS.map((q) => (
+                        <button
+                          key={q.key}
+                          type="button"
+                          onClick={() => setSelectedQuarter(q.key)}
+                          className={`kpi-quarter-btn ${selectedQuarter === q.key ? 'active' : ''}`}
+                        >
+                          <span className="quarter-label-full">{q.label}</span>
+                          <span className="quarter-label-short">{q.shortLabel}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <select
                   value={peerOwnerFilter}
@@ -1213,6 +1281,52 @@ export const KpiView: React.FC<KpiViewProps> = ({
            ===================================================================== */
         <>
           <div className="card kpi-control-card">
+            {showModeSwitch && (
+              <div className="kpi-control-header-row">
+                {renderModeSwitch()}
+                <div className="kpi-toolbar-right">
+                  <div className="kpi-period-selector-group">
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(Number(e.target.value))}
+                      className="form-select kpi-year-select"
+                      aria-label="평가 연도 선택"
+                    >
+                      {availableYears.map((yr) => (
+                        <option key={yr} value={yr}>
+                          {yr}년
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="kpi-quarter-tabs">
+                      {QUARTERS.map((q) => (
+                        <button
+                          key={q.key}
+                          type="button"
+                          onClick={() => setSelectedQuarter(q.key)}
+                          className={`kpi-quarter-btn ${selectedQuarter === q.key ? 'active' : ''}`}
+                        >
+                          <span className="quarter-label-full">{q.label}</span>
+                          <span className="quarter-label-short">{q.shortLabel}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsFrameworkOpen((prev) => !prev)}
+                    className="btn btn-secondary kpi-framework-toggle-btn"
+                  >
+                    <ShieldCheck size={15} />
+                    <span>표준 KPI · 평가 기준</span>
+                    {isFrameworkOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="kpi-unified-toolbar">
               <div className="tasks-track-tabs">
                 <button
@@ -1247,34 +1361,36 @@ export const KpiView: React.FC<KpiViewProps> = ({
               </div>
 
               <div className="kpi-toolbar-right">
-                <div className="kpi-period-selector-group">
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(Number(e.target.value))}
-                    className="form-select kpi-year-select"
-                    aria-label="평가 연도 선택"
-                  >
-                    {availableYears.map((yr) => (
-                      <option key={yr} value={yr}>
-                        {yr}년
-                      </option>
-                    ))}
-                  </select>
+                {!showModeSwitch && (
+                  <div className="kpi-period-selector-group">
+                    <select
+                      value={selectedYear}
+                      onChange={(e) => setSelectedYear(Number(e.target.value))}
+                      className="form-select kpi-year-select"
+                      aria-label="평가 연도 선택"
+                    >
+                      {availableYears.map((yr) => (
+                        <option key={yr} value={yr}>
+                          {yr}년
+                        </option>
+                      ))}
+                    </select>
 
-                  <div className="kpi-quarter-tabs">
-                    {QUARTERS.map((q) => (
-                      <button
-                        key={q.key}
-                        type="button"
-                        onClick={() => setSelectedQuarter(q.key)}
-                        className={`kpi-quarter-btn ${selectedQuarter === q.key ? 'active' : ''}`}
-                      >
-                        <span className="quarter-label-full">{q.label}</span>
-                        <span className="quarter-label-short">{q.shortLabel}</span>
-                      </button>
-                    ))}
+                    <div className="kpi-quarter-tabs">
+                      {QUARTERS.map((q) => (
+                        <button
+                          key={q.key}
+                          type="button"
+                          onClick={() => setSelectedQuarter(q.key)}
+                          className={`kpi-quarter-btn ${selectedQuarter === q.key ? 'active' : ''}`}
+                        >
+                          <span className="quarter-label-full">{q.label}</span>
+                          <span className="quarter-label-short">{q.shortLabel}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {canViewAllOrgKpis && (
                   <select
@@ -1292,15 +1408,17 @@ export const KpiView: React.FC<KpiViewProps> = ({
                   </select>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => setIsFrameworkOpen((prev) => !prev)}
-                  className="btn btn-secondary kpi-framework-toggle-btn"
-                >
-                  <ShieldCheck size={15} />
-                  <span>파트별 표준 KPI · 평가 기준</span>
-                  {isFrameworkOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                </button>
+                {!showModeSwitch && (
+                  <button
+                    type="button"
+                    onClick={() => setIsFrameworkOpen((prev) => !prev)}
+                    className="btn btn-secondary kpi-framework-toggle-btn"
+                  >
+                    <ShieldCheck size={15} />
+                    <span>표준 KPI · 평가 기준</span>
+                    {isFrameworkOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1365,8 +1483,8 @@ export const KpiView: React.FC<KpiViewProps> = ({
                 <table className="kpi-list-table">
                   <thead>
                     <tr>
-                      <th className="kpi-col-cycle">구분</th>
-                      <th className="kpi-col-title">KPI 목표명</th>
+                      <th className="kpi-col-cycle">영역 구분</th>
+                      <th className="kpi-col-title">KPI 목표명 및 달성 기준(DoD)</th>
                       <th className="kpi-col-weight">가중치</th>
                       <th className="kpi-col-tasks">연결 과제</th>
                       <th className="kpi-col-self">자가평가</th>
@@ -1383,6 +1501,10 @@ export const KpiView: React.FC<KpiViewProps> = ({
                       const GroupTrackIcon = groupTrackCfg.icon;
                       const showLeaderStat =
                         !group.isTeam && !isTeamLeadName(group.ownerKey);
+                      const evalWindowText = formatShortDateRange(
+                        activeCycleSchedule.selfEvalStart,
+                        activeCycleSchedule.finalEvalEnd
+                      );
 
                       return (
                         <React.Fragment key={group.ownerKey}>
@@ -1415,48 +1537,83 @@ export const KpiView: React.FC<KpiViewProps> = ({
                                 </div>
 
                                 <div className="kpi-owner-group-right">
-                                  <span className="kpi-group-progress-meta">
-                                    자가 <strong>{group.selfDoneCount}/{group.kpiCount}</strong>
-                                    {showLeaderStat && (
-                                      <>
-                                        {' '}
-                                        · 1차{' '}
+                                  {group.isPreEvalSummaryMode ? (
+                                    <>
+                                      <span className="kpi-group-progress-meta">
+                                        과제 매핑{' '}
                                         <strong>
-                                          {group.leaderDoneCount}/{group.kpiCount}
+                                          {group.mappedKpiCount}/{group.kpiCount}
+                                        </strong>{' '}
+                                        · 연결 업무{' '}
+                                        <strong>{group.linkedTaskCount}건</strong>
+                                        {group.doneTaskCount > 0
+                                          ? ` (완료 ${group.doneTaskCount})`
+                                          : ''}
+                                      </span>
+                                      <span
+                                        className="kpi-scorecard-divider"
+                                        aria-hidden="true"
+                                      />
+                                      <div className="kpi-scorecard-inline-metric is-aligned">
+                                        <span className="kpi-scorecard-metric-label">
+                                          공식 평가
+                                        </span>
+                                        <strong className="kpi-scorecard-metric-val is-schedule">
+                                          {evalWindowText}
                                         </strong>
-                                      </>
-                                    )}{' '}
-                                    · 최종{' '}
-                                    <strong>{group.finalizedCount}/{group.kpiCount}</strong>
-                                  </span>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="kpi-group-progress-meta">
+                                        자가{' '}
+                                        <strong>
+                                          {group.selfDoneCount}/{group.kpiCount}
+                                        </strong>
+                                        {showLeaderStat && (
+                                          <>
+                                            {' '}
+                                            · 1차{' '}
+                                            <strong>
+                                              {group.leaderDoneCount}/{group.kpiCount}
+                                            </strong>
+                                          </>
+                                        )}{' '}
+                                        · 최종{' '}
+                                        <strong>
+                                          {group.finalizedCount}/{group.kpiCount}
+                                        </strong>
+                                      </span>
 
-                                  <span
-                                    className="kpi-scorecard-divider"
-                                    aria-hidden="true"
-                                  />
+                                      <span
+                                        className="kpi-scorecard-divider"
+                                        aria-hidden="true"
+                                      />
 
-                                  <div className="kpi-scorecard-inline-metric">
-                                    <span className="kpi-scorecard-metric-label">
-                                      {group.isAllFinalized
-                                        ? '확정 점수'
-                                        : '1~3단계 평균'}
-                                    </span>
-                                    <strong className="kpi-scorecard-metric-val is-highlight">
-                                      {group.isAllFinalized &&
-                                      group.finalScore100 !== null
-                                        ? `${group.finalScore100}점`
-                                        : group.interimAvg5 !== null
-                                          ? `${group.interimAvg5.toFixed(1)}점`
-                                          : '미산출'}
-                                    </strong>
-                                  </div>
+                                      <div className="kpi-scorecard-inline-metric is-aligned">
+                                        <span className="kpi-scorecard-metric-label">
+                                          {group.isAllFinalized
+                                            ? '확정 점수'
+                                            : '1~3단계 평균'}
+                                        </span>
+                                        <strong className="kpi-scorecard-metric-val is-highlight">
+                                          {group.isAllFinalized &&
+                                          group.finalScore100 !== null
+                                            ? `${group.finalScore100}점`
+                                            : group.interimAvg5 !== null
+                                              ? `${group.interimAvg5.toFixed(1)}점`
+                                              : '집계 대기'}
+                                        </strong>
+                                      </div>
 
-                                  {group.isAllFinalized && group.overallGrade && (
-                                    <span
-                                      className={`kpi-grade-chip grade-${group.overallGrade.toLowerCase()}`}
-                                    >
-                                      최종 {group.overallGrade}등급
-                                    </span>
+                                      {group.isAllFinalized && group.overallGrade && (
+                                        <span
+                                          className={`kpi-grade-chip grade-${group.overallGrade.toLowerCase()}`}
+                                        >
+                                          최종 {group.overallGrade}등급
+                                        </span>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               </div>
@@ -1466,9 +1623,19 @@ export const KpiView: React.FC<KpiViewProps> = ({
                           {[...group.items]
                             .sort((a, b) => resolveKpiSlotIndex(a) - resolveKpiSlotIndex(b))
                             .map((item) => {
-                            const cycleBadgeLabel =
-                              QUARTERS.find((q) => q.key === item.quarter)?.shortLabel ||
-                              item.quarter;
+                            const slotIdx = resolveKpiSlotIndex(item);
+                            const itemTemplates =
+                              STANDARD_KPI_TEMPLATES[item.track || group.track] ||
+                              STANDARD_KPI_TEMPLATES['기획'];
+                            const matchedTemplate = itemTemplates.find(
+                              (tpl) => tpl.slotIndex === slotIdx
+                            );
+                            const pillarLabel = matchedTemplate
+                              ? matchedTemplate.pillar
+                              : slotIdx <= 3
+                                ? `목표 ${slotIdx}`
+                                : '개별 목표';
+
                             const isLeaderKpi = isLeaderOwnedKpiItem(item);
                             const selfScore5 = getSelfScore5(item);
                             const peerInfo = getPeerScore5Info(item);
@@ -1476,8 +1643,21 @@ export const KpiView: React.FC<KpiViewProps> = ({
                             const finalGrade = getValidFinalGrade(item);
                             const evalMetrics = getKpiEvalMetrics(item);
                             const linkedTasks = getLinkedTasksForKpi(item);
+                            const doneLinkedCount = linkedTasks.filter(
+                              (t) => t.status === 'done'
+                            ).length;
                             const itemAccess = getPhaseAccessForKpi(item);
                             const canQuickMap = canEditKpiGoal(item) && itemAccess.canMapTasks;
+                            const isBeforeEval =
+                              !itemAccess.isEvalPeriodActive && !itemAccess.isLocked;
+
+                            const linkedTasksTooltip =
+                              linkedTasks.length > 0
+                                ? `연결 과제 (${linkedTasks.length}건 · 완료 ${doneLinkedCount}건)\n` +
+                                  linkedTasks
+                                    .map((t, idx) => `${idx + 1}. [${t.track}] ${t.title}`)
+                                    .join('\n')
+                                : '실무 수행 근거 과제 매핑';
 
                             return (
                               <tr
@@ -1486,13 +1666,23 @@ export const KpiView: React.FC<KpiViewProps> = ({
                                 className="kpi-table-row"
                               >
                                 <td className="kpi-col-cycle">
-                                  <span className="kpi-cycle-type-badge is-quarter">
-                                    {cycleBadgeLabel}
+                                  <span className={`kpi-pillar-chip ${groupTrackCfg.classKey}`}>
+                                    {pillarLabel}
                                   </span>
                                 </td>
 
                                 <td className="kpi-col-title">
-                                  <span className="kpi-table-title">{item.title}</span>
+                                  <div className="kpi-title-cell">
+                                    <span className="kpi-table-title">{item.title}</span>
+                                    {item.targetValue && (
+                                      <span
+                                        className="kpi-table-subdesc"
+                                        title={`달성 기준(DoD): ${item.targetValue}`}
+                                      >
+                                        {item.targetValue}
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
 
                                 <td className="kpi-col-weight">
@@ -1510,12 +1700,14 @@ export const KpiView: React.FC<KpiViewProps> = ({
                                       className={`kpi-quick-map-btn ${
                                         linkedTasks.length > 0 ? 'has-tasks' : 'is-empty'
                                       }`}
-                                      title="클릭하여 실무 수행 근거 과제 매핑"
+                                      title={linkedTasksTooltip}
                                     >
                                       <LinkIcon size={14} />
                                       <span>
                                         {linkedTasks.length > 0
-                                          ? `${linkedTasks.length}건 · 매핑`
+                                          ? doneLinkedCount > 0
+                                            ? `${linkedTasks.length}건 (완료 ${doneLinkedCount})`
+                                            : `${linkedTasks.length}건 매핑`
                                           : '+ 과제 매핑'}
                                       </span>
                                     </button>
@@ -1524,66 +1716,72 @@ export const KpiView: React.FC<KpiViewProps> = ({
                                       className={`kpi-stage-pill ${
                                         linkedTasks.length > 0 ? 'is-done-task' : 'is-wait'
                                       }`}
+                                      title={linkedTasksTooltip}
                                     >
                                       {linkedTasks.length > 0
-                                        ? `${linkedTasks.length}건 연결`
+                                        ? doneLinkedCount > 0
+                                          ? `${linkedTasks.length}건 (완료 ${doneLinkedCount})`
+                                          : `${linkedTasks.length}건 연결`
                                         : '미연결'}
                                     </span>
                                   )}
                                 </td>
 
                                 <td className="kpi-col-self">
-                                  <span
-                                    className={`kpi-stage-pill ${
-                                      selfScore5 !== null ? 'is-done-self' : 'is-wait'
-                                    }`}
-                                  >
-                                    {selfScore5 !== null
-                                      ? `${selfScore5.toFixed(1)}점`
-                                      : '대기'}
-                                  </span>
+                                  {selfScore5 !== null ? (
+                                    <span className="kpi-stage-pill is-done-self">
+                                      {selfScore5.toFixed(1)}점
+                                    </span>
+                                  ) : isBeforeEval ? (
+                                    <span className="kpi-stage-pre">평가전</span>
+                                  ) : (
+                                    <span className="kpi-stage-pill is-wait">미등록</span>
+                                  )}
                                 </td>
 
                                 <td className="kpi-col-peer">
-                                  <span
-                                    className={`kpi-stage-pill ${
-                                      peerInfo.avg !== null ? 'is-done-peer' : 'is-wait'
-                                    }`}
-                                  >
-                                    {peerInfo.avg !== null
-                                      ? `${peerInfo.avg.toFixed(1)}점 (${peerInfo.count}명)`
-                                      : '대기'}
-                                  </span>
+                                  {peerInfo.avg !== null ? (
+                                    <span className="kpi-stage-pill is-done-peer">
+                                      {peerInfo.avg.toFixed(1)}점 ({peerInfo.count}명)
+                                    </span>
+                                  ) : isBeforeEval ? (
+                                    <span className="kpi-stage-pre">평가전</span>
+                                  ) : (
+                                    <span className="kpi-stage-pill is-wait">참여대기</span>
+                                  )}
                                 </td>
 
                                 <td className="kpi-col-leader">
                                   {isLeaderKpi ? (
-                                    <span className="kpi-stage-pill is-wait">본인과제</span>
-                                  ) : (
                                     <span
-                                      className={`kpi-stage-pill ${
-                                        leaderScore5 !== null ? 'is-done-self' : 'is-wait'
-                                      }`}
+                                      className="kpi-stage-na"
+                                      title="팀장 본인 과제는 STEP 4 실장 최종 평가로 직행합니다"
                                     >
-                                      {leaderScore5 !== null
-                                        ? `${leaderScore5.toFixed(1)}점`
-                                        : '대기'}
+                                      해당없음
                                     </span>
+                                  ) : leaderScore5 !== null ? (
+                                    <span className="kpi-stage-pill is-done-self">
+                                      {leaderScore5.toFixed(1)}점
+                                    </span>
+                                  ) : isBeforeEval ? (
+                                    <span className="kpi-stage-pre">평가전</span>
+                                  ) : (
+                                    <span className="kpi-stage-pill is-wait">대기</span>
                                   )}
                                 </td>
 
                                 <td className="kpi-col-final">
-                                  <span
-                                    className={`kpi-stage-pill ${
-                                      finalGrade
-                                        ? `is-done-final grade-${finalGrade.toLowerCase()}`
-                                        : 'is-wait'
-                                    }`}
-                                  >
-                                    {finalGrade
-                                      ? `${finalGrade}등급 (${evalMetrics.weightedPoint}점)`
-                                      : '대기'}
-                                  </span>
+                                  {finalGrade ? (
+                                    <span
+                                      className={`kpi-stage-pill is-done-final grade-${finalGrade.toLowerCase()}`}
+                                    >
+                                      {finalGrade}등급 ({evalMetrics.weightedPoint}점)
+                                    </span>
+                                  ) : isBeforeEval ? (
+                                    <span className="kpi-stage-pre">평가전</span>
+                                  ) : (
+                                    <span className="kpi-stage-pill is-wait">미확정</span>
+                                  )}
                                 </td>
 
                                 <td className="kpi-col-action">

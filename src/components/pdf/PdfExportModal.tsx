@@ -94,8 +94,8 @@ function buildMenuGroups(currentUser: User): PdfMenuGroup[] {
   const kpiOptions: PdfSubOption[] = isCrossDept
     ? [{ id: 'kpi:peer_feedback', label: '협업 다면평가 (무기명)', defaultChecked: true }]
     : isDivisionOrExec
-    ? [{ id: 'kpi:evaluation', label: '소속 구성원 KPI 평가 현황', defaultChecked: true }]
-    : [
+      ? [{ id: 'kpi:evaluation', label: '소속 구성원 KPI 평가 현황', defaultChecked: true }]
+      : [
         {
           id: 'kpi:evaluation',
           label: kpiRole === 'team_member' ? '내 KPI 목표 · 평가' : '소속 구성원 KPI 평가',
@@ -249,6 +249,8 @@ const ATOMIC_BLOCK_SELECTOR = [
   '.schedule-week-row',
   '.schedule-list-row',
   '.kpi-cycle-schedule-card',
+  '.kpi-list-table tbody tr',
+  '.kpi-peer-blind-card',
   '.kpi-eval-card',
   '.kpi-peer-card',
   '.winfo-table tbody tr',
@@ -342,7 +344,7 @@ function warmCharacterSpriteCache(): Promise<void> {
   ).then(() => undefined);
 }
 
-const noopToast = () => {};
+const noopToast = () => { };
 
 export const PdfExportModal: React.FC<PdfExportModalProps> = ({
   isOpen,
@@ -768,8 +770,8 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
       const singleMenuTitle =
         selectedMenuCount === 1
           ? menuGroups
-              .find((g) => g.options.some((o) => selectedIds.has(o.id)))
-              ?.title.replace(/\s+/g, '_')
+            .find((g) => g.options.some((o) => selectedIds.has(o.id)))
+            ?.title.replace(/\s+/g, '_')
           : null;
 
       const fileName = singleMenuTitle
@@ -914,9 +916,8 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                         aria-pressed={isGroupAll}
                       >
                         <span
-                          className={`pdf-checkbox-box ${
-                            isGroupAll ? 'is-checked' : isGroupPartial ? 'is-partial' : ''
-                          }`}
+                          className={`pdf-checkbox-box ${isGroupAll ? 'is-checked' : isGroupPartial ? 'is-partial' : ''
+                            }`}
                         >
                           {isGroupAll && <Check size={14} strokeWidth={3} />}
                           {isGroupPartial && <Minus size={14} strokeWidth={3} />}
@@ -934,8 +935,8 @@ export const PdfExportModal: React.FC<PdfExportModalProps> = ({
                         {hasMultipleSubTabs
                           ? `${checkedCount} / ${totalCount}개 탭`
                           : checkedCount > 0
-                          ? '포함됨'
-                          : '미포함'}
+                            ? '포함됨'
+                            : '미포함'}
                       </span>
                     </div>
 

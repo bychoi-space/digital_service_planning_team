@@ -165,6 +165,42 @@ function summarizeCalendarTaskTitle(rawTitle: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+// 일자별 더보기 팝업용 과제명 정리 (좌측 파트 배지와 중복되는 동일 말머리만 제거하고 [UI개편] 등 의미 말머리는 보존)
+function cleanDayModalTaskTitle(rawTitle: string, track: TaskTrack): string {
+  const trimmed = (rawTitle || '').trim();
+  if (track === '기획') {
+    return trimmed.replace(/^\[(?:기획|서비스기획)\]\s*/i, '');
+  }
+  if (track === '디자인') {
+    return trimmed.replace(/^\[디자인\]\s*/i, '');
+  }
+  if (track === '퍼블리싱') {
+    return trimmed.replace(/^\[(?:퍼블|퍼블리싱)\]\s*/i, '');
+  }
+  return trimmed;
+}
+
+function resolveDayModalWorkspaceUrl(task: TaskItem): string | null {
+  const candidate =
+    task.artifactUrl && !task.artifactUrl.includes('figma.com')
+      ? task.artifactUrl
+      : task.links?.find((l) => l.url && !l.url.includes('figma.com'))?.url || '';
+  const match = candidate.match(/[?&]project=([a-zA-Z0-9_-]+)/);
+  const wpId = match ? match[1] : task.workspaceProjectId || null;
+  if (wpId) {
+    return `https://bychoi-space.github.io/workspace/viewer.html?project=${wpId}`;
+  }
+  return candidate.trim() || null;
+}
+
+function resolveDayModalFigmaUrl(task: TaskItem): string | null {
+  if (task.figmaUrl?.trim()) return task.figmaUrl.trim();
+  const fromLinks = task.links?.find((l) => l.url && l.url.includes('figma.com'))?.url;
+  if (fromLinks) return fromLinks;
+  if (task.artifactUrl && task.artifactUrl.includes('figma.com')) return task.artifactUrl;
+  return null;
+}
+
 export const VacationsView: React.FC<VacationsViewProps> = ({
   currentUser,
   isViewer,
@@ -210,14 +246,16 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     schedule: KpiCycleSchedule;
   } | null>(null);
 
-  // 일자별 전체 일정 더보기 모달 (데스크톱/태블릿용)
-  const [selectedDayDetail, setSelectedDayDetail] = useState<{
-    dateStr: string;
-    dayNum: number;
-    kpiMilestones: KpiCalendarMilestone[];
-    vacations: VacationItem[];
-    tasks: TaskItem[];
-  } | null>(null);
+  // 일자별 전체 일정 더보기 모달 (데스크톱/태블릿용 - 상세 확인 후 복귀를 위해 선택 일자 상태 유지)
+  const [selectedDayDateStr, setSelectedDayDateStr] = useState<string | null>(null);
+  const [dayModalFilter, setDayModalFilter] = useState<
+    'all' | 'kpi' | 'vacation' | TaskTrack
+  >('all');
+
+  const handleOpenDayDetail = (dateStr: string) => {
+    setSelectedDayDateStr(dateStr);
+    setDayModalFilter('all');
+  };
 
   // 실제로 KPI가 1건 이상 등록된 평가 기수의 자동/조정 마일스톤 산출
   const activeKpiMilestones = useMemo(
@@ -679,8 +717,8 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     const dayKpiMilestones =
       filterType === 'all' || filterType === 'kpi'
         ? activeKpiMilestones.filter(
-            (ms) => dateStr >= ms.startDate && dateStr <= ms.endDate
-          )
+          (ms) => dateStr >= ms.startDate && dateStr <= ms.endDate
+        )
         : [];
 
     const dayVacations =
@@ -692,11 +730,11 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
       filterType === 'vacation' || filterType === 'kpi'
         ? []
         : tasks.filter(
-            (t) =>
-              Boolean(t.startDate && t.dueDate) &&
-              dateStr >= t.startDate &&
-              dateStr <= t.dueDate
-          );
+          (t) =>
+            Boolean(t.startDate && t.dueDate) &&
+            dateStr >= t.startDate &&
+            dateStr <= t.dueDate
+        );
 
     if (filterType === '기획' || filterType === '디자인' || filterType === '퍼블리싱') {
       dayTasks = dayTasks.filter((t) => t.track === filterType);
@@ -787,6 +825,72 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
     tasks: mobileSelectedTasks,
   };
 
+  // 하위 상세/등록 모달 열림 여부 (열려 있는 동안 일자 더보기 모달은 뒤에서 대기 후 닫히면 즉시 복귀)
+  const isChildDetailModalOpen =
+    isVacationModalOpen ||
+    isTaskModalOpen ||
+    Boolean(selectedKpiMilestone) ||
+    Boolean(editingKpiScheduleCycle);
+
+  // 일자별 더보기 팝업 실시간 파생 데이터
+  const dayModalData = selectedDayDateStr
+    ? (() => {
+        const {
+          dayKpiMilestones: mKpis,
+          dayVacations: mVacations,
+          dayTasks: mTasks,
+        } = getDaySchedules(selectedDayDateStr);
+
+        const planningCount = mTasks.filter((t) => t.track === '기획').length;
+        const designCount = mTasks.filter((t) => t.track === '디자인').length;
+        const pubCount = mTasks.filter((t) => t.track === '퍼블리싱').length;
+        const totalCount = mKpis.length + mVacations.length + mTasks.length;
+
+        const counts = {
+          kpi: mKpis.length,
+          vacation: mVacations.length,
+          기획: planningCount,
+          디자인: designCount,
+          퍼블리싱: pubCount,
+        };
+
+        const effectiveFilter =
+          dayModalFilter !== 'all' && counts[dayModalFilter] === 0 ? 'all' : dayModalFilter;
+
+        const filteredKpis =
+          effectiveFilter === 'all' || effectiveFilter === 'kpi' ? mKpis : [];
+        const filteredVacations =
+          effectiveFilter === 'all' || effectiveFilter === 'vacation' ? mVacations : [];
+        const filteredTasks =
+          effectiveFilter === 'all'
+            ? mTasks
+            : effectiveFilter === '기획' ||
+                effectiveFilter === '디자인' ||
+                effectiveFilter === '퍼블리싱'
+              ? mTasks.filter((t) => t.track === effectiveFilter)
+              : [];
+
+        const nonEmptyCategoryCount =
+          (mKpis.length > 0 ? 1 : 0) +
+          (mVacations.length > 0 ? 1 : 0) +
+          (planningCount > 0 ? 1 : 0) +
+          (designCount > 0 ? 1 : 0) +
+          (pubCount > 0 ? 1 : 0);
+
+        return {
+          dateStr: selectedDayDateStr,
+          weekday: getWeekdayLabel(selectedDayDateStr),
+          totalCount,
+          counts,
+          effectiveFilter,
+          showFilterBar: nonEmptyCategoryCount >= 2,
+          filteredKpis,
+          filteredVacations,
+          filteredTasks,
+        };
+      })()
+    : null;
+
   return (
     <div className="schedule-container">
       {/* 1. 캘린더 네비게이션 & 파트 필터 바 */}
@@ -874,9 +978,8 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setFilterType('vacation')}
-                className={`schedule-filter-chip chip-vacation ${
-                  filterType === 'vacation' ? 'active' : ''
-                }`}
+                className={`schedule-filter-chip chip-vacation ${filterType === 'vacation' ? 'active' : ''
+                  }`}
               >
                 <CalendarIcon size={14} />
                 <span>휴가 일정 ({vacations.length})</span>
@@ -885,9 +988,8 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setFilterType('기획')}
-                className={`schedule-filter-chip chip-planning ${
-                  filterType === '기획' ? 'active' : ''
-                }`}
+                className={`schedule-filter-chip chip-planning ${filterType === '기획' ? 'active' : ''
+                  }`}
               >
                 <FileText size={14} />
                 <span>기획 업무 ({tasks.filter((t) => t.track === '기획').length})</span>
@@ -896,9 +998,8 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setFilterType('디자인')}
-                className={`schedule-filter-chip chip-design ${
-                  filterType === '디자인' ? 'active' : ''
-                }`}
+                className={`schedule-filter-chip chip-design ${filterType === '디자인' ? 'active' : ''
+                  }`}
               >
                 <Palette size={14} />
                 <span>디자인 업무 ({tasks.filter((t) => t.track === '디자인').length})</span>
@@ -907,9 +1008,8 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
               <button
                 type="button"
                 onClick={() => setFilterType('퍼블리싱')}
-                className={`schedule-filter-chip chip-publishing ${
-                  filterType === '퍼블리싱' ? 'active' : ''
-                }`}
+                className={`schedule-filter-chip chip-publishing ${filterType === '퍼블리싱' ? 'active' : ''
+                  }`}
               >
                 <Code size={14} />
                 <span>퍼블리싱 업무 ({tasks.filter((t) => t.track === '퍼블리싱').length})</span>
@@ -931,327 +1031,312 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
 
       {/* 3. 월간 종합 캘린더 뷰 */}
       <div className="schedule-calendar-section">
-          <div className="card schedule-calendar-card">
-            {/* 요일 헤더 (일: 레드, 토: 블루) */}
-            <div className="schedule-weekdays">
-              <div className="schedule-weekday is-sun">일</div>
-              <div className="schedule-weekday">월</div>
-              <div className="schedule-weekday">화</div>
-              <div className="schedule-weekday">수</div>
-              <div className="schedule-weekday">목</div>
-              <div className="schedule-weekday">금</div>
-              <div className="schedule-weekday is-sat">토</div>
-            </div>
+        <div className="card schedule-calendar-card">
+          {/* 요일 헤더 (일: 레드, 토: 블루) */}
+          <div className="schedule-weekdays">
+            <div className="schedule-weekday is-sun">일</div>
+            <div className="schedule-weekday">월</div>
+            <div className="schedule-weekday">화</div>
+            <div className="schedule-weekday">수</div>
+            <div className="schedule-weekday">목</div>
+            <div className="schedule-weekday">금</div>
+            <div className="schedule-weekday is-sat">토</div>
+          </div>
 
-            {/* 달력 날짜 그리드 (7열 균등 분할) */}
-            <div className="schedule-calendar-grid">
-              {calendarDays.map((cell, idx) => {
-                const dayOfWeek = idx % 7;
-                const isSunday = dayOfWeek === 0;
-                const isSaturday = dayOfWeek === 6;
-                const isToday = cell.dateStr === todayStr;
-                const isMobileSelected = cell.dateStr === selectedMobileDate;
+          {/* 달력 날짜 그리드 (7열 균등 분할) */}
+          <div className="schedule-calendar-grid">
+            {calendarDays.map((cell, idx) => {
+              const dayOfWeek = idx % 7;
+              const isSunday = dayOfWeek === 0;
+              const isSaturday = dayOfWeek === 6;
+              const isToday = cell.dateStr === todayStr;
+              const isMobileSelected = cell.dateStr === selectedMobileDate;
 
-                const {
-                  dayKpiMilestones: cellKpis,
-                  dayVacations: cellVacations,
-                  dayTasks: cellTasks,
-                } = getDaySchedules(cell.dateStr);
-                const totalItemsCount =
-                  cellKpis.length + cellVacations.length + cellTasks.length;
+              const {
+                dayKpiMilestones: cellKpis,
+                dayVacations: cellVacations,
+                dayTasks: cellTasks,
+              } = getDaySchedules(cell.dateStr);
+              const totalItemsCount =
+                cellKpis.length + cellVacations.length + cellTasks.length;
 
-                // 최대 10개 항목까지 노출하고 초과분은 '+N개 더보기' 버튼으로 처리 (KPI 마일스톤 최상단 우선 노출)
-                const MAX_DISPLAY = 10;
-                const displayKpis = cellKpis.slice(0, MAX_DISPLAY);
-                const remainAfterKpi = Math.max(0, MAX_DISPLAY - displayKpis.length);
-                const displayVacations = cellVacations.slice(0, remainAfterKpi);
-                const remainingSlots = Math.max(
-                  0,
-                  remainAfterKpi - displayVacations.length
-                );
-                const displayTasks = cellTasks.slice(0, remainingSlots);
-                const overflowCount =
-                  totalItemsCount -
-                  (displayKpis.length + displayVacations.length + displayTasks.length);
+              // 최대 10개 항목까지 노출하고 초과분은 '+N개 더보기' 버튼으로 처리 (KPI 마일스톤 최상단 우선 노출)
+              const MAX_DISPLAY = 10;
+              const displayKpis = cellKpis.slice(0, MAX_DISPLAY);
+              const remainAfterKpi = Math.max(0, MAX_DISPLAY - displayKpis.length);
+              const displayVacations = cellVacations.slice(0, remainAfterKpi);
+              const remainingSlots = Math.max(
+                0,
+                remainAfterKpi - displayVacations.length
+              );
+              const displayTasks = cellTasks.slice(0, remainingSlots);
+              const overflowCount =
+                totalItemsCount -
+                (displayKpis.length + displayVacations.length + displayTasks.length);
 
-                const cellClasses = [
-                  'schedule-day-cell',
-                  !cell.isCurrentMonth ? 'is-outside' : '',
-                  cell.isCurrentMonth && isSunday ? 'is-sunday' : '',
-                  cell.isCurrentMonth && isSaturday ? 'is-saturday' : '',
-                  isToday ? 'is-today' : '',
-                  isMobileSelected ? 'is-mobile-selected' : '',
-                  isViewer ? 'is-viewer' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ');
+              const cellClasses = [
+                'schedule-day-cell',
+                !cell.isCurrentMonth ? 'is-outside' : '',
+                cell.isCurrentMonth && isSunday ? 'is-sunday' : '',
+                cell.isCurrentMonth && isSaturday ? 'is-saturday' : '',
+                isToday ? 'is-today' : '',
+                isMobileSelected ? 'is-mobile-selected' : '',
+                isViewer ? 'is-viewer' : '',
+              ]
+                .filter(Boolean)
+                .join(' ');
 
-                return (
-                  <div
-                    key={idx}
-                    className={cellClasses}
-                    onClick={() => {
-                      setSelectedMobileDate(cell.dateStr);
-                      if (typeof window !== 'undefined' && window.innerWidth > 767 && !isViewer) {
-                        handleOpenCreateModal(cell.dateStr);
-                      }
-                    }}
-                  >
-                    {/* 날짜 상단 헤더 */}
-                    <div className="schedule-day-header">
-                      <span
-                        className={`schedule-day-num ${isToday ? 'is-today' : ''} ${
-                          isSunday ? 'is-sun' : isSaturday ? 'is-sat' : ''
+              return (
+                <div
+                  key={idx}
+                  className={cellClasses}
+                  onClick={() => {
+                    setSelectedMobileDate(cell.dateStr);
+                    if (typeof window !== 'undefined' && window.innerWidth > 767 && !isViewer) {
+                      handleOpenCreateModal(cell.dateStr);
+                    }
+                  }}
+                >
+                  {/* 날짜 상단 헤더 */}
+                  <div className="schedule-day-header">
+                    <span
+                      className={`schedule-day-num ${isToday ? 'is-today' : ''} ${isSunday ? 'is-sun' : isSaturday ? 'is-sat' : ''
                         }`}
+                    >
+                      {cell.dayNum}
+                    </span>
+
+                    {totalItemsCount > 0 && (
+                      <span
+                        className="schedule-day-count"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenDayDetail(cell.dateStr);
+                        }}
+                        title="해당 일자 전체 일정 보기"
                       >
-                        {cell.dayNum}
+                        {totalItemsCount}건
                       </span>
+                    )}
+                  </div>
 
-                      {totalItemsCount > 0 && (
-                        <span
-                          className="schedule-day-count"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedDayDetail({
-                              dateStr: cell.dateStr,
-                              dayNum: cell.dayNum,
-                              kpiMilestones: cellKpis,
-                              vacations: cellVacations,
-                              tasks: cellTasks,
-                            });
-                          }}
-                          title="해당 일자 전체 일정 보기"
-                        >
-                          {totalItemsCount}건
-                        </span>
-                      )}
-                    </div>
+                  {/* 데스크톱 & 태블릿용 일정 배지 목록 */}
+                  <div className="schedule-day-events">
+                    {/* 0. KPI 공식 평가 마일스톤 배지 */}
+                    {displayKpis.map((ms) => (
+                      <div
+                        key={ms.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedKpiMilestone(ms);
+                        }}
+                        className={`schedule-event-badge is-kpi-milestone tone-${ms.tone}`}
+                        title={`[KPI 공식 일정] ${ms.cycleFullLabel} — ${ms.phaseTitle} (${ms.startDate} ~ ${ms.endDate})`}
+                      >
+                        <span className="schedule-kpi-tag">KPI</span>
+                        <span className="schedule-event-text">{ms.calendarBadgeText}</span>
+                      </div>
+                    ))}
 
-                    {/* 데스크톱 & 태블릿용 일정 배지 목록 */}
-                    <div className="schedule-day-events">
-                      {/* 0. KPI 공식 평가 마일스톤 배지 (일반 업무와 완전히 구분되는 점선 + KPI 캡슐 배지) */}
-                      {displayKpis.map((ms) => (
+                    {/* A. 휴가 배지 노출 */}
+                    {displayVacations.map((v) => {
+                      const typeConfig =
+                        VACATION_TYPES.find((t) => t.key === v.type) || VACATION_TYPES[0];
+                      return (
                         <div
-                          key={ms.id}
+                          key={`vac-${v.id}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedKpiMilestone(ms);
+                            handleOpenEditModal(v);
                           }}
-                          className={`schedule-event-badge is-kpi-milestone tone-${ms.tone}`}
-                          title={`[KPI 공식 일정] ${ms.cycleFullLabel} — ${ms.phaseTitle} (${ms.startDate} ~ ${ms.endDate})`}
+                          className={`schedule-event-badge is-vacation ${typeConfig.classKey}`}
+                          title={`[휴가] ${v.userName} (${typeConfig.label}) / 대리: ${v.deputyName}`}
                         >
-                          <span className="schedule-kpi-tag">KPI</span>
                           <span className="schedule-event-text">
-                            {ms.calendarBadgeText}
+                            {v.userName.split(' ')[0]} ({typeConfig.label})
                           </span>
                         </div>
-                      ))}
+                      );
+                    })}
 
-                      {/* A. 휴가 배지 노출 */}
-                      {displayVacations.map((v) => {
-                        const typeConfig =
-                          VACATION_TYPES.find((t) => t.key === v.type) || VACATION_TYPES[0];
-                        return (
-                          <div
-                            key={`vac-${v.id}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenEditModal(v);
-                            }}
-                            className={`schedule-event-badge is-vacation ${typeConfig.classKey}`}
-                            title={`[휴가] ${v.userName} (${typeConfig.label}) / 대리: ${v.deputyName}`}
-                          >
-                            <span className="schedule-event-text">
-                              {v.userName.split(' ')[0]} ({typeConfig.label})
-                            </span>
-                          </div>
-                        );
-                      })}
+                    {/* B. 업무 배지 노출 (요약 과제명, 컬러로 파트 구분) */}
+                    {displayTasks.map((t) => {
+                      const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
+                      const summaryTitle = summarizeCalendarTaskTitle(t.title);
 
-                      {/* B. 업무 배지 노출 (요약 과제명, 컬러로 파트 구분) */}
-                      {displayTasks.map((t) => {
-                        const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
-                        const summaryTitle = summarizeCalendarTaskTitle(t.title);
-
-                        return (
-                          <div
-                            key={`task-${t.id}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenEditTaskModal(t);
-                            }}
-                            className={`schedule-event-badge is-task ${trackCfg.classKey}`}
-                            title={`[${t.track}] ${t.title} (${t.assigneeName}) / 기간: ${t.startDate} ~ ${t.dueDate}`}
-                          >
-                            <span className="schedule-event-text">{summaryTitle}</span>
-                          </div>
-                        );
-                      })}
-
-                      {/* C. 10개 초과 시 '+N개 더보기' 버튼 */}
-                      {overflowCount > 0 && (
-                        <button
-                          type="button"
+                      return (
+                        <div
+                          key={`task-${t.id}`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedDayDetail({
-                              dateStr: cell.dateStr,
-                              dayNum: cell.dayNum,
-                              kpiMilestones: cellKpis,
-                              vacations: cellVacations,
-                              tasks: cellTasks,
-                            });
+                            handleOpenEditTaskModal(t);
                           }}
-                          className="schedule-more-btn"
+                          className={`schedule-event-badge is-task ${trackCfg.classKey}`}
+                          title={`[${t.track}] ${t.title} (${t.assigneeName}) / 기간: ${t.startDate} ~ ${t.dueDate}`}
                         >
-                          +{overflowCount}개 더보기
-                        </button>
-                      )}
-                    </div>
+                          <span className="schedule-event-text">{summaryTitle}</span>
+                        </div>
+                      );
+                    })}
 
-                    {/* 모바일 전용 컬러 인디케이터 도트 */}
-                    {totalItemsCount > 0 && (
-                      <div className="schedule-mobile-dots" aria-hidden="true">
-                        {cellKpis.slice(0, 2).map((ms) => (
-                          <span key={`mdot-k-${ms.id}`} className="schedule-dot is-kpi" />
-                        ))}
-                        {cellVacations.slice(0, 2).map((v) => (
-                          <span key={`mdot-v-${v.id}`} className="schedule-dot is-vacation" />
-                        ))}
-                        {cellTasks.slice(0, 3).map((t) => {
-                          const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
-                          return (
-                            <span
-                              key={`mdot-t-${t.id}`}
-                              className={`schedule-dot ${trackCfg.classKey}`}
-                            />
-                          );
-                        })}
-                      </div>
+                    {/* C. 10개 초과 시 '+N개 더보기' 버튼 */}
+                    {overflowCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenDayDetail(cell.dateStr);
+                        }}
+                        className="schedule-more-btn"
+                      >
+                        +{overflowCount}개 더보기
+                      </button>
                     )}
+                  </div>
+
+                  {/* 모바일 전용 컬러 인디케이터 도트 */}
+                  {totalItemsCount > 0 && (
+                    <div className="schedule-mobile-dots" aria-hidden="true">
+                      {cellKpis.slice(0, 2).map((ms) => (
+                        <span key={`mdot-k-${ms.id}`} className="schedule-dot is-kpi" />
+                      ))}
+                      {cellVacations.slice(0, 2).map((v) => (
+                        <span key={`mdot-v-${v.id}`} className="schedule-dot is-vacation" />
+                      ))}
+                      {cellTasks.slice(0, 3).map((t) => {
+                        const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
+                        return (
+                          <span
+                            key={`mdot-t-${t.id}`}
+                            className={`schedule-dot ${trackCfg.classKey}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 모바일 전용: 선택된 날짜의 상세 일정 패널 (767px 이하 노출) */}
+        <div className="card schedule-mobile-day-panel">
+          <div className="schedule-mobile-day-header">
+            <div className="schedule-mobile-day-title-wrap">
+              <CalendarIcon size={17} className="schedule-mobile-day-icon" />
+              <h3 className="schedule-mobile-day-title">
+                {mobileSelectedData.dateStr} ({mobileSelectedData.weekday}) 일정
+              </h3>
+              <span className="schedule-mobile-day-badge">
+                총{' '}
+                {mobileSelectedData.kpiMilestones.length +
+                  mobileSelectedData.vacations.length +
+                  mobileSelectedData.tasks.length}
+                건
+              </span>
+            </div>
+
+            {!isViewer && (
+              <button
+                type="button"
+                onClick={() => handleOpenCreateModal(mobileSelectedData.dateStr)}
+                className="btn btn-primary schedule-mobile-add-btn"
+              >
+                <Plus size={15} /> 휴가 신청
+              </button>
+            )}
+          </div>
+
+          {mobileSelectedData.kpiMilestones.length === 0 &&
+            mobileSelectedData.vacations.length === 0 &&
+            mobileSelectedData.tasks.length === 0 ? (
+            <div className="schedule-mobile-empty">
+              선택한 일자에 등록된 KPI 공식 일정, 휴가 또는 진행 업무가 없습니다.
+            </div>
+          ) : (
+            <div className="schedule-mobile-agenda-list">
+              {/* 선택 일자 KPI 공식 일정 카드 */}
+              {mobileSelectedData.kpiMilestones.map((ms) => (
+                <div
+                  key={`mob-kpi-${ms.id}`}
+                  onClick={() => setSelectedKpiMilestone(ms)}
+                  className={`schedule-mobile-agenda-item is-kpi-milestone tone-${ms.tone}`}
+                >
+                  <div className="schedule-mobile-agenda-top">
+                    <span className="schedule-kpi-tag">KPI 공식 일정</span>
+                    <span className="schedule-mobile-agenda-period">
+                      {ms.startDate === ms.endDate
+                        ? ms.startDate
+                        : `${ms.startDate} ~ ${ms.endDate}`}
+                    </span>
+                  </div>
+                  <div className="schedule-mobile-agenda-title">
+                    [{ms.cycleFullLabel}] {ms.phaseTitle}
+                  </div>
+                </div>
+              ))}
+
+              {/* 선택 일자 휴가 카드 */}
+              {mobileSelectedData.vacations.map((v) => {
+                const typeConfig =
+                  VACATION_TYPES.find((t) => t.key === v.type) || VACATION_TYPES[0];
+                return (
+                  <div
+                    key={`mob-vac-${v.id}`}
+                    onClick={() => handleOpenEditModal(v)}
+                    className={`schedule-mobile-agenda-item is-vacation ${typeConfig.classKey}`}
+                  >
+                    <div className="schedule-mobile-agenda-top">
+                      <span className={`schedule-type-badge ${typeConfig.classKey}`}>
+                        휴가 · {typeConfig.label}
+                      </span>
+                      <span className="schedule-mobile-agenda-period">
+                        {v.startDate} ~ {v.endDate}
+                      </span>
+                    </div>
+                    <div className="schedule-mobile-agenda-main">
+                      <strong className="schedule-mobile-agenda-name">{v.userName}</strong>
+                      <span className="schedule-mobile-agenda-sub">
+                        업무 대행자: {v.deputyName || '-'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* 선택 일자 업무 카드 */}
+              {mobileSelectedData.tasks.map((t) => {
+                const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
+                const TrackIcon = trackCfg.icon;
+                return (
+                  <div
+                    key={`mob-task-${t.id}`}
+                    onClick={() => handleOpenEditTaskModal(t)}
+                    className={`schedule-mobile-agenda-item is-task ${trackCfg.classKey}`}
+                  >
+                    <div className="schedule-mobile-agenda-top">
+                      <div className="schedule-mobile-agenda-badges">
+                        <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                          <TrackIcon size={13} /> {trackCfg.label}
+                        </span>
+                        <span className="tasks-badge-category">{t.category}</span>
+                      </div>
+                      <span className="schedule-mobile-agenda-assignee">
+                        <UserCheck size={14} /> {t.assigneeName}
+                      </span>
+                    </div>
+                    <div className="schedule-mobile-agenda-title">{t.title}</div>
+                    <div className="schedule-mobile-agenda-period">
+                      <Clock size={14} /> {t.startDate} ~ {t.dueDate}
+                    </div>
                   </div>
                 );
               })}
             </div>
-          </div>
-
-          {/* 모바일 전용: 선택된 날짜의 상세 일정 패널 (767px 이하 노출) */}
-          <div className="card schedule-mobile-day-panel">
-            <div className="schedule-mobile-day-header">
-              <div className="schedule-mobile-day-title-wrap">
-                <CalendarIcon size={17} className="schedule-mobile-day-icon" />
-                <h3 className="schedule-mobile-day-title">
-                  {mobileSelectedData.dateStr} ({mobileSelectedData.weekday}) 일정
-                </h3>
-                <span className="schedule-mobile-day-badge">
-                  총{' '}
-                  {mobileSelectedData.kpiMilestones.length +
-                    mobileSelectedData.vacations.length +
-                    mobileSelectedData.tasks.length}
-                  건
-                </span>
-              </div>
-
-              {!isViewer && (
-                <button
-                  type="button"
-                  onClick={() => handleOpenCreateModal(mobileSelectedData.dateStr)}
-                  className="btn btn-primary schedule-mobile-add-btn"
-                >
-                  <Plus size={15} /> 휴가 신청
-                </button>
-              )}
-            </div>
-
-            {mobileSelectedData.kpiMilestones.length === 0 &&
-            mobileSelectedData.vacations.length === 0 &&
-            mobileSelectedData.tasks.length === 0 ? (
-              <div className="schedule-mobile-empty">
-                선택한 일자에 등록된 KPI 공식 일정, 휴가 또는 진행 업무가 없습니다.
-              </div>
-            ) : (
-              <div className="schedule-mobile-agenda-list">
-                {/* 선택 일자 KPI 공식 일정 카드 */}
-                {mobileSelectedData.kpiMilestones.map((ms) => (
-                  <div
-                    key={`mob-kpi-${ms.id}`}
-                    onClick={() => setSelectedKpiMilestone(ms)}
-                    className={`schedule-mobile-agenda-item is-kpi-milestone tone-${ms.tone}`}
-                  >
-                    <div className="schedule-mobile-agenda-top">
-                      <span className="schedule-kpi-tag">KPI 공식 일정</span>
-                      <span className="schedule-mobile-agenda-period">
-                        {ms.startDate === ms.endDate
-                          ? ms.startDate
-                          : `${ms.startDate} ~ ${ms.endDate}`}
-                      </span>
-                    </div>
-                    <div className="schedule-mobile-agenda-title">
-                      [{ms.cycleFullLabel}] {ms.phaseTitle}
-                    </div>
-                  </div>
-                ))}
-
-                {/* 선택 일자 휴가 카드 */}
-                {mobileSelectedData.vacations.map((v) => {
-                  const typeConfig =
-                    VACATION_TYPES.find((t) => t.key === v.type) || VACATION_TYPES[0];
-                  return (
-                    <div
-                      key={`mob-vac-${v.id}`}
-                      onClick={() => handleOpenEditModal(v)}
-                      className={`schedule-mobile-agenda-item is-vacation ${typeConfig.classKey}`}
-                    >
-                      <div className="schedule-mobile-agenda-top">
-                        <span className={`schedule-type-badge ${typeConfig.classKey}`}>
-                          휴가 · {typeConfig.label}
-                        </span>
-                        <span className="schedule-mobile-agenda-period">
-                          {v.startDate} ~ {v.endDate}
-                        </span>
-                      </div>
-                      <div className="schedule-mobile-agenda-main">
-                        <strong className="schedule-mobile-agenda-name">{v.userName}</strong>
-                        <span className="schedule-mobile-agenda-sub">
-                          업무 대행자: {v.deputyName || '-'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* 선택 일자 업무 카드 */}
-                {mobileSelectedData.tasks.map((t) => {
-                  const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
-                  const TrackIcon = trackCfg.icon;
-                  return (
-                    <div
-                      key={`mob-task-${t.id}`}
-                      onClick={() => handleOpenEditTaskModal(t)}
-                      className={`schedule-mobile-agenda-item is-task ${trackCfg.classKey}`}
-                    >
-                      <div className="schedule-mobile-agenda-top">
-                        <div className="schedule-mobile-agenda-badges">
-                          <span className={`tasks-badge-track ${trackCfg.classKey}`}>
-                            <TrackIcon size={13} /> {trackCfg.label}
-                          </span>
-                          <span className="tasks-badge-category">{t.category}</span>
-                        </div>
-                        <span className="schedule-mobile-agenda-assignee">
-                          <UserCheck size={14} /> {t.assigneeName}
-                        </span>
-                      </div>
-                      <div className="schedule-mobile-agenda-title">{t.title}</div>
-                      <div className="schedule-mobile-agenda-period">
-                        <Clock size={14} /> {t.startDate} ~ {t.dueDate}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          )}
         </div>
+      </div>
 
       {/* 4. 휴가 등록/수정 모달 */}
       {isVacationModalOpen && (
@@ -1450,24 +1535,23 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
         </div>
       )}
 
-      {/* 5. 일자별 전체 일정 더보기 모달 (Day Schedule Modal) */}
-      {selectedDayDetail && (
-        <div className="modal-overlay" onClick={() => setSelectedDayDetail(null)}>
+      {/* 5. 일자별 전체 일정 더보기 모달 (Day Schedule Modal - 와이드 정렬 리스트 & 필터) */}
+      {dayModalData && !isChildDetailModalOpen && (
+        <div className="modal-overlay" onClick={() => setSelectedDayDateStr(null)}>
           <div className="modal-box schedule-day-modal-box" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
+            <div className="modal-header schedule-day-modal-header">
               <div className="tasks-modal-header-left">
                 <CalendarIcon size={18} className="schedule-mobile-day-icon" />
                 <h3 className="modal-title">
-                  {selectedDayDetail.dateStr} 전체 일정 (총{' '}
-                  {selectedDayDetail.kpiMilestones.length +
-                    selectedDayDetail.vacations.length +
-                    selectedDayDetail.tasks.length}
-                  건)
+                  {dayModalData.dateStr} ({dayModalData.weekday}) 일정
                 </h3>
+                <span className="schedule-day-modal-total-pill">
+                  총 {dayModalData.totalCount}건
+                </span>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedDayDetail(null)}
+                onClick={() => setSelectedDayDateStr(null)}
                 className="tasks-modal-close-btn"
                 aria-label="모달 닫기"
               >
@@ -1475,132 +1559,286 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
               </button>
             </div>
 
-            <div className="modal-body schedule-modal-stack">
-              {/* KPI 공식 평가 일정 목록 */}
-              {selectedDayDetail.kpiMilestones.length > 0 && (
-                <div>
-                  <h4 className="schedule-day-modal-section-title">
-                    KPI 공식 평가 일정 ({selectedDayDetail.kpiMilestones.length}건)
-                  </h4>
-                  <div className="schedule-mobile-agenda-list">
-                    {selectedDayDetail.kpiMilestones.map((ms) => (
-                      <div
-                        key={ms.id}
-                        onClick={() => {
-                          setSelectedDayDetail(null);
-                          setSelectedKpiMilestone(ms);
-                        }}
-                        className={`schedule-mobile-agenda-item is-kpi-milestone tone-${ms.tone}`}
-                      >
-                        <div className="schedule-mobile-agenda-top">
-                          <div className="tasks-card-badges">
-                            <span className="schedule-kpi-tag">KPI</span>
-                            <strong className="schedule-mobile-user-name">
-                              [{ms.cycleFullLabel}] {ms.phaseTitle}
-                            </strong>
-                          </div>
-                          <span className="schedule-mobile-agenda-period">
-                            {ms.startDate === ms.endDate
-                              ? ms.startDate
-                              : `${ms.startDate} ~ ${ms.endDate}`}
-                          </span>
-                        </div>
+            {dayModalData.showFilterBar && (
+              <div className="schedule-day-modal-filter-bar">
+                <button
+                  type="button"
+                  onClick={() => setDayModalFilter('all')}
+                  className={`schedule-day-filter-chip ${
+                    dayModalData.effectiveFilter === 'all' ? 'active' : ''
+                  }`}
+                >
+                  <span>전체</span>
+                  <span className="schedule-day-filter-count">{dayModalData.totalCount}</span>
+                </button>
+
+                {dayModalData.counts.kpi > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setDayModalFilter('kpi')}
+                    className={`schedule-day-filter-chip is-kpi ${
+                      dayModalData.effectiveFilter === 'kpi' ? 'active' : ''
+                    }`}
+                  >
+                    <span>KPI 일정</span>
+                    <span className="schedule-day-filter-count">{dayModalData.counts.kpi}</span>
+                  </button>
+                )}
+
+                {dayModalData.counts.vacation > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setDayModalFilter('vacation')}
+                    className={`schedule-day-filter-chip is-vacation ${
+                      dayModalData.effectiveFilter === 'vacation' ? 'active' : ''
+                    }`}
+                  >
+                    <span>휴가</span>
+                    <span className="schedule-day-filter-count">
+                      {dayModalData.counts.vacation}
+                    </span>
+                  </button>
+                )}
+
+                {TRACK_LIST.map((tk) => {
+                  const count = dayModalData.counts[tk];
+                  if (count === 0) return null;
+                  const tkCfg = TRACK_CONFIG[tk];
+                  const TkIcon = tkCfg.icon;
+                  return (
+                    <button
+                      key={tk}
+                      type="button"
+                      onClick={() => setDayModalFilter(tk)}
+                      className={`schedule-day-filter-chip ${tkCfg.classKey} ${
+                        dayModalData.effectiveFilter === tk ? 'active' : ''
+                      }`}
+                    >
+                      <TkIcon size={14} />
+                      <span>{tk}</span>
+                      <span className="schedule-day-filter-count">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="modal-body schedule-day-modal-body">
+              {dayModalData.totalCount === 0 ? (
+                <div className="schedule-day-modal-empty">
+                  해당 일자에 등록된 일정이 없습니다.
+                </div>
+              ) : (
+                <div className="schedule-modal-stack">
+                  {/* 1) KPI 공식 평가 일정 섹션 (건수가 있을 때만 노출) */}
+                  {dayModalData.filteredKpis.length > 0 && (
+                    <section className="schedule-day-modal-section">
+                      <div className="schedule-day-modal-section-head">
+                        <h4 className="schedule-day-modal-section-title">KPI 공식 평가 일정</h4>
+                        <span className="schedule-day-modal-section-count">
+                          {dayModalData.filteredKpis.length}건
+                        </span>
                       </div>
-                    ))}
-                  </div>
+                      <div className="schedule-day-row-list">
+                        {dayModalData.filteredKpis.map((ms) => (
+                          <div
+                            key={ms.id}
+                            onClick={() => setSelectedKpiMilestone(ms)}
+                            className={`schedule-day-row is-kpi-milestone tone-${ms.tone}`}
+                          >
+                            <div className="schedule-day-col-badge">
+                              <span className="schedule-kpi-tag">KPI</span>
+                            </div>
+                            <div className="schedule-day-col-main">
+                              <span className="schedule-day-row-title">
+                                [{ms.cycleFullLabel}] {ms.phaseTitle}
+                              </span>
+                            </div>
+                            <div className="schedule-day-col-meta">
+                              <span className="schedule-day-row-period">
+                                {formatShortDateRange(ms.startDate, ms.endDate)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* 2) 팀원 휴가 및 부재 섹션 (건수가 있을 때만 노출, 0건 빈 문구 제거) */}
+                  {dayModalData.filteredVacations.length > 0 && (
+                    <section className="schedule-day-modal-section">
+                      <div className="schedule-day-modal-section-head">
+                        <h4 className="schedule-day-modal-section-title">팀원 휴가 및 부재</h4>
+                        <span className="schedule-day-modal-section-count">
+                          {dayModalData.filteredVacations.length}건
+                        </span>
+                      </div>
+                      <div className="schedule-day-row-list">
+                        {dayModalData.filteredVacations.map((v) => {
+                          const typeConfig =
+                            VACATION_TYPES.find((t) => t.key === v.type) || VACATION_TYPES[0];
+                          return (
+                            <div
+                              key={v.id}
+                              onClick={() => handleOpenEditModal(v)}
+                              className={`schedule-day-row is-vacation ${typeConfig.classKey}`}
+                            >
+                              <div className="schedule-day-col-badge">
+                                <span className={`schedule-type-badge ${typeConfig.classKey}`}>
+                                  {typeConfig.label}
+                                </span>
+                              </div>
+                              <div className="schedule-day-col-main">
+                                <span className="schedule-day-row-title">{v.userName}</span>
+                                <span className="schedule-day-row-sub">
+                                  대행: {v.deputyName || '-'}
+                                </span>
+                              </div>
+                              <div className="schedule-day-col-meta">
+                                <span
+                                  className="schedule-day-row-period"
+                                  title={`${v.startDate} ~ ${v.endDate}`}
+                                >
+                                  {formatShortDateRange(v.startDate, v.endDate)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* 3) 진행 업무 섹션 (건수가 있을 때만 노출, 고정 열 정렬 및 산출물 바로가기 제공) */}
+                  {dayModalData.filteredTasks.length > 0 && (
+                    <section className="schedule-day-modal-section">
+                      <div className="schedule-day-modal-section-head">
+                        <h4 className="schedule-day-modal-section-title">서비스기획 업무</h4>
+                        <span className="schedule-day-modal-section-count">
+                          {dayModalData.filteredTasks.length}건
+                        </span>
+                      </div>
+                      <div className="schedule-day-row-list">
+                        {dayModalData.filteredTasks.map((t) => {
+                          const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
+                          const TrackIcon = trackCfg.icon;
+                          const displayTitle = cleanDayModalTaskTitle(t.title, t.track);
+                          const autoStatus = computeTaskStatusByDates(
+                            t.startDate,
+                            t.dueDate,
+                            todayStr,
+                            t.status
+                          );
+                          const statusCfg =
+                            TASK_STATUSES.find((s) => s.key === autoStatus) || TASK_STATUSES[1];
+                          const workspaceUrl = resolveDayModalWorkspaceUrl(t);
+                          const figmaUrl = resolveDayModalFigmaUrl(t);
+                          const notionUrl = t.notionUrl?.trim() || null;
+                          const isDueToday = t.dueDate === dayModalData.dateStr;
+
+                          return (
+                            <div
+                              key={t.id}
+                              onClick={() => handleOpenEditTaskModal(t)}
+                              className={`schedule-day-row is-task ${trackCfg.classKey}`}
+                            >
+                              <div className="schedule-day-col-badge">
+                                <span className={`tasks-badge-track ${trackCfg.classKey}`}>
+                                  <TrackIcon size={14} /> {t.track}
+                                </span>
+                              </div>
+
+                              <div className="schedule-day-col-main">
+                                <div className="schedule-day-title-line">
+                                  <span className="schedule-day-row-title" title={t.title}>
+                                    {displayTitle}
+                                  </span>
+                                  {isDueToday && autoStatus !== 'done' && (
+                                    <span className="schedule-day-due-pill">마감일</span>
+                                  )}
+                                </div>
+
+                                {(workspaceUrl || figmaUrl || notionUrl) && (
+                                  <div className="schedule-day-row-links">
+                                    {workspaceUrl && (
+                                      <a
+                                        href={workspaceUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="tasks-card-link-chip is-workspace"
+                                        title="기획서 산출물 새 창 열기"
+                                      >
+                                        기획서{t.version ? ` v${t.version}` : ''}{' '}
+                                        <ExternalLink size={12} />
+                                      </a>
+                                    )}
+                                    {figmaUrl && (
+                                      <a
+                                        href={figmaUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="tasks-card-link-chip is-figma"
+                                        title="Figma 디자인 시안 새 창 열기"
+                                      >
+                                        Figma <ExternalLink size={12} />
+                                      </a>
+                                    )}
+                                    {notionUrl && (
+                                      <a
+                                        href={notionUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="tasks-card-link-chip is-notion"
+                                        title="Notion 과제 새 창 열기"
+                                      >
+                                        Notion <ExternalLink size={12} />
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="schedule-day-col-meta">
+                                <span className={`schedule-day-status-chip ${statusCfg.classKey}`}>
+                                  <span className={`tasks-status-dot ${statusCfg.classKey}`} />
+                                  {statusCfg.shortLabel}
+                                </span>
+                                <span className="schedule-day-row-assignee">{t.assigneeName}</span>
+                                <span
+                                  className="schedule-day-row-period"
+                                  title={`${t.startDate} ~ ${t.dueDate}`}
+                                >
+                                  {formatShortDateRange(t.startDate, t.dueDate)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  )}
                 </div>
               )}
-
-              {/* 휴가 일정 목록 */}
-              <div>
-                <h4 className="schedule-day-modal-section-title">
-                  팀원 휴가 및 부재 ({selectedDayDetail.vacations.length}건)
-                </h4>
-                {selectedDayDetail.vacations.length === 0 ? (
-                  <div className="schedule-day-modal-empty">등록된 휴가 일정이 없습니다.</div>
-                ) : (
-                  <div className="schedule-mobile-agenda-list">
-                    {selectedDayDetail.vacations.map((v) => {
-                      const typeConfig =
-                        VACATION_TYPES.find((t) => t.key === v.type) || VACATION_TYPES[0];
-                      return (
-                        <div
-                          key={v.id}
-                          onClick={() => {
-                            setSelectedDayDetail(null);
-                            handleOpenEditModal(v);
-                          }}
-                          className={`schedule-mobile-agenda-item is-vacation ${typeConfig.classKey}`}
-                        >
-                          <div className="schedule-mobile-agenda-top">
-                            <div className="schedule-mobile-user-wrap">
-                              <strong className="schedule-mobile-user-name">{v.userName}</strong>
-                              <span className={`schedule-type-badge ${typeConfig.classKey}`}>
-                                {typeConfig.label}
-                              </span>
-                              <span className="schedule-mobile-agenda-sub">
-                                (대행: {v.deputyName})
-                              </span>
-                            </div>
-                            <span className="schedule-mobile-agenda-period">
-                              {v.startDate} ~ {v.endDate}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* 진행 업무 목록 */}
-              <div>
-                <h4 className="schedule-day-modal-section-title">
-                  서비스기획 진행 업무 ({selectedDayDetail.tasks.length}건)
-                </h4>
-                {selectedDayDetail.tasks.length === 0 ? (
-                  <div className="schedule-day-modal-empty">
-                    해당 일자에 진행 중인 업무가 없습니다.
-                  </div>
-                ) : (
-                  <div className="schedule-mobile-agenda-list">
-                    {selectedDayDetail.tasks.map((t) => {
-                      const trackCfg = TRACK_CONFIG[t.track] || TRACK_CONFIG['기획'];
-                      const TrackIcon = trackCfg.icon;
-                      return (
-                        <div
-                          key={t.id}
-                          onClick={() => {
-                            setSelectedDayDetail(null);
-                            handleOpenEditTaskModal(t);
-                          }}
-                          className={`schedule-mobile-agenda-item is-task ${trackCfg.classKey}`}
-                        >
-                          <div className="schedule-mobile-agenda-top">
-                            <div className="tasks-card-badges">
-                              <span className={`tasks-badge-track ${trackCfg.classKey}`}>
-                                <TrackIcon size={13} /> {t.track}
-                              </span>
-                              <strong className="schedule-mobile-user-name">{t.title}</strong>
-                              <span className="schedule-mobile-agenda-sub">({t.assigneeName})</span>
-                            </div>
-                            <span className="schedule-mobile-agenda-period">
-                              {t.startDate} ~ {t.dueDate}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
             </div>
 
-            <div className="modal-footer">
+            <div className="modal-footer schedule-day-modal-footer">
+              {!isViewer && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenCreateModal(dayModalData.dateStr)}
+                  className="btn btn-secondary"
+                >
+                  <Plus size={15} /> 휴가 신청
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setSelectedDayDetail(null)}
-                className="btn btn-secondary"
+                onClick={() => setSelectedDayDateStr(null)}
+                className="btn btn-primary"
               >
                 닫기
               </button>
@@ -1649,9 +1887,8 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                           type="button"
                           disabled={isViewer}
                           onClick={() => setTaskFormData({ ...taskFormData, track: trackKey })}
-                          className={`tasks-modal-track-btn ${config.classKey} ${
-                            isSelected ? 'active' : ''
-                          }`}
+                          className={`tasks-modal-track-btn ${config.classKey} ${isSelected ? 'active' : ''
+                            }`}
                         >
                           <div className="tasks-modal-track-info">
                             <div className="tasks-modal-track-icon-box">
@@ -1840,8 +2077,8 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                   const wpId = wpMatch
                     ? wpMatch[1]
                     : !taskFormData.linkUrl && editingTask?.workspaceProjectId
-                    ? editingTask.workspaceProjectId
-                    : null;
+                      ? editingTask.workspaceProjectId
+                      : null;
                   const viewerUrl = wpId
                     ? `https://bychoi-space.github.io/workspace/viewer.html?project=${wpId}`
                     : null;
@@ -1869,8 +2106,8 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                     visibleCardsCount === 3
                       ? 'is-three-col'
                       : visibleCardsCount === 2
-                      ? 'is-two-col'
-                      : 'is-single-col';
+                        ? 'is-two-col'
+                        : 'is-single-col';
 
                   return (
                     <>
@@ -2119,9 +2356,8 @@ export const VacationsView: React.FC<VacationsViewProps> = ({
                       return (
                         <div
                           key={st.key}
-                          className={`schedule-kpi-phase-row ${
-                            isCurrentClicked ? 'is-current-clicked' : ''
-                          }`}
+                          className={`schedule-kpi-phase-row ${isCurrentClicked ? 'is-current-clicked' : ''
+                            }`}
                         >
                           <div>
                             <strong>
